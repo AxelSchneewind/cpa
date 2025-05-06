@@ -1,0 +1,15 @@
+#!env python
+
+from cpp2py import cpp2py
+import sys
+
+
+if len(sys.argv) < 3:
+    print('usage: c2py input.c output.py')
+    exit()
+
+file_in = sys.argv[1]
+file_out = sys.argv[2]
+
+cpp2py.c2py(file_in, file_out)
+
