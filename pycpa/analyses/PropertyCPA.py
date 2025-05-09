@@ -1,0 +1,88 @@
+#!/usr/bin/env python
+
+from pycpa import CPA
+
+import ast
+
+# ### PropertyCPA
+# 
+# In this part, we will write a CPA that checks for whether the function `reach_error` has been invoked on the explored path.
+# The `__str__` method of the states of that CPA should mark each state as either `unsafe` or `safe`
+# depending on whether this call has been reached or not.
+# (You are on your own here, we will not give you any code to start with.
+# You might want to create a visitor that checks for call nodes in the instructions and use that one in your transfer relation.)
+# 
+# #### Task 9: Implementing PropertyCPA (10 points)
+
+# In[28]:
+
+
+class PropertyState(CPA.AbstractState):
+    def __init__(self, is_safe):
+        self.safe = is_safe
+
+    def subsumes(self, other):
+        return other.safe == None or self.safe == other.safe
+
+    def __eq__(self, other):
+        return self.safe == other.safe
+
+    def __hash__(self):
+        return self.safe.__hash__()
+
+    def __str__(self):
+        if self.safe:
+            return 'safe'
+        else:
+            return 'unsafe'
+
+
+
+class FunctionCallVisitor(ast.NodeVisitor):
+    def __init__(self, previous_state):
+        self.state = previous_state
+
+    def visit_Call(self, node):
+        # if reach_error is called, update the state to unsafe
+        if node.func.id == 'reach_error':
+            self.state = PropertyState(False)
+
+        return self.generic_visit(node)
+
+class PropertyTransferRelation(CPA.TransferRelation):
+    def get_abstract_successors(self, predecessor):
+        raise NotImplementedError(
+            "successors without edge not possible for Property Analysis!"
+        )
+
+    def get_abstract_successors_for_edge(self, predecessor, edge):
+        v = FunctionCallVisitor(predecessor)
+        kind = edge.instruction.kind
+        if kind == InstructionType.STATEMENT:
+            v.visit(edge.instruction.expression)
+            return [v.state]
+        elif kind == InstructionType.ASSUMPTION:
+            v.visit(edge.instruction.expression)
+            return [v.state]
+        else:
+            raise ValueError("invalid value")
+
+class PropertyStopOperator(CPA.StopOperator):
+    def stop(self, e, reached):
+        return [eprime for eprime in reached if eprime.subsumes(e)]
+
+class PropertyCPA(CPA.CPA):
+    def get_initial_state(self):
+        return PropertyState(True)
+
+    def get_stop_operator(self):
+        return PropertyStopOperator()
+
+    def get_merge_operator(self):
+        # simply use merge sep
+        return CPA.MergeSepOperator()
+
+    def get_transfer_relation(self):
+        return PropertyTransferRelation()
+
+
