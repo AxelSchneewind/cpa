@@ -1,14 +1,16 @@
 
 
-# TODO add hint about activation
-check-venv:
-	@[ -d venv ] || make help-venv
+# venv is required for benchmark generation
+venv:
+	@echo 'setting up the virtual environment'
+	python -m venv venv
+	./venv/bin/pip install -r requirements.txt
+	@echo 'use '
+	@echo 'source venv/bin/activate'
+	@echo 'to activate'
 
-help-venv:
-	@echo 'setup the virtual environment first by running:'
-	@echo 'python -m venv venv'
-	@echo './venv/bin/pip install cpp2py'
-	@exit
+check-venv:
+	@[ ! -z "$(VIRTUAL_ENV)" ] || (echo 'activate the virtual environment first using source venv/bin/activate' && exit 1)
 
 # the cpp2py required for benchmark generation seems to be abandoned and has bugs
 # use this target to use a (partially) fixed version supplied here
@@ -16,8 +18,9 @@ help-venv:
 patch-cpp2py:
 	@cp cpp2py.py ./venv/lib/python3.13/site-packages/cpp2py/cpp2py.py
 
-generate-benchmarks: path-cpp2py
+generate-benchmarks: patch-cpp2py
 
 
-run: check-venv 
-
+run-benchmark: venv check-venv
+	@echo 'running benchmark (TODO)'
+	
