@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from pycpa.cpa import CPA, AbstractState, TransferRelation, MergeOperator, StopOperator, MergeSepOperator
+from pycpa.cfa import InstructionType
 
 import ast
 
@@ -49,6 +50,7 @@ class FunctionCallVisitor(ast.NodeVisitor):
 
         return self.generic_visit(node)
 
+
 class PropertyTransferRelation(TransferRelation):
     def get_abstract_successors(self, predecessor):
         raise NotImplementedError(
@@ -67,9 +69,11 @@ class PropertyTransferRelation(TransferRelation):
         else:
             raise ValueError("invalid value")
 
+
 class PropertyStopOperator(StopOperator):
     def stop(self, e, reached):
-        return [eprime for eprime in reached if eprime.subsumes(e)]
+        return len([eprime for eprime in reached if e.subsumes(eprime)]) > 0
+
 
 class PropertyCPA(CPA):
     def get_initial_state(self):
