@@ -20,6 +20,7 @@ from pycpa.cpa import *
 from pycpa.cpaalgorithm import *
 from pycpa.mcalgorithm import *
 
+from pycpa.verdict import Verdict, evaluate_arg_safety
 
 
 import ast
@@ -31,6 +32,7 @@ from graphviz import Digraph
 
 import os
 
+
 def main(args): 
     ast_program = ""
 
@@ -38,29 +40,35 @@ def main(args):
         with open(program) as file:
             ast_program = file.read()
 
-        output_dir = './out/' + program + '/'
+        program_name = os.path.splitext(os.path.basename(program))[0]
+        output_dir = './out/' + program_name + '/'
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
+        print('verifying program ', program_name, ' using configuration', args.config, ' against ', args.property)
         with open(output_dir + '/program.py', 'w') as out_prog:
             out_prog.write(ast_program)
 
+        print('computing AST', end='')
         tree = ast.parse(ast_program)
 
         # prettyprint ast
         with open(output_dir + '/astpretty', 'w') as out_file:
             out_file.write(astpretty.pformat(tree, show_offsets=False))
-    
+
+
         # print node types (optional)
         ast_file = open(output_dir + '/ast.txt' ,'w')
         astvisitor = ASTPrinter(ast_file)
         astvisitor.visit(tree)
     
-        # For testing AST generation
+        # visualize AST
         astvisitor = ASTVisualizer()
         astvisitor.visit(tree)
         astvisitor.graph.render(output_dir + '/ast')
     
+
+        print('\rcomputing CFA', end='')
         # For testing CFA generation
         # In[11]:
         CFANode.index = 0  # reset the CFA node indices to produce identical output on re-execution
@@ -83,6 +91,8 @@ def main(args):
         # 
         cpa = ARGCPA(CompositeCPA(module.get_cpas(cfa_root) + property_module.get_cpas()))
 
+
+        print('\rrunning CPA algorithm', end='')
         waitlist = set()
         reached = set()
         init = cpa.get_initial_state()
@@ -94,7 +104,12 @@ def main(args):
                 GraphableARGState(init),
                 nodeattrs={"style": "filled", "shape": "box", "color": "white"},
             )
+
         dot.render(output_dir + '/arg')
+
+        verdict = evaluate_arg_safety(init, property_module.state_property)
+        print('\r   ', str(verdict), '                   ', sep='')
+
     
 
 from pycpa.params import parser
