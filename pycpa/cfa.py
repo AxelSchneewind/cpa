@@ -20,7 +20,7 @@ from enum import Enum
 class InstructionType(Enum):
     STATEMENT = 1
     ASSUMPTION = 2
-    JUMP = 3
+    JUMP = 3        # TODO: check if this is the way to implement subprocedure calls
 
 
 class Instruction:
@@ -123,7 +123,7 @@ class CFAEdge:
 
 import ast
 
-# TODO: somehow track scopes
+# TODO: somehow track scopes and make variable names fully qualified
 class CFACreator(ast.NodeVisitor):
     def __init__(self):
         self.root = CFANode()
@@ -160,7 +160,6 @@ class CFACreator(ast.NodeVisitor):
         self.continue_stack.pop()
         self.break_stack.pop()
 
-    # DONE Task 3 (add proper implementation for break)
     def visit_Break(self, node):
         entry_node = self.node_stack.pop()
         next_node = CFANode()            # create node for next line after break
@@ -173,7 +172,6 @@ class CFACreator(ast.NodeVisitor):
         self.node_stack.append(next_node)
         return 
 
-    # DONE Task 3 (add proper implementation for continue)
     def visit_Continue(self, node):
         entry_node = self.node_stack.pop()
         next_node = CFANode()             # create node for next line after break
@@ -244,6 +242,7 @@ class CFACreator(ast.NodeVisitor):
 
         # inlining:
         if node.func.id in self.function_def:
+            # compute each argument, TODO: add scope to names
             for name, val in zip(self.function_def[node.func.id].args.args, node.args):
                 self.visit(
                     ast.Expr(
@@ -264,9 +263,6 @@ class CFACreator(ast.NodeVisitor):
 
             for b in self.function_def[node.func.id].body:
                 self.visit(b)
-
-        # TODO: insert storing of return value
-
 
 
 # You can use the code below to draw the generated CFAs for manual inspection.
