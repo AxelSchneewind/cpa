@@ -5,7 +5,6 @@ from pycpa.analyses import ARGCPA
 from pycpa.analyses import ValueAnalysisCPA
 
 
-def get_cpa(cfa_root):
+def get_cpas(cfa_root, property_cpa=None):
     ValueAnalysisCPA.get_merge_operator = lambda x: MergeJoinOperator()
-    result = ARGCPA(CompositeCPA([LocationCPA(cfa_root), ValueAnalysisCPA()]))
-    return result
+    return [LocationCPA(cfa_root), ValueAnalysisCPA()]
