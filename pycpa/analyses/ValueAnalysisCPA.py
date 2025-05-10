@@ -94,10 +94,28 @@ class ValueExpressionVisitor(ast.NodeVisitor):
         elif isinstance(node.op, ast.USub):
             self.rstack.append(result.do_neg())
         elif isinstance(node.op, ast.UAdd):
-            self.rstack.append(result) # unary add does not do anything for integers
+            self.rstack.append(result.do_pos)
+        elif isinstance(node.op, ast.Invert):
+            self.rstack.append(result.do_invert())
         else:
             # TODO Task 8: implement other unary operators like unary negation
             raise NotImplementedError("Operator %s is not implemented!" % node.op)
+
+    def visit_BoolOp(self, node):
+        self.visit(node.values[0])
+        left_result = self.rstack.pop()
+        self.visit(node.values[1])
+        right_result = self.rstack.pop()
+
+        match node.op:
+            case ast.And():
+                result = left_result.do_and(right_result)
+            case ast.Or():
+                result = left_result.do_or(right_result)
+            case _:
+                raise NotImplementedError("Operator %s is not implemented!" % op)
+        self.rstack.append(result)
+
 
     def visit_Compare(self, node):
         self.visit(node.left)
@@ -107,13 +125,13 @@ class ValueExpressionVisitor(ast.NodeVisitor):
             self.visit(comparator)
             comp_results.append(self.rstack.pop())
         # we only support simple compares like 1<2 for now, not something like 1<2<3:
-        assert len(comp_results) == 1
-        assert len(node.ops) == 1
+        assert len(comp_results) == 1, comp_results
+        assert len(node.ops) == 1, node.ops
         op = node.ops[0]
         result = None
         match op:
             case ast.Eq():
-                result =left_result.do_eq(comp_results[0])
+                result = left_result.do_eq(comp_results[0])
             case ast.Gt():
                 result = left_result.do_gt(comp_results[0])
             case ast.GtE():
@@ -123,7 +141,7 @@ class ValueExpressionVisitor(ast.NodeVisitor):
             case ast.LtE():
                 result = left_result.do_le(comp_results[0])
             case ast.NotEq():
-                result = left_result.do_neg(comp_results[0])
+                result = left_result.do_ne(comp_results[0])
             case ast.Eq():
                 result = left_result.do_eq(comp_results[0])
             case ast.Neq():
@@ -327,58 +345,58 @@ class Value:
             return Value(self.actual // other.actual)
 
     def do_mod(self, other):
-        if self.is_top() or other.is_top():
+        if self.is_top() or other.is_top() or other.actual == 0:
             return Value.get_top()
         else:
             return Value(self.actual % other.actual)
 
-    def do_pow(right_result):
-        if right_result.actual == 0:
+    def do_pow(self, other):
+        if other.actual == 0:
             return Value(1)
-        if self.actual == 0 and right_result.actual != 0:
+        if self.actual == 0 and other.actual != 0:
             return Value(0)
-        if self.actual == 1 and right_result.actual != 0:
+        if self.actual == 1 and other.actual != 0:
             return Value(1)
         if self.is_top() or other.is_top():
             return Value.get_top()
         else:
-            return Value(self.actual ** right_result)
+            return Value(self.actual ** other)
 
-    def do_lshift(right_result):
-        if self.is_top() or other.is_top():
+    def do_lshift(self, other):
+        if self.is_top() or other.is_top() or other.actual < 0:
             return Value.get_top()
         else:
             return Value(self.actual << other.actual)
 
-    def do_rshift(right_result):
-        if self.is_top() or other.is_top():
+    def do_rshift(self, other):
+        if self.is_top() or other.is_top() or other.actual < 0:
             return Value.get_top()
         else:
             return Value(self.actual >> other.actual)
 
-    def do_or(right_result):
-        if right_result.actual == ~(0):
+    def do_or(self, other):
+        if other.actual == ~(0):
             return Value(~0)
         if self.is_top() or other.is_top():
             return Value.get_top()
         else:
             return Value(self.actual | other.actual)
 
-    def do_xor(right_result):
+    def do_xor(self, other):
         if self.is_top() or other.is_top():
             return Value.get_top()
         else:
             return Value(self.actual ^ other.actual)
 
-    def do_and(right_result):
-        if right_result.actual == 0:
+    def do_and(self, other):
+        if other.actual == 0:
             return Value(0)
         if self.is_top() or other.is_top():
             return Value.get_top()
         else:
             return Value(self.actual & other.actual)
 
-    def do_matmul(right_result):
+    def do_matmul(self, other):
         pass
 
 # In[25]:
@@ -401,9 +419,9 @@ class ValueTransferRelation(TransferRelation):
         elif kind == InstructionType.ASSUMPTION:
             v.visit(edge.instruction.expression)
             # lstack should be empty because there is no lhs in an assumption:
-            assert len(v.lstack) == 0
+            assert len(v.lstack) == 0, v.lstack
             # there should be one value on rstack, namely what the assumption evaluated to:
-            assert len(v.rstack) == 1
+            assert len(v.rstack) == 1, v.rstack
             result = v.rstack.pop()
             if result.is_top():
                 return [predecessor]
