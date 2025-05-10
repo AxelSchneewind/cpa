@@ -6,6 +6,8 @@ from pycparser import c_ast
 import pcpp
 import io
 
+import re
+
 def write_one_line(buf, depth):
     return '\t'*depth + buf + '\n'
 
@@ -98,7 +100,17 @@ class Ast2Py:
         elif isinstance(n, c_ast.Return):
             ret += write_one_line('return ' + self.ast2py_one_node(n.expr), self.m_depth)
         elif isinstance(n, c_ast.Constant):
-            return str(n.value)
+            py_constant = re.sub(r'^\s*',     '', str(n.value))
+            if re.match(r'^0+x', str(n.value)): # hex, done
+                pass
+            elif re.match(r'^0', str(n.value)): # octal, done
+                py_constant = re.sub(r'^0+[^x]',  '0o', py_constant)
+
+            py_constant = re.sub(r'[ULul]+$', '', py_constant)
+            if len(py_constant) == 0 or py_constant == '0o':
+                py_constant = '0'
+            ret = py_constant
+
         elif isinstance(n, c_ast.Decl):
             if just_expr:
                 #只生成表达式，不添加缩进和换行
@@ -132,10 +144,10 @@ class Ast2Py:
             else:
                 ret += write_one_line(astr, self.m_depth)
         elif isinstance(n, c_ast.ID):
-            if just_expr:
-                return n.name#+':' + ast_node.
-            else:
-                return 'ID COULD NOT BE A LINE\n'
+            # if just_expr:
+            return n.name#+':' + ast_node.
+            # else:
+            #     return 'ID COULD NOT BE A LINE\n'
 
 
         elif isinstance(n, c_ast.While):
@@ -144,12 +156,27 @@ class Ast2Py:
             self.m_depth += 1
             ret += self.ast2py_one_node(n.stmt)
             self.m_depth-=1
+
+        elif isinstance(n, c_ast.BinaryOp):
+            py_op = str(n.op)
+
+            match py_op:
+                case '&&':
+                    py_op = 'and'
+                case '||':
+                    py_op = 'or'
+                case _:
+                    py_op = py_op
+            ret +=  '(' + self.ast2py_one_node(n.left) +') ' 
+            ret += py_op
+            ret += ' (' + self.ast2py_one_node(n.left) + ')'
+            
         elif isinstance(n, c_ast.If):
             ret += write_one_line( 'if ' + self.ast2py_one_node(n.cond, 1) + ":", self.m_depth)
             self.m_depth += 1
             tstr= self.ast2py_one_node(n.iftrue)
             if len(tstr)==0:
-                ret += write_one_line( 'pass', self.m_depth)
+                ret += write_one_line('pass', self.m_depth)
             else:
                 ret += tstr
             self.m_depth-=1
@@ -170,25 +197,37 @@ class Ast2Py:
                 if just_expr:
                     ret += self.ast2py_one_node(n.expr, 1) + '[0]'
                 else:
-                    ret +=write_one_line(self.ast2py_one_node(n.expr, 1) + '[0]', self.m_depth)
+                    ret += write_one_line(self.ast2py_one_node(n.expr, 1) + '[0]', self.m_depth)
             elif n.op== '!':
-                ostr =  'not '+ self.ast2py_one_node(n.expr, 1)
+                ostr =  'not ' + self.ast2py_one_node(n.expr, 1)
                 if just_expr:
                     ret += ostr
                 else:
-                    ret +=write_one_line(ostr, self.m_depth)
+                    ret += write_one_line(ostr, self.m_depth)
             elif n.op== '++':
-                ostr = self.ast2py_one_node(n.expr, 1)+' +=1'
+                ostr = self.ast2py_one_node(n.expr, 1)+' += 1'
                 if just_expr:
                     ret += ostr
                 else:
-                    ret +=write_one_line(ostr, self.m_depth)
+                    ret += write_one_line(ostr, self.m_depth)
             elif n.op== '--':
-                ostr = self.ast2py_one_node(n.expr, 1)+' -=1'
+                ostr = self.ast2py_one_node(n.expr, 1) + ' -= 1'
                 if just_expr:
                     ret += ostr
                 else:
-                    ret +=write_one_line(ostr, self.m_depth)
+                    ret += write_one_line(ostr, self.m_depth)
+            elif n.op== '-':
+                ostr = '-' + self.ast2py_one_node(n.expr, 1)
+                if just_expr:
+                    ret += ostr
+                else:
+                    ret += write_one_line(ostr, self.m_depth)
+            elif n.op== '~':
+                ostr = '~' + self.ast2py_one_node(n.expr, 1)
+                if just_expr:
+                    ret += ostr
+                else:
+                    ret += write_one_line(ostr, self.m_depth)
             else:
                 print("Unknown UnaryOp", n.op)
 
@@ -252,10 +291,11 @@ class Ast2Py:
                 ret += ostr
             else:
                 ret += write_one_line(ostr, self.m_depth)
+        elif isinstance(n, c_ast.Goto) or isinstance(n, c_ast.Label):
+            pass
         else:
             print('Unknown ast type:', type(n))
             # print('Unknown',ast_node)
-
 
         return ret
 
