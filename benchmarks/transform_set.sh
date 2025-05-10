@@ -16,7 +16,7 @@ do
     c_file="$(basename $line)"
 
     # filter out files with gotos: not supported yet
-    [ ! -n "$(grep 'goto' $line)" ] && echo "skipping $line" && continue
+    [ -n "$(grep 'goto' $line)" ] && echo "skipping $line" && continue
 
     cp "$line" "tmp_$set/$c_file"
 done
@@ -27,11 +27,15 @@ for file in $tmp_files
 do
     c_file=$(basename $file)
 
+
     # prepare
     prepare_c "tmp_$set/$c_file"
 
+    echo "transpiling $line"
+
     # transform
-    $VENV_DIR/bin/python c2py "tmp_$set/$c_file" "$set/$c_file.py" >/dev/null 2> /dev/null
+    $VENV_DIR/bin/python c2py "tmp_$set/$c_file" "$set/$c_file.py" >/dev/null 2>/dev/null
+    [ ! "$?"=="0" ] && rm tmp_$set/$c_file
 done
 
 rm -rf "tmp_$set"
