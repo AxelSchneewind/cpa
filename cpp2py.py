@@ -116,7 +116,6 @@ class Ast2Py:
                 #只生成表达式，不添加缩进和换行
                 return n.name#+':' + ast_node.type.type.names.join(' ')
             else:
-
                 if n.init is not None:
                     ostr = n.name + ' = ' + self.ast2py_one_node(n.init, 1)
                     ret += write_one_line(ostr, self.m_depth)
@@ -134,8 +133,9 @@ class Ast2Py:
                             ostr =  n.name + ' = CharArray('+self.ast2py_one_node(n.type.dim,1)    +  ' )'
                             self.import_file_list.append('cpp2py.cpp2py_ctype')
                             ret += write_one_line(ostr, self.m_depth)
-
-
+                    else:
+                        ostr = n.name + ' = 0'
+                        ret += write_one_line(ostr, self.m_depth)
                 return ret
         elif isinstance(n, c_ast.Assignment):
             astr = self.ast2py_one_node(n.lvalue,1)+ ' ' + n.op + ' ' + self.ast2py_one_node(n.rvalue, 1)
@@ -228,6 +228,12 @@ class Ast2Py:
                     ret += ostr
                 else:
                     ret += write_one_line(ostr, self.m_depth)
+            elif n.op== '&':
+                ostr = 'id(' + self.ast2py_one_node(n.expr, 1) + ')'
+                if just_expr:
+                    ret += ostr
+                else:
+                    ret += write_one_line(ostr, self.m_depth)
             else:
                 print("Unknown UnaryOp", n.op)
 
@@ -293,6 +299,10 @@ class Ast2Py:
                 ret += write_one_line(ostr, self.m_depth)
         elif isinstance(n, c_ast.Goto) or isinstance(n, c_ast.Label):
             pass
+        elif isinstance(n, c_ast.Break):
+            ret += write_one_line('break', self.m_depth)
+        elif isinstance(n, c_ast.Continue):
+            ret += write_one_line('continue', self.m_depth)
         else:
             print('Unknown ast type:', type(n))
             # print('Unknown',ast_node)
