@@ -72,7 +72,7 @@ class PropertyTransferRelation(TransferRelation):
 
 class PropertyStopOperator(StopOperator):
     def stop(self, e, reached):
-        return len([eprime for eprime in reached if e.subsumes(eprime)]) > 0
+        return not e.safe
 
 
 class PropertyCPA(CPA):
