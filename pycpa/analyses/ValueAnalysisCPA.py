@@ -2,10 +2,7 @@
 
 from pycpa.cfa import InstructionType
 
-from pycpa.cpa import CPA
-from pycpa.cpa import TransferRelation
-from pycpa.cpa import StopSepOperator
-from pycpa.cpa import MergeSepOperator
+from pycpa.cpa import CPA, AbstractState , TransferRelation , StopSepOperator , MergeSepOperator
 
 import ast
 import copy
@@ -34,7 +31,7 @@ import astpretty
 # In[23]:
 
 
-class ValueState:
+class ValueState(AbstractState):
     def __init__(self, other=None):
         if other:
             self.valuation = copy.copy(other.valuation)
@@ -145,12 +142,11 @@ class ValueExpressionVisitor(ast.NodeVisitor):
         expr = ast.BinOp(
             ast.Name(
                 node.target.id, ast.Load(),
-                lineno=node.lineno, col_offset=node.col_offset
             ), 
             node.op, 
             node.value,
-            lineno=node.lineno, col_offset=node.col_offset
         )
+        ast.copy_location(node, expr)
         self.visit(expr)
         self.visit(node.target)
     

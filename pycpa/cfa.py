@@ -124,6 +124,7 @@ class CFAEdge:
 import ast
 
 # TODO: somehow track scopes and make variable names fully qualified
+# TODO: function for creating temporary variables
 class CFACreator(ast.NodeVisitor):
     def __init__(self):
         self.root = CFANode()
@@ -203,6 +204,7 @@ class CFACreator(ast.NodeVisitor):
         merged_exit = CFANode.merge(left_exit, right_exit)
         self.node_stack.append(merged_exit)
 
+    # TODO: get calls from expression and run these before assignment
     def visit_Expr(self, node):
         # entry_node = self.node_stack.pop()
         # exit_node = CFANode()
@@ -242,23 +244,19 @@ class CFACreator(ast.NodeVisitor):
 
         # inlining:
         if node.func.id in self.function_def:
-            # compute each argument, TODO: add scope to names
+            # add computing edge for each argument, TODO: add scope to names
             for name, val in zip(self.function_def[node.func.id].args.args, node.args):
-                self.visit(
-                    ast.Expr(
-                        ast.Assign(
-                            [name], val, 
-                            lineno=node.lineno, col_offset=node.col_offset
-                        ),
-                        lineno=node.lineno, col_offset=node.col_offset
-                    )
-                )
+                arg_expr = ast.Expr(
+                                ast.Assign(
+                                    [ast.Name(name.arg, ast.Store())], val, 
+                                ),
+                            )
+                ast.copy_location(node, arg_expr)
+                self.visit(arg_expr)
             
-            jump_node = self.node_stack.pop()
-
+            pre_jump_node = self.node_stack.pop()
             body_node = CFANode()
-            edge = CFAEdge(jump_node, body_node, Instruction.statement(node))
-
+            edge = CFAEdge(pre_jump_node, body_node, Instruction.statement(node))
             self.node_stack.append(body_node)
 
             for b in self.function_def[node.func.id].body:
