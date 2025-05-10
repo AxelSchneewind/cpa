@@ -5,8 +5,8 @@
 
 # In[15]:
 
-from pycpa import CPA
-from pycpa.CFA import Graphable
+from pycpa.cpa import CPA, AbstractState, TransferRelation, MergeOperator, StopOperator
+from pycpa.cfa import Graphable
 from pycpa.analyses import LocationCPA
 
 import ast
@@ -16,7 +16,7 @@ from graphviz import Digraph
 import copy
 
 
-class ARGState(CPA.AbstractState):
+class ARGState(AbstractState):
     index = 0
 
     def __init__(self, wrapped_state, parent=None):
@@ -36,7 +36,7 @@ class ARGState(CPA.AbstractState):
         return hasattr(self.wrapped_state, "is_target") and self.wrapped_state.is_target()
 
 
-class ARGTransferRelation(CPA.TransferRelation):
+class ARGTransferRelation(TransferRelation):
     def __init__(self, wrapped_transfer_relation):
         self.wrapped_transfer_relation = wrapped_transfer_relation
 
@@ -49,7 +49,7 @@ class ARGTransferRelation(CPA.TransferRelation):
         ]
 
 
-class ARGStopOperator(CPA.StopOperator):
+class ARGStopOperator(StopOperator):
     def __init__(self, wrapped_stop_operator):
         self.wrapped_stop_operator = wrapped_stop_operator
 
@@ -60,7 +60,7 @@ class ARGStopOperator(CPA.StopOperator):
 
 
 
-class ARGMergeOperator(CPA.MergeOperator):
+class ARGMergeOperator(MergeOperator):
     def __init__(self, wrapped_merge_operator):
         self.wrapped_merge_operator = wrapped_merge_operator
 
@@ -91,7 +91,7 @@ class ARGMergeOperator(CPA.MergeOperator):
             return new_state
 
 
-class ARGCPA(CPA.CPA):
+class ARGCPA(CPA):
     def __init__(self, wrapped_cpa):
         self.wrapped_cpa = wrapped_cpa
 

@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import sys
-sys.path.append('.')
 
 from pycpa.analyses import ARGCPA
 from pycpa.analyses import ARGState
@@ -12,12 +11,14 @@ from pycpa.analyses import LocationCPA
 from pycpa.analyses import PropertyCPA
 from pycpa.analyses import ValueAnalysisCPA
 
-from pycpa.AST import *
-from pycpa.CFA import *
+from pycpa import configs
 
-from pycpa.CPA import *
-from pycpa.CPAAlgorithm import *
-from pycpa.MCAlgorithm import *
+from pycpa.ast import *
+from pycpa.cfa import *
+
+from pycpa.cpa import *
+from pycpa.cpaalgorithm import *
+from pycpa.mcalgorithm import *
 
 
 
@@ -44,11 +45,13 @@ def main(args):
 
     tree = ast.parse(ast_program)
 
+    # # print ast in textual form (optional)
     # if args.print_ast:
     #     astpretty.pprint(tree, show_offsets=False)
     
-    # print node types
-    astvisitor = ASTPrinter()
+    # print node types (optional)
+    ast_file = open(output_dir + '/ast.txt' ,'w')
+    astvisitor = ASTPrinter(ast_file)
     astvisitor.visit(tree)
     
     # For testing AST generation
@@ -65,24 +68,24 @@ def main(args):
     dot = graphable_to_dot(GraphableCFANode(cfa_root))
     dot.render(output_dir + '/cfa')
     
-    
-    
     # In[18]:
     CFANode.index = 0  # reset the CFA node indices to produce identical output on re-execution
     cfa_creator = CFACreator()
     cfa_creator.visit(tree)
     cfa_root = cfa_creator.root
     
-    cpa = ARGCPA(
-            LocationCPA(cfa_root)
-        )
-    
+    # 
+    module = configs.get_config(args.config)
+    cpa = module.get_cpa(cfa_root)
+    if cpa is None:
+        print('invalid configuration')
+
     waitlist = set()
     reached = set()
     init = cpa.get_initial_state()
     waitlist.add(init)
     reached.add(init)
-    algo = MCAlgorithm(cpa)
+    algo = CPAAlgorithm(cpa)
     algo.run(reached, waitlist)
     dot = graphable_to_dot(
             GraphableARGState(init),
@@ -96,68 +99,9 @@ def main(args):
     cfa_creator.visit(tree)
     graphable_to_dot(GraphableCFANode(cfa_creator.root))
     
-    
-    # In[22]:
-    
-    
-    ARGState.index = 0
-    CFANode.index = 0  # reset the CFA node indices to produce identical output on reexecution
-    cfa_creator = CFACreator()
-    cfa_creator.visit(tree)
-    cfa_root = cfa_creator.root
-    
-    cpa = ARGCPA(
-            LocationCPA(cfa_root)
-        )
-    
-    waitlist = set()
-    reached = set()
-    init = cpa.get_initial_state()
-    waitlist.add(init)
-    reached.add(init)
-    algo = MCAlgorithm(cpa)
-    algo.run(reached, waitlist)
-    dot = graphable_to_dot(
-            GraphableARGState(init),
-            nodeattrs={"style": "filled", "shape": "box", "color": "white"},
-        )
-    dot.render(output_dir + '/location')
-    
-    
-    
-    # Let's try to verify `simple_program` using the model-checking algorithm.
-    # Note that, you do not need to implement every arithmetic operator to handle this task.
-    # Can your value analysis find a bug in `simple_program`?
-    
-    # In[26]:
-    
-    
-    ARGState.index = 0
-    CFANode.index = 0  # reset the CFA node indices to produce identical output on re-execution
-    cfa_creator = CFACreator()
-    cfa_creator.visit(tree)
-    cfa_root = cfa_creator.root
-    
-    cpa = ARGCPA(CompositeCPA([LocationCPA(cfa_root), ValueAnalysisCPA()]))
-    
-    waitlist = set()
-    reached = set()
-    init = cpa.get_initial_state()
-    waitlist.add(init)
-    reached.add(init)
-    algo = MCAlgorithm(cpa)
-    algo.run(reached, waitlist)
-    dot = graphable_to_dot(
-            GraphableARGState(init),
-            nodeattrs={"style": "filled", "shape": "box", "color": "white"},
-        )
-    dot.render(output_dir + '/value-analysis')
 
-
-
-   
 from pycpa.params import parser
-import sys
+
 
 if __name__ == '__main__':
     args = parser.parse_args()

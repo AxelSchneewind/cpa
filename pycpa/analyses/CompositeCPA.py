@@ -9,13 +9,13 @@
 
 # In[19]:
 
-from pycpa import CPA
+from pycpa.cpa import AbstractState, TransferRelation, MergeOperator, CPA
 from pycpa.analyses import LocationCPA
 from pycpa.analyses import LocationState
 
 import itertools
 
-class CompositeState(CPA.AbstractState):
+class CompositeState(AbstractState):
     def __init__(self, wrapped_states):
         self.wrapped_states = wrapped_states
 
@@ -43,7 +43,7 @@ class CompositeState(CPA.AbstractState):
         return "|%s|" % "|\n|".join([str(state) for state in self.wrapped_states])
 
 
-class CompositeStopOperator(CPA.AbstractState):
+class CompositeStopOperator(AbstractState):
     def __init__(self, wrapped_stop_operators):
         self.wrapped_stop_operators = wrapped_stop_operators
 
@@ -57,7 +57,7 @@ class CompositeStopOperator(CPA.AbstractState):
                )
 
 
-class CompositeTransferRelation(CPA.TransferRelation):
+class CompositeTransferRelation(TransferRelation):
     def __init__(self, wrapped_transfer_relations):
         self.wrapped_transfer_relations = wrapped_transfer_relations
 
@@ -100,7 +100,7 @@ class CompositeTransferRelation(CPA.TransferRelation):
         ]
 
 
-class CompositeMergeOperator(CPA.MergeOperator):
+class CompositeMergeOperator(MergeOperator):
     """
     Merge-Agree: All wrapped states are merged pairwise.
     Example:
@@ -137,7 +137,7 @@ class CompositeMergeOperator(CPA.MergeOperator):
         return CompositeState(merge_results)
 
 
-class CompositeCPA(CPA.CPA):
+class CompositeCPA(CPA):
     def __init__(self, wrapped_cpas):
         self.wrapped_cpas = wrapped_cpas
 

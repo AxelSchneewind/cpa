@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from pycpa import CFA
+from pycpa.cfa import CFAEdge
 
 # ## 2. Introducing CPAs (7 tasks, 72 points)
 # 
@@ -23,7 +23,7 @@ class TransferRelation:
     def get_abstract_successors(self, predecessor: AbstractState) -> Collection[AbstractState]:
         raise NotImplementedError("get_abstract_successors not implemented!")
 
-    def get_abstract_successors_for_edge(self, predecessor: AbstractState, edge: CFA.CFAEdge) -> Collection[AbstractState]:
+    def get_abstract_successors_for_edge(self, predecessor: AbstractState, edge: CFAEdge) -> Collection[AbstractState]:
         raise NotImplementedError("get_abstract_successors_for_edge not implemented!")
 
 

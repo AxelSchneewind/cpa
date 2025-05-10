@@ -1,7 +1,12 @@
 #!/bin/env/python
 
-from pycpa import CPA
-from pycpa import CFA
+from pycpa.cpa import CPA
+from pycpa.cpa import MergeSepOperator
+from pycpa.cpa import StopSepOperator
+from pycpa.cpa import AbstractState
+from pycpa.cpa import TransferRelation
+
+from pycpa.cfa import CFANode, CFAEdge
 
 from typing import Collection
 
@@ -19,8 +24,8 @@ from typing import Collection
 # In[14]:
 
 
-class LocationState(CPA.AbstractState):
-    def __init__(self, node: CFA.CFANode):
+class LocationState(AbstractState):
+    def __init__(self, node: CFANode):
         self.location = node
 
     def __str__(self):
@@ -33,22 +38,22 @@ class LocationState(CPA.AbstractState):
         return self.location.__hash__()
 
 
-class LocationTransferRelation(CPA.TransferRelation):
+class LocationTransferRelation(TransferRelation):
 
     def get_abstract_successors(self, predecessor: LocationState) -> Collection[LocationState]:
         return [LocationState(edge.successor) for edge in predecessor.location.leaving_edges]
 
-    def get_abstract_successors_for_edge(self, predecessor: LocationState, edge: CFA.CFAEdge) -> Collection[LocationState]:
+    def get_abstract_successors_for_edge(self, predecessor: LocationState, edge: CFAEdge) -> Collection[LocationState]:
         return [LocationState(edge.successor)]
 
 
-class LocationStopOperator(CPA.StopSepOperator):
+class LocationStopOperator(StopSepOperator):
     def __init__(self):
-        return CPA.StopSepOperator.__init__(self, LocationState.__eq__)
+        return StopSepOperator.__init__(self, LocationState.__eq__)
 
 
-class LocationCPA(CPA.CPA):
-    def __init__(self, cfa_root: CFA.CFANode):
+class LocationCPA(CPA):
+    def __init__(self, cfa_root: CFANode):
         self.root = cfa_root
 
     def get_initial_state(self):

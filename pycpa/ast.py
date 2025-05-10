@@ -72,17 +72,20 @@ import astpretty
 
 # In[3]:
 
+import sys
 
 class ASTPrinter(ast.NodeVisitor):
-    def __init__(self):
+    def __init__(self, file=sys.stdout):
+        self.file = file
         self.node_counter = 0
+
     def generic_visit(self, node):
         node_name = "%d %s" % (self.node_counter, node.__class__.__name__)
         self.node_counter += 1
-        print(node_name)
+        self.file.write(node_name + '\n')
         return ast.NodeVisitor.generic_visit(self, node)
     def visit_Assign(self, node):
-        print("Found an assign node:")
+        self.file.write("Found an assign node:\n")
         self.generic_visit(node)
 
 

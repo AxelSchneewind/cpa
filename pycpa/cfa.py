@@ -118,9 +118,15 @@ class CFACreator(ast.NodeVisitor):
         self.node_stack.append(self.root)
         self.continue_stack = list()
         self.break_stack = list()
+        self.function_def = {}
+
+    def generic_visit(self, node):
+        ast.NodeVisitor.generic_visit(self, node)
 
     def visit_FunctionDef(self, node):
-        ast.NodeVisitor.generic_visit(self, node)
+        self.function_def[node.name] = node
+        if node.name == 'main':
+            ast.NodeVisitor.generic_visit(self, node)
 
     def visit_While(self, node): # Note: implement TODOs for break and continue to handle them inside while-loops
         entry_node = self.node_stack.pop()
@@ -192,11 +198,31 @@ class CFACreator(ast.NodeVisitor):
         edge = CFAEdge(entry_node, exit_node, Instruction.statement(node.value))
         self.node_stack.append(exit_node)
 
+        ast.NodeVisitor.generic_visit(self, node)
+
     def visit_Assign(self, node):
         entry_node = self.node_stack.pop()
         exit_node = CFANode()
         edge = CFAEdge(entry_node, exit_node, Instruction.statement(node))
         self.node_stack.append(exit_node)
+
+    def visit_Call(self, node):
+        entry_node = self.node_stack.pop()
+        self.node_stack.append(entry_node)
+
+        # TODO: insert evaluation of arguments
+
+        # TODO: somehow track scopes
+        if node.func.id in self.function_def:
+            for arg in node.args:
+                ast.NodeVisitor.generic_visit(self, arg)
+
+            ast.NodeVisitor.generic_visit(self, self.function_def[node.func.id])
+            # for b in self.function_def[node.func.id].body:
+            # ast.NodeVisitor.generic_visit(self, b)
+    
+        # TODO: insert storing of return value
+
 
 
 # You can use the code below to draw the generated CFAs for manual inspection.

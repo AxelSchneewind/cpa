@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 
-from pycpa import CFA
+from pycpa.cfa import InstructionType
 
-from pycpa.CPA import CPA
-from pycpa.CPA import TransferRelation
-from pycpa.CPA import StopSepOperator
+from pycpa.cpa import CPA
+from pycpa.cpa import TransferRelation
+from pycpa.cpa import StopSepOperator
+from pycpa.cpa import MergeSepOperator
 
 import ast
 import copy
@@ -131,40 +132,40 @@ class ValueExpressionVisitor(ast.NodeVisitor):
             raise NotImplementedError("Operator %s is not implemented!" % op)
 
     # DONE Task 8: implement other operations like subtraction or multiplication for hidden programs
-    def visit_Add(self, node):
-        self.visit(node.left)
-        left_result = self.rstack.pop()
-        self.visit(node.right)
-        right_result = self.rstack.pop()
-        self.rstack.append(left_result.__add__(right_result))
+    def visit_Assign(self, node):
+        print('Assign')
 
-    def visit_Sub(self, node):
-        self.visit(node.left)
-        left_result = self.rstack.pop()
-        self.visit(node.right)
-        right_result = self.rstack.pop()
-        self.rstack.append(left_result.__sub__(right_result))
+    def visit_AugAssign(self, node):
+        print('AugAssign')
 
-    def visit_Mul(self, node):
+    def visit_BinOp(self, node):
         self.visit(node.left)
-        left_result = self.rstack.pop()
+        left_result = self.lstack.pop()
         self.visit(node.right)
         right_result = self.rstack.pop()
-        self.rstack.append(left_result.__mul__(right_result))
 
-    def visit_Div(self, node):
-        self.visit(node.left)
-        left_result = self.rstack.pop()
-        self.visit(node.right)
-        right_result = self.rstack.pop()
-        self.rstack.append(left_result.__div__(right_result))
-
-    def visit_Mod(self, node):
-        self.visit(node.left)
-        left_result = self.rstack.pop()
-        self.visit(node.right)
-        right_result = self.rstack.pop()
-        self.rstack.append(left_result.__mod__(right_result))
+        op = node.op
+        if isinstance(op, ast.Add):
+            self.rstack.append(left_result.__add__(right_result))
+        if isinstance(op, ast.Sub):
+            self.rstack.append(left_result.__sub__(right_result))
+        if isinstance(op, ast.Mult):
+            self.rstack.append(left_result.__mul__(right_result))
+        if isinstance(op, ast.Div):
+            self.rstack.append(left_result.__div__(right_result))
+        if isinstance(op, ast.Mod):
+            self.rstack.append(left_result.__mod__(right_result))
+        if isinstance(op, ast.Pow):
+            self.rstack.append(left_result.__pow__(right_result))
+        else:
+            self.rstack.append(Value.top())
+            # case ast.FloorDiv
+            # case ast.LShift
+            # case ast.RShift
+            # case ast.BitOr
+            # case ast.BitXor
+            # case ast.BitAnd
+            # case ast.MatMult
 
 
     def get_value_of(self, varname):
@@ -324,12 +325,12 @@ class ValueTransferRelation(TransferRelation):
     def get_abstract_successors_for_edge(self, predecessor, edge):
         v = ValueExpressionVisitor(predecessor.valuation)
         kind = edge.instruction.kind
-        if kind == CFA.InstructionType.STATEMENT:
+        if kind == InstructionType.STATEMENT:
             v.visit(edge.instruction.expression)
             successor = ValueState(predecessor)
             v.update(successor.valuation)
             return [successor]
-        elif kind == CFA.InstructionType.ASSUMPTION:
+        elif kind == InstructionType.ASSUMPTION:
             v.visit(edge.instruction.expression)
             # lstack should be empty because there is no lhs in an assumption:
             assert len(v.lstack) == 0
@@ -352,7 +353,7 @@ class ValueAnalysisCPA(CPA):
         return StopSepOperator(ValueState.subsumes)
 
     def get_merge_operator(self):
-        return MergeSepOperator.MergeSepOperator()
+        return MergeSepOperator()
 
     def get_transfer_relation(self):
         return ValueTransferRelation()

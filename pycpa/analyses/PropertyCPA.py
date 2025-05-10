@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from pycpa import CPA
+from pycpa.cpa import CPA, AbstractState, TransferRelation, MergeOperator, StopOperator, MergeSepOperator
 
 import ast
 
@@ -17,7 +17,7 @@ import ast
 # In[28]:
 
 
-class PropertyState(CPA.AbstractState):
+class PropertyState(AbstractState):
     def __init__(self, is_safe):
         self.safe = is_safe
 
@@ -49,7 +49,7 @@ class FunctionCallVisitor(ast.NodeVisitor):
 
         return self.generic_visit(node)
 
-class PropertyTransferRelation(CPA.TransferRelation):
+class PropertyTransferRelation(TransferRelation):
     def get_abstract_successors(self, predecessor):
         raise NotImplementedError(
             "successors without edge not possible for Property Analysis!"
@@ -67,11 +67,11 @@ class PropertyTransferRelation(CPA.TransferRelation):
         else:
             raise ValueError("invalid value")
 
-class PropertyStopOperator(CPA.StopOperator):
+class PropertyStopOperator(StopOperator):
     def stop(self, e, reached):
         return [eprime for eprime in reached if eprime.subsumes(e)]
 
-class PropertyCPA(CPA.CPA):
+class PropertyCPA(CPA):
     def get_initial_state(self):
         return PropertyState(True)
 
@@ -80,7 +80,7 @@ class PropertyCPA(CPA.CPA):
 
     def get_merge_operator(self):
         # simply use merge sep
-        return CPA.MergeSepOperator()
+        return MergeSepOperator()
 
     def get_transfer_relation(self):
         return PropertyTransferRelation()
