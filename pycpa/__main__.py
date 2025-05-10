@@ -93,12 +93,6 @@ def main(args):
         )
     dot.render(output_dir + '/arg')
     
-    
-    CFANode.index = 0  # reset the CFA node indices to produce identical output on reexecution
-    cfa_creator = CFACreator()
-    cfa_creator.visit(tree)
-    graphable_to_dot(GraphableCFANode(cfa_creator.root))
-    
 
 from pycpa.params import parser
 
