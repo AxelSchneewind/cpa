@@ -60,9 +60,9 @@ class CPA:
 
 
 class MergeJoinOperator(MergeOperator):
-    def merge(self, state1, state2):
+    def merge(self, e: AbstractState, eprime: AbstractState) -> AbstractState:
         # TODO
-        pass
+        return eprime
 
 
 

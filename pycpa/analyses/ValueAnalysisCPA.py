@@ -10,6 +10,9 @@ from pycpa.cpa import MergeSepOperator
 import ast
 import copy
 
+import astunparse
+import astpretty
+
 # ### Value Analysis via ValueAnalysisCPA
 # 
 # To achieve a minimal value analysis,
@@ -80,6 +83,9 @@ class ValueExpressionVisitor(ast.NodeVisitor):
     def visit_Num(self, node):
         self.rstack.append(Value(node.n))
 
+    def visit_Constant(self, node):
+        self.rstack.append(Value(node.n))
+
     def visit_NameConstant(self, node):
         self.rstack.append(Value(node.value))
 
@@ -87,9 +93,9 @@ class ValueExpressionVisitor(ast.NodeVisitor):
         self.visit(node.operand)
         result = self.rstack.pop()
         if isinstance(node.op, ast.Not):
-            self.rstack.append(result.__not__())
+            self.rstack.append(result.do_not())
         elif isinstance(node.op, ast.USub):
-            self.rstack.append(result.neg())
+            self.rstack.append(result.do_neg())
         elif isinstance(node.op, ast.UAdd):
             self.rstack.append(result) # unary add does not do anything for integers
         else:
@@ -107,65 +113,86 @@ class ValueExpressionVisitor(ast.NodeVisitor):
         assert len(comp_results) == 1
         assert len(node.ops) == 1
         op = node.ops[0]
-        if isinstance(op,ast.Eq):
-            self.rstack.append(left_result.__equal__(comp_results[0]))
-        elif isinstance(op,ast.Gt):
-            self.rstack.append(left_result.gt(comp_results[0]))
-        elif isinstance(op,ast.GtE):
-            self.rstack.append(left_result.gte(comp_results[0]))
-        elif isinstance(op,ast.Lt):
-            self.rstack.append(left_result.lt(comp_results[0]))
-        elif isinstance(op,ast.LtE):
-            self.rstack.append(left_result.lte(comp_results[0]))
-        elif isinstance(op,ast.NotEq):
-            self.rstack.append(left_result.neq(comp_results[0]))
-        elif isinstance(op,ast.Is):
-            self.rstack.append(left_result.__is__(comp_results[0]))
-        elif isinstance(op,ast.IsNot):
-            self.rstack.append(left_result.__isnot__(comp_results[0]))
-        elif isinstance(op,ast.In):
-            self.rstack.append(left_result.__in__(comp_results[0]))
-        elif isinstance(op,ast.NotIn):
-            self.rstack.append(left_result.__notin__(comp_results[0]))
-        else:
-            # TODO Task 8: implement other comparison operators like >,<,>=,<=
-            raise NotImplementedError("Operator %s is not implemented!" % op)
+        result = None
+        match op:
+            case ast.Eq():
+                result =left_result.do_eq(comp_results[0])
+            case ast.Gt():
+                result = left_result.do_gt(comp_results[0])
+            case ast.GtE():
+                result = left_result.do_ge(comp_results[0])
+            case ast.Lt():
+                result = left_result.do_lt(comp_results[0])
+            case ast.LtE():
+                result = left_result.do_le(comp_results[0])
+            case ast.NotEq():
+                result = left_result.do_neg(comp_results[0])
+            case ast.Eq():
+                result = left_result.do_eq(comp_results[0])
+            case ast.Neq():
+                result = left_result.do_ne(comp_results[0])
+            case _:
+                raise NotImplementedError("Operator %s is not implemented!" % op)
+        self.rstack.append(result)
 
     # DONE Task 8: implement other operations like subtraction or multiplication for hidden programs
     def visit_Assign(self, node):
-        print('Assign')
+        self.visit(node.targets[0])
+        self.visit(node.value)
 
     def visit_AugAssign(self, node):
-        print('AugAssign')
-
+        # modified right side
+        expr = ast.BinOp(
+            ast.Name(
+                node.target.id, ast.Load(),
+                lineno=node.lineno, col_offset=node.col_offset
+            ), 
+            node.op, 
+            node.value,
+            lineno=node.lineno, col_offset=node.col_offset
+        )
+        self.visit(expr)
+        self.visit(node.target)
+    
     def visit_BinOp(self, node):
         self.visit(node.left)
-        left_result = self.lstack.pop()
+        left_result = self.rstack.pop()
         self.visit(node.right)
         right_result = self.rstack.pop()
 
         op = node.op
-        if isinstance(op, ast.Add):
-            self.rstack.append(left_result.__add__(right_result))
-        if isinstance(op, ast.Sub):
-            self.rstack.append(left_result.__sub__(right_result))
-        if isinstance(op, ast.Mult):
-            self.rstack.append(left_result.__mul__(right_result))
-        if isinstance(op, ast.Div):
-            self.rstack.append(left_result.__div__(right_result))
-        if isinstance(op, ast.Mod):
-            self.rstack.append(left_result.__mod__(right_result))
-        if isinstance(op, ast.Pow):
-            self.rstack.append(left_result.__pow__(right_result))
-        else:
-            self.rstack.append(Value.top())
-            # case ast.FloorDiv
-            # case ast.LShift
-            # case ast.RShift
-            # case ast.BitOr
-            # case ast.BitXor
-            # case ast.BitAnd
-            # case ast.MatMult
+        result = None
+        match op:
+            case ast.Add():
+                result = left_result.do_add(right_result)
+            case ast.Sub():
+                result = left_result.do_sub(right_result)
+            case ast.Mult():
+                result = left_result.do_mul(right_result)
+            case ast.Div():
+                result = left_result.do_truediv(right_result)
+            case ast.FloorDiv():
+                result = left_result.do_floordiv(right_result)
+            case ast.Mod():
+                result = left_result.do_mod(right_result)
+            case ast.Pow():
+                result = left_result.do_pow(right_result)
+            case ast.LShift():
+                result = left_result.do_lshift(right_result)
+            case ast.RShift():
+                result = left_result.do_rshift(right_result)
+            case ast.BitOr():
+                result = left_result.do_or(right_result)
+            case ast.BitXor():
+                result = left_result.do_xor(right_result)
+            case ast.BitAnd():
+                result = left_result.do_and(right_result)
+            case ast.MatMult():
+                result = left_result.do_matmul(right_result)
+            case _:
+                raise NotImplementedError("Operator %s is not implemented!" % op)
+
+        self.rstack.append(result)
 
 
     def get_value_of(self, varname):
@@ -177,7 +204,7 @@ class ValueExpressionVisitor(ast.NodeVisitor):
 
     def update(self, other_valuation):
         for lhs, rhs in zip(self.lstack, self.rstack):
-            if rhs == Value.get_top():
+            if rhs.is_top():
                 other_valuation.pop(lhs, None)
             else:
                 other_valuation[lhs] = rhs.actual
@@ -192,6 +219,9 @@ class Value:
             Value.__top = Value(top=True)
         return Value.__top
 
+    def is_top(self):
+        return self is Value.get_top()
+
     def __init__(self, actual=None, top=False):
         assert not isinstance(actual, Value)
         if top == True and Value.__top != None:
@@ -200,118 +230,160 @@ class Value:
         else:
             self.actual = actual
 
-    def __equal__(self, other):
-        if self is Value.get_top():
+    def do_eq(self, other):
+        if self.is_top():
             return self
-        if other is Value.get_top():
+        if other.is_top():
             return other
         else:
             return Value(self.actual == other.actual)
 
-    def neq(self, other):
-        if self is Value.get_top():
+    def do_ne(self, other):
+        if self.is_top():
             return self
-        if other is Value.get_top():
+        if other.is_top():
             return other
         else:
             return Value(self.actual != other.actual)
 
     # We need this for negation of Top, since both are True!
-    def __not__(self):  
-        if self == Value.get_top():
+    def do_not(self):  
+        if self.is_top():
             return self
         else:
             return Value(not self.actual.__bool__())
 
     # DONE Task 8: greater than
-    def gt(self,other):
-        if self == Value.get_top() or other == Value.get_top():
+    def do_gt(self,other):
+        if self.is_top() or other.is_top():
             return Value.get_top()
         else:
             return Value(self.actual > other.actual)
-    def lt(self,other):
-        if self == Value.get_top() or other == Value.get_top():
+
+    def do_lt(self,other):
+        if self.is_top() or other.is_top():
             return Value.get_top()
         else:
             return Value(self.actual < other.actual)
 
-    def gte(self,other):
-        if self == Value.get_top() or other == Value.get_top():
+    def do_ge(self,other):
+        if self.is_top() or other.is_top():
             return Value.get_top()
         else:
             return Value(self.actual >= other.actual)
-    def lte(self,other):
-        if self == Value.get_top() or other == Value.get_top():
+    def do_le(self,other):
+        if self.is_top() or other.is_top():
             return Value.get_top()
         else:
             return Value(self.actual <= other.actual)
 
-    def __is__(self,other):
-        if self == Value.get_top() or other == Value.get_top():
-            return Value.get_top()
-        else:
-            return Value(self.actual is other.actual)
-    def __isnot__(self,other):
-        if self == Value.get_top() or other == Value.get_top():
-            return Value.get_top()
-        else:
-            return Value(not self.actual is other.actual)
-
-    def __in__(self,other):
-        if self == Value.get_top() or other == Value.get_top():
-            return Value.get_top()
-        else:
-            return Value(self.actual in other.actual)
-    def __notin__(self,other):
-        if self == Value.get_top() or other == Value.get_top():
-            return Value.get_top()
-        else:
-            return Value(not self.actual in other.actual)
-
-
     # DONE Task 8: negation
-    def neg(self):
-        if self == Value.get_top():
+    def do_neg(self):
+        if self.is_top():
             return self
         else:
             return Value(-self.actual)
 
-    # DONE Task 8: return a Value that wraps the result of the addition.
-    # remember to consider the case where at least one of the operands is top!
-    def __add__(self, other):
-        if self == Value.get_top() or other == Value.get_top():
+    def do_pos(self):
+        if self.is_top():
+            return self
+        else:
+            return Value(+self.actual)
+
+    def do_invert(self):
+        if self.is_top():
+            return self
+        else:
+            return Value(~self.actual)
+
+
+    def do_add(self, other):
+        if self.is_top() or other.is_top():
             return Value.get_top()
         else:
             return Value(self.actual + other.actual)
 
-    # DONE Task 8: implement other operations like subtraction or multiplication for hidden programs
-    def __sub__(self, other):
-        if self == Value.get_top() or other == Value.get_top():
+    def do_sub(self, other):
+        if self.is_top() or other.is_top():
             return Value.get_top()
         else:
             return Value(self.actual - other.actual)
 
-    def __mul__(self, other):
+    def do_mul(self, other):
         # multiplication with zero is special case:
         if self.actual == 0 or other.actual == 0:
             return Value(0)
-        elif self == Value.get_top() or other == Value.get_top():
+        elif self.is_top() or other.is_top():
             return Value.get_top()
         else:
             return Value(self.actual * other.actual)
 
-    def __div__(self, other):
-        if self == Value.get_top() or other == Value.get_top():
+    def do_truediv(self, other):
+        if self.is_top() or other.is_top():
             return Value.get_top()
         else:
             return Value(self.actual / other.actual)
 
-    def __mod__(self, other):
-        if self == Value.get_top() or other == Value.get_top():
+    def do_floordiv(self, other):
+        if self.is_top() or other.is_top():
+            return Value.get_top()
+        else:
+            return Value(self.actual // other.actual)
+
+    def do_mod(self, other):
+        if self.is_top() or other.is_top():
             return Value.get_top()
         else:
             return Value(self.actual % other.actual)
 
+    def do_pow(right_result):
+        if right_result.actual == 0:
+            return Value(1)
+        if self.actual == 0 and right_result.actual != 0:
+            return Value(0)
+        if self.actual == 1 and right_result.actual != 0:
+            return Value(1)
+        if self.is_top() or other.is_top():
+            return Value.get_top()
+        else:
+            return Value(self.actual ** right_result)
+
+    def do_lshift(right_result):
+        if self.is_top() or other.is_top():
+            return Value.get_top()
+        else:
+            return Value(self.actual << other.actual)
+
+    def do_rshift(right_result):
+        if self.is_top() or other.is_top():
+            return Value.get_top()
+        else:
+            return Value(self.actual >> other.actual)
+
+    def do_or(right_result):
+        if right_result.actual == ~(0):
+            return Value(~0)
+        if self.is_top() or other.is_top():
+            return Value.get_top()
+        else:
+            return Value(self.actual | other.actual)
+
+    def do_xor(right_result):
+        if self.is_top() or other.is_top():
+            return Value.get_top()
+        else:
+            return Value(self.actual ^ other.actual)
+
+    def do_and(right_result):
+        if right_result.actual == 0:
+            return Value(0)
+        if self.is_top() or other.is_top():
+            return Value.get_top()
+        else:
+            return Value(self.actual & other.actual)
+
+    def do_matmul(right_result):
+        pass
 
 # In[25]:
 
@@ -337,7 +409,7 @@ class ValueTransferRelation(TransferRelation):
             # there should be one value on rstack, namely what the assumption evaluated to:
             assert len(v.rstack) == 1
             result = v.rstack.pop()
-            if result == Value.get_top():
+            if result.is_top():
                 return [predecessor]
             passed = True if result.actual else False
             return [predecessor] if passed else []

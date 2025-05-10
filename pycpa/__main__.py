@@ -45,9 +45,9 @@ def main(args):
 
     tree = ast.parse(ast_program)
 
-    # # print ast in textual form (optional)
-    # if args.print_ast:
-    #     astpretty.pprint(tree, show_offsets=False)
+    # prettyprint ast
+    with open(output_dir + '/astpretty', 'w') as out_file:
+        out_file.write(astpretty.pformat(tree, show_offsets=False))
     
     # print node types (optional)
     ast_file = open(output_dir + '/ast.txt' ,'w')

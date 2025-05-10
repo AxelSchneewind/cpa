@@ -8,13 +8,16 @@
 # In[20]:
 
 
+
 class CPAAlgorithm:
     def __init__(self, cpa):
         self.cpa = cpa
+        self.iterations = 0
 
     def run(self, reached, waitlist):
-        while len(waitlist) > 0:
+        while len(waitlist) > 0 and self.iterations < 100:
             e = waitlist.pop()
+            self.iterations += 1
 
             for e_prime in self.cpa.get_transfer_relation().get_abstract_successors(e):
                 # store states that have to be added/removed from the sets here, to prevent modification during iteration

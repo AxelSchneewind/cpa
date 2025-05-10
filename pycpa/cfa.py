@@ -20,6 +20,7 @@ from enum import Enum
 class InstructionType(Enum):
     STATEMENT = 1
     ASSUMPTION = 2
+    JUMP = 3
 
 
 class Instruction:
@@ -33,12 +34,18 @@ class Instruction:
     @staticmethod
     def assumption(expression, negated=False):
         if negated:
-            expression = ast.UnaryOp(op=ast.Not(), operand=expression)
+            expression = ast.UnaryOp(op=ast.Not(), operand=expression,
+                lineno=expression.lineno, col_offset=expression.col_offset
+            )
         return Instruction(expression, kind=InstructionType.ASSUMPTION, negated=negated)
 
     @staticmethod
     def statement(expression):
         return Instruction(expression)
+
+    @staticmethod
+    def jump(location):
+        return Instruction(location, kind=InstructionType.JUMP)
 
 
 # The  CFA then consists of nodes and edges, for which we declare separate classes.
@@ -49,6 +56,7 @@ class Instruction:
 
 
 import astunparse
+import astpretty
 
 class CFANode:
     index = 0
@@ -92,8 +100,12 @@ class CFAEdge:
         )
 
     def label(self):
-        return astunparse.unparse(self.instruction.expression).strip()
-
+        if self.instruction.kind == InstructionType.ASSUMPTION:
+            return '[' + astunparse.unparse(self.instruction.expression).strip() + ']'
+        elif self.instruction.kind == InstructionType.STATEMENT:
+            return astunparse.unparse(self.instruction.expression).strip()
+        elif self.instruction.kind == InstructionType.JUMP:
+            return 'goto %s' % self.instruction.location
 
 # #### Task 3: Creating a CFA from an AST using a visitor (10 points)
 # 
@@ -111,6 +123,7 @@ class CFAEdge:
 
 import ast
 
+# TODO: somehow track scopes
 class CFACreator(ast.NodeVisitor):
     def __init__(self):
         self.root = CFANode()
@@ -193,12 +206,18 @@ class CFACreator(ast.NodeVisitor):
         self.node_stack.append(merged_exit)
 
     def visit_Expr(self, node):
+        # entry_node = self.node_stack.pop()
+        # exit_node = CFANode()
+        # edge = CFAEdge(entry_node, exit_node, Instruction.statement(node))
+        # self.node_stack.append(exit_node)
+        self.visit(node.value)
+
+    # TODO: get calls from expression and run these before assignment
+    def visit_AugAssign(self, node):
         entry_node = self.node_stack.pop()
         exit_node = CFANode()
-        edge = CFAEdge(entry_node, exit_node, Instruction.statement(node.value))
+        edge = CFAEdge(entry_node, exit_node, Instruction.statement(node))
         self.node_stack.append(exit_node)
-
-        ast.NodeVisitor.generic_visit(self, node)
 
     def visit_Assign(self, node):
         entry_node = self.node_stack.pop()
@@ -206,21 +225,46 @@ class CFACreator(ast.NodeVisitor):
         edge = CFAEdge(entry_node, exit_node, Instruction.statement(node))
         self.node_stack.append(exit_node)
 
+    def visit_Return(self, node):
+        val = node.value if node.value else ast.Constant(0, lineno=node.lineno, col_offset=node.col_offset)
+        self.visit(
+            ast.Expr(
+                value=ast.Assign(
+                    [ast.Name('__ret', ast.Store(), lineno=node.lineno, col_offset=node.col_offset)], 
+                    val,
+                    lineno=node.lineno, col_offset=node.col_offset
+                ), 
+                lineno=node.lineno, col_offset=node.col_offset
+            )
+        )
+
     def visit_Call(self, node):
         entry_node = self.node_stack.pop()
         self.node_stack.append(entry_node)
 
-        # TODO: insert evaluation of arguments
-
-        # TODO: somehow track scopes
+        # inlining:
         if node.func.id in self.function_def:
-            for arg in node.args:
-                ast.NodeVisitor.generic_visit(self, arg)
+            for name, val in zip(self.function_def[node.func.id].args.args, node.args):
+                self.visit(
+                    ast.Expr(
+                        ast.Assign(
+                            [name], val, 
+                            lineno=node.lineno, col_offset=node.col_offset
+                        ),
+                        lineno=node.lineno, col_offset=node.col_offset
+                    )
+                )
+            
+            jump_node = self.node_stack.pop()
 
-            ast.NodeVisitor.generic_visit(self, self.function_def[node.func.id])
-            # for b in self.function_def[node.func.id].body:
-            # ast.NodeVisitor.generic_visit(self, b)
-    
+            body_node = CFANode()
+            edge = CFAEdge(jump_node, body_node, Instruction.statement(node))
+
+            self.node_stack.append(body_node)
+
+            for b in self.function_def[node.func.id].body:
+                self.visit(b)
+
         # TODO: insert storing of return value
 
 
