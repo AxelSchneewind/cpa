@@ -15,18 +15,25 @@ check-venv:
 # the cpp2py required for benchmark generation seems to be abandoned and has bugs
 # use this target to use a (partially) fixed version supplied here
 # Note: this still does not support e.g. goto
+.phony: path-cpp2py
 patch-cpp2py: cpp2py.py
 	@echo 'patching cpp2py'
 	@cp cpp2py.py ./venv/lib/python3.13/site-packages/cpp2py/cpp2py.py
 
 benchmarks/%: benchmarks/%.set patch-cpp2py cpp2py.py
 	@echo 'converting c benchmarks to python'
-	@make -C benchmarks $*/
+	@make -C benchmarks $*/ 
 
-regenerate-benchmarks-%: benchmarks/%.set patch-cpp2py cpp2py.py
+regenerate-benchmarks-%: benchmarks/%.set patch-cpp2py
 	@echo 'converting c benchmarks to python'
 	@make -C benchmarks $*/ -B
 
+cythonize:
+	python setup.py build_ext --inplace
+
 run-benchmark-%: venv check-venv benchmarks/% cpp2py.py
 	@echo 'running benchmark'
-	python -m pycpa -p ReachSafety -c ValueAnalysisMergeJoin benchmarks/bitvector/*
+	python -m pycpa -p ReachSafety -c ValueAnalysisMergeJoin benchmarks/$*/*.py
+
+run-examples: collatz.py unsafe.py
+	python -m pycpa -p ReachSafety -c ValueAnalysisMergeJoin collatz.py unsafe.py
