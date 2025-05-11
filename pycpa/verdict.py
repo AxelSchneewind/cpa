@@ -14,16 +14,21 @@ class Verdict(Enum):
             return self
         elif self == Verdict.UNKNOWN and (other == Verdict.FALSE or other == Verdict.UNKNOWN):
             return other
+    
+    def __str__(self):
+        return Enum.__str__(self).replace('Verdict.', '')
 
 
-def walk_arg(node):
-    yield node
+def walk_arg(stack):
+    node = stack.pop()
     for c in node.children:
-        for d in walk_arg(c):
-            yield d 
+        stack.append(c)
+    yield node
 
 def evaluate_arg_safety(arg_root, state_prop):
-    for node in walk_arg(arg_root):
+    stack = list()
+    stack.append(arg_root)
+    for node in walk_arg(stack):
         if state_prop(node) == False:
             return Verdict.FALSE
     
