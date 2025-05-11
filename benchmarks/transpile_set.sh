@@ -15,8 +15,8 @@ for line in $file
 do
     c_file="$(basename $line)"
 
-    # filter out files with gotos: not supported yet
-    [ -n "$(grep 'goto' $line)" ] && echo "skipping $line" && continue
+    # filter out files with gotos/switch: not supported yet
+    ([ -n "$(grep 'goto' $line)" ] || [ -n "$(grep 'switch' $line)" ]) && echo "skipping $line" && continue
 
     ln -s "../$line" $benchset/
 
@@ -35,7 +35,7 @@ do
     echo "transpiling $c_file"
 
     # transform
-    $VENV_DIR/bin/python c2py "tmp_$benchset/$c_file" "$benchset/$c_file.py" >/dev/null 2>/dev/null
+    $VENV_DIR/bin/python c2py "tmp_$benchset/$c_file" "$benchset/$c_file.py" >/dev/null 2>$benchset/error_$c_file
     [ ! "$?"=="0" ] && rm tmp_$benchset/$c_file
 
 
