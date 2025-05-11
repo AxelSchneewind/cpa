@@ -1,9 +1,6 @@
 
-.phony: all
-all: bitvector/
-
 %/: %.set
-	./transform_set.sh $*
+	./transpile_set.sh $*
 
 sets: ReachSafety-Arrays.set ReachSafety-ControlFlow.set ReachSafety-ECA.set ReachSafety-Floats.set ReachSafety-Heap.set ReachSafety-Loops.set ReachSafety-ProductLines.set ReachSafety-Sequentialized.set ReachSafety-XCSP.set ReachSafety-Combinations.set ReachSafety-Hardware.set SoftwareSystems-AWS-C-Common-ReachSafety.set SoftwareSystems-DeviceDriversLinux64-ReachSafety.set SoftwareSystems-uthash-ReachSafety.set
 
