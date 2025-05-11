@@ -36,7 +36,12 @@ import os
 def main(args): 
     ast_program = ""
 
+    aborted = False
+
     for program in args.program:
+        if aborted == True:
+            break       
+
         task = Task(program, args.config, args.property, max_iterations=args.max_iterations)
 
         with open(program) as file:
@@ -86,6 +91,7 @@ def main(args):
         cfa_creator.visit(tree)
         cfa_root = cfa_creator.root
     
+
         # 
         modules = [ configs.get_config(c) for c in args.config ]
         property_modules = [ configs.get_property(p) for p in args.property ]
@@ -95,12 +101,10 @@ def main(args):
             
         for p in property_modules:
             cpas.extend(p.get_cpas())
-
         # 
         cpa = ARGCPA(CompositeCPA(cpas))
 
         result = Result()
-
 
         print('\rrunning CPA algorithm', end='')
         waitlist = set()
@@ -109,7 +113,21 @@ def main(args):
         waitlist.add(init)
         reached.add(init)
         algo = CPAAlgorithm(cpa, task, result)
-        algo.run(reached, waitlist)
+
+        # run algorithm
+        try:
+            algo.run(reached, waitlist)
+        except BaseException as x:
+            result.status = Status.ERROR
+            result.witness = str(x)
+        except KeyboardInterrupt as x:
+            result.status = Status.ABORTED_BY_USER
+            result.witness = str(x)
+            aborted = True
+        except:
+            result.status = Status.ERROR
+
+
 
         # print status
         print(':  %s' % str(result.status))

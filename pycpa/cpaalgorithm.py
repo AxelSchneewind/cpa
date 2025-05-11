@@ -19,39 +19,32 @@ class CPAAlgorithm:
         self.result = result
 
     def run(self, reached, waitlist):
-        try:
-            while len(waitlist) > 0:
-                e = waitlist.pop()
+        while len(waitlist) > 0:
+            e = waitlist.pop()
 
-                self.iterations += 1
-                if self.task.max_iterations and self.iterations >= self.task.max_iterations:
-                    self.result.status = Status.TIMEOUT
-                    return
+            self.iterations += 1
+            if self.task.max_iterations and self.iterations >= self.task.max_iterations:
+                self.result.status = Status.TIMEOUT
+                return
 
-                for e_prime in self.cpa.get_transfer_relation().get_abstract_successors(e):
-                    # store states that have to be added/removed from the sets here, to prevent modification during iteration
-                    to_add = set()
-                    to_remove = set()
+            for e_prime in self.cpa.get_transfer_relation().get_abstract_successors(e):
+                # store states that have to be added/removed from the sets here, to prevent modification during iteration
+                to_add = set()
+                to_remove = set()
 
-                    for e_reached in reached:
-                        e_merged =  self.cpa.get_merge_operator().merge(e, e_reached)
-                        if e_merged != e_reached:
-                            to_add.add(e_merged)
-                            to_remove.add(e_reached)
+                for e_reached in reached:
+                    e_merged =  self.cpa.get_merge_operator().merge(e, e_reached)
+                    if e_merged != e_reached:
+                        to_add.add(e_merged)
+                        to_remove.add(e_reached)
 
-                    if not self.cpa.get_stop_operator().stop(e_prime, reached):
-                        to_add.add(e_prime)
+                if not self.cpa.get_stop_operator().stop(e_prime, reached):
+                    to_add.add(e_prime)
 
-                    reached -= to_remove
-                    reached |= to_add
-                    waitlist -= to_remove
-                    waitlist |= to_add
-        except BaseException as x:
-            self.result.status = Status.ERROR
-            self.witness = str(x)
-        except:
-            self.result.status = Status.ERROR
-            return
+                reached -= to_remove
+                reached |= to_add
+                waitlist -= to_remove
+                waitlist |= to_add
 
         self.result.status = Status.OK
         return
