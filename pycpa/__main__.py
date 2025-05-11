@@ -22,6 +22,7 @@ from pycpa.mcalgorithm import *
 
 from pycpa.verdict import Verdict, evaluate_arg_safety
 
+from pycpa.task import Task, Result
 
 import ast
 import astpretty
@@ -37,6 +38,8 @@ def main(args):
     ast_program = ""
 
     for program in args.program:
+        task = Task(program, args.config, args.property, max_iterations=args.max_iterations)
+
         with open(program) as file:
             ast_program = file.read()
 
@@ -45,7 +48,7 @@ def main(args):
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
-        print('verifying program ', program_name, ' using configuration', args.config, ' against ', args.property)
+        print('verifying program', program_name, 'using', args.config, 'against', args.property)
         with open(output_dir + '/program.py', 'w') as out_prog:
             out_prog.write(ast_program)
 
@@ -85,12 +88,20 @@ def main(args):
         cfa_root = cfa_creator.root
     
         # 
-        module = configs.get_config(args.config)
-        property_module = configs.get_property(args.property)
+        modules = [ configs.get_config(c) for c in args.config ]
+        property_modules = [ configs.get_property(p) for p in args.property ]
+        cpas = []
+        for m in modules:
+            cpas.extend(m.get_cpas(cfa_root))
+            
+        for p in property_modules:
+            cpas.extend(p.get_cpas())
 
         # 
-        cpa = ARGCPA(CompositeCPA(module.get_cpas(cfa_root) + property_module.get_cpas()))
+        cpa = ARGCPA(CompositeCPA(cpas))
 
+
+        result = Result()
 
         print('\rrunning CPA algorithm', end='')
         waitlist = set()
@@ -98,20 +109,30 @@ def main(args):
         init = cpa.get_initial_state()
         waitlist.add(init)
         reached.add(init)
-        algo = CPAAlgorithm(cpa)
+        algo = CPAAlgorithm(cpa, task, result)
         algo.run(reached, waitlist)
+
+        # print status
+        print(':  %s' % str(result.status))
+
+        # output arg
         dot = graphable_to_dot(
                 GraphableARGState(init),
                 nodeattrs={"style": "filled", "shape": "box", "color": "white"},
             )
-
         dot.render(output_dir + '/arg')
 
-        verdict = evaluate_arg_safety(init, property_module.state_property)
-        print('\r   ', str(verdict), '                   ', sep='')
+
+        # compute verdict for each property
+        v = result.verdict
+        result.verdicts = [result.verdict for p in property_modules]
+        for i,p in enumerate(property_modules):
+            result.verdicts[i] = evaluate_arg_safety(init, p.state_property)
+            result.verdict &= v
+
+            print('%s:  %s' % (str(task.properties[i]), str(result.verdict)))
 
     
-
 from pycpa.params import parser
 
 
