@@ -24,16 +24,23 @@ benchmarks/%: benchmarks/%.set patch-cpp2py cpp2py.py
 	@echo 'converting c benchmarks to python'
 	@make -C benchmarks $*/ 
 
-regenerate-benchmarks-%: benchmarks/%.set patch-cpp2py
-	@echo 'converting c benchmarks to python'
+regenerate-benchmarks-%: benchmarks/%.set patch-cpp2py cpp2py.py
+	@echo "converting c benchmark set $* to python"
+	@rm -rf benchmarks/$*/
 	@make -C benchmarks $*/ -B
 
-cythonize:
-	python setup.py build_ext --inplace
+
+
+	@make -C benchmarks $*/ -B
+
+
+generate-benchmarks: patch-cpp2py cpp2py.py 
+	@echo "converting c benchmarks to python"
+	@make -C benchmarks benchmarks -B
 
 run-benchmark-%: venv check-venv benchmarks/% cpp2py.py
 	@echo 'running benchmark'
-	python -m pycpa -p ReachSafety -c ValueAnalysisMergeJoin benchmarks/$*/*.py
+	python -m pycpa -p ReachSafety -c ValueAnalysisMergeJoin --max-iterations 100 benchmarks/$*/*.py
 
 run-examples: collatz.py unsafe.py
 	python -m pycpa -p ReachSafety -c ValueAnalysisMergeJoin collatz.py unsafe.py
