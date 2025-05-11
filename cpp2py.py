@@ -8,8 +8,9 @@ import io
 
 import re
 
+tab = '\t'
 def write_one_line(buf, depth):
-    return '\t'*depth + buf + '\n'
+    return f'{tab:.{depth}}{buf}\n'
 
 def cpp_parse(text, input_c_file):
     """
@@ -20,7 +21,6 @@ def cpp_parse(text, input_c_file):
     line_no = 0
     in_comment = 0
     for one_line in text.split('\n'):
-
         line_no+=1
         one_line = one_line.strip()
         if in_comment:
@@ -52,7 +52,7 @@ def cpp_parse(text, input_c_file):
         if one_line[:len(inc)]==inc:
             inc_file = one_line[len(inc):]
             inc_file=inc_file.replace('"','').replace('<','').replace('>','').replace('.h','').replace('.hpp','').strip()
-            py_code+= 'import '+inc_file+'\n'
+            py_code+= f'import {inc_file}\n'
             ret +='\n'
             continue
 
@@ -65,17 +65,18 @@ class Ast2Py:
     def __init__(self):
         self.m_depth = 0
         self.import_file_list=[]
+
     def import_list(self):
         ret = ''
         self.import_file_list = list(set(self.import_file_list))
         for i in self.import_file_list:
-            ret += 'from '+i+' import *\n'
+            ret += f'from {i} import *\n'
         return ret
 
     def ast2py(self, ast,start_line=0):
         ret = ''
         for i in ast.ext:
-            ret +=self.ast2py_one_node(i)
+            ret += self.ast2py_one_node(i)
         return ret
 
     def ast2py_one_node(self, n, just_expr=0):
@@ -86,7 +87,7 @@ class Ast2Py:
                 for i in n.decl.type.args.params:
                     arg_list.append(self.ast2py_one_node(i,1))
 
-            ret += write_one_line('def ' + n.decl.name + '(' + ', '.join(arg_list) + '):', self.m_depth)
+            ret += write_one_line(f'def {n.decl.name}(' + ', '.join(arg_list) + '):', self.m_depth)
             self.m_depth += 1
             ret += self.ast2py_one_node(n.body)
             self.m_depth -= 1
@@ -95,15 +96,14 @@ class Ast2Py:
                 for i in n.block_items:
                     ret += self.ast2py_one_node(i)
             else:
-                ret += write_one_line('pass', self.m_depth)
+                ret = write_one_line('pass', self.m_depth)
 
         elif isinstance(n, c_ast.Return):
             ret += write_one_line('return ' + self.ast2py_one_node(n.expr, 1), self.m_depth)
         elif isinstance(n, c_ast.Constant):
-            py_constant = re.sub(r'^\s*',     '', str(n.value))
-            if re.match(r'^0+x', str(n.value)): # hex, done
+            if re.match(r'^0+x', py_constant): # hex, done
                 pass
-            elif re.match(r'^0', str(n.value)): # octal, done
+            elif re.match(r'^0', py_constant): # octal, done
                 py_constant = re.sub(r'^0+[^x]',  '0o', py_constant)
 
             py_constant = re.sub(r'[ULul]+$', '', py_constant)
@@ -118,31 +118,31 @@ class Ast2Py:
             else:
                 if n.init is not None:
                     ostr = n.name + ' = ' + self.ast2py_one_node(n.init, 1)
-                    ret += write_one_line(ostr, self.m_depth)
+                    ret = write_one_line(ostr, self.m_depth)
                 else:
                     #add char* support
                     if isinstance(n.type, c_ast.PtrDecl) and isinstance(n.type.type, c_ast.TypeDecl) and \
                         isinstance(n.type.type.type, c_ast.IdentifierType):
                         if n.type.type.type.names ==['char']:
-                            ostr =  n.name + ' = CharPtr()'
+                            ostr =  f'{n.name} = CharPtr()'
                             self.import_file_list.append('cpp2py.cpp2py_ctype')
-                            ret += write_one_line(ostr, self.m_depth)
+                            ret = write_one_line(ostr, self.m_depth)
                     elif isinstance(n.type, c_ast.ArrayDecl) and isinstance(n.type.type, c_ast.TypeDecl) and \
                         isinstance(n.type.type.type, c_ast.IdentifierType):
                         if n.type.type.type.names ==['char']:
-                            ostr =  n.name + ' = CharArray('+self.ast2py_one_node(n.type.dim,1)    +  ' )'
+                            ostr =  f'{n.name} = CharArray(' + self.ast2py_one_node(n.type.dim,1) +  ' )'
                             self.import_file_list.append('cpp2py.cpp2py_ctype')
-                            ret += write_one_line(ostr, self.m_depth)
+                            ret = write_one_line(ostr, self.m_depth)
                     else:
-                        ostr = n.name + ' = 0'
-                        ret += write_one_line(ostr, self.m_depth)
+                        ostr = f'{n.name} = 0'
+                        ret = write_one_line(ostr, self.m_depth)
                 return ret
         elif isinstance(n, c_ast.Assignment):
             astr = self.ast2py_one_node(n.lvalue, 1)+ ' ' + n.op + ' ' + self.ast2py_one_node(n.rvalue, 1)
             if just_expr:
-                ret += astr
+                ret = astr
             else:
-                ret += write_one_line(astr, self.m_depth)
+                ret = write_one_line(astr, self.m_depth)
         elif isinstance(n, c_ast.ID):
             if just_expr:
                 return n.name#+':' + ast_node.
@@ -151,7 +151,7 @@ class Ast2Py:
                 return write_one_line('pass', self.m_depth)
 
         elif isinstance(n, c_ast.While):
-            ostr = 'while ' + self.ast2py_one_node(n.cond, 1) + ":"
+            ostr = f'while {self.ast2py_one_node(n.cond, 1)}:'
             ret += write_one_line(ostr, self.m_depth)
 
             self.m_depth += 1
@@ -168,9 +168,17 @@ class Ast2Py:
                     py_op = 'or'
                 case _:
                     py_op = py_op
-            ret +=  '(' + self.ast2py_one_node(n.left, 1) +') ' 
+            if isinstance(n.left, c_ast.BinaryOp):
+                ret +=  '(' + self.ast2py_one_node(n.left, 1) +') ' 
+            else:
+                ret +=  self.ast2py_one_node(n.left, 1)
+            
             ret += py_op
-            ret += ' (' + self.ast2py_one_node(n.right, 1) + ')'
+
+            if isinstance(n.right, c_ast.BinaryOp):
+                ret += ' (' + self.ast2py_one_node(n.right, 1) + ')'
+            else:
+                ret +=  self.ast2py_one_node(n.right, 1)
             
         elif isinstance(n, c_ast.If):
             ret += write_one_line( 'if ' + self.ast2py_one_node(n.cond, 1) + ":", self.m_depth)
@@ -196,48 +204,48 @@ class Ast2Py:
         elif isinstance(n, c_ast.UnaryOp):
             if n.op== '*':
                 if just_expr:
-                    ret += self.ast2py_one_node(n.expr, 1) + '[0]'
+                    ret = self.ast2py_one_node(n.expr, 1) + '[0]'
                 else:
-                    ret += write_one_line(self.ast2py_one_node(n.expr, 1) + '[0]', self.m_depth)
+                    ret = write_one_line(self.ast2py_one_node(n.expr, 1) + '[0]', self.m_depth)
             elif n.op== '!':
                 ostr =  'not ' + self.ast2py_one_node(n.expr, 1)
                 if just_expr:
-                    ret += ostr
+                    ret = ostr
                 else:
-                    ret += write_one_line(ostr, self.m_depth)
+                    ret = write_one_line(ostr, self.m_depth)
             elif n.op== '++' or n.op == 'p++':
                 ostr = self.ast2py_one_node(n.expr, 1)+' += 1'
                 if just_expr:
-                    ret += ostr
+                    ret = ostr
                 else:
-                    ret += write_one_line(ostr, self.m_depth)
+                    ret = write_one_line(ostr, self.m_depth)
             elif n.op== '--' or n.op == 'p--':
                 ostr = self.ast2py_one_node(n.expr, 1) + ' -= 1'
                 if just_expr:
-                    ret += ostr
+                    ret = ostr
                 else:
-                    ret += write_one_line(ostr, self.m_depth)
+                    ret = write_one_line(ostr, self.m_depth)
             elif n.op == '-' or n.op == '+' or n.op == '~':
                 ostr = str(n.op) + self.ast2py_one_node(n.expr, 1)
                 if just_expr:
-                    ret += ostr
+                    ret = ostr
                 else:
-                    ret += write_one_line(ostr, self.m_depth)
+                    ret = write_one_line(ostr, self.m_depth)
             # simulate dereference by id()
             elif n.op == '&':
                 ostr = 'id(' + self.ast2py_one_node(n.expr, 1) + ')'
                 if just_expr:
-                    ret += ostr
+                    ret = ostr
                 else:
-                    ret += write_one_line(ostr, self.m_depth)
+                    ret = write_one_line(ostr, self.m_depth)
             # simulate sizeof by .__get_sizeof__()
             # maybe use sys.getsizeof() instead?
             elif n.op == 'sizeof':
                 ostr = self.ast2py_one_node(n.expr, 1) + '.__sizeof__()'
                 if just_expr:
-                    ret += ostr
+                    ret = ostr
                 else:
-                    ret += write_one_line(ostr, self.m_depth)
+                    ret = write_one_line(ostr, self.m_depth)
             else:
                 print("Unknown UnaryOp", n.op)
 
@@ -311,6 +319,8 @@ class Ast2Py:
 
 
 
+# import mmap
+
 def c2py(input_c_file, output_py_file):
     # Create the parser and ask to parse the text. parse() will throw
     # a ParseError if there's an error in the code
@@ -322,32 +332,37 @@ def c2py(input_c_file, output_py_file):
     text = f.read()
     f.close()
     
-    
     #预处理
     #text, py_code = cpp_parse(text, input_c_file)
-
+    
     prep = pcpp.Preprocessor()
-    prep.parse(text,input_c_file,{} )
+    prep.parse(text, input_c_file, {})
+
     b=io.StringIO()
     prep.write(b)
     text = b.getvalue()
-    py_code =''
 
-
-
-    f=open('tmp_cprep.c','w')
+    f = open('tmp_cprep.c','w')
     f.write(text)
     f.close()
 
     start_line=0
     ast = parser.parse(text, filename=input_c_file)
-    py_cont = a2py.ast2py(ast, start_line)
-    py_code = a2py.import_list()
-    f=open(output_py_file,'w')
 
-    f.write(py_code)
+    f = open(output_py_file ,'w')
+
+    # add transpiled code
+    py_cont = a2py.ast2py(ast, start_line)
     f.write(py_cont)
-    f.close()
+
+    # add required imports
+    py_code = a2py.import_list()
+    f.write(py_code)
+
+    # add entry point so that program can actually be run
+    f.write('\n\n\n')
+    f.write('if __name__ == "__main__":\n')
+    f.write('   main()"\n')
 
 
 if __name__ == '__main__':
