@@ -98,7 +98,7 @@ class Ast2Py:
                 ret += write_one_line('pass', self.m_depth)
 
         elif isinstance(n, c_ast.Return):
-            ret += write_one_line('return ' + self.ast2py_one_node(n.expr), self.m_depth)
+            ret += write_one_line('return ' + self.ast2py_one_node(n.expr, 1), self.m_depth)
         elif isinstance(n, c_ast.Constant):
             py_constant = re.sub(r'^\s*',     '', str(n.value))
             if re.match(r'^0+x', str(n.value)): # hex, done
@@ -148,11 +148,12 @@ class Ast2Py:
                 return n.name#+':' + ast_node.
             else:
                 # ID is noop
-                return n.name
+                return write_one_line('pass', self.m_depth)
 
         elif isinstance(n, c_ast.While):
             ostr = 'while ' + self.ast2py_one_node(n.cond, 1) + ":"
             ret += write_one_line(ostr, self.m_depth)
+
             self.m_depth += 1
             ret += self.ast2py_one_node(n.stmt)
             self.m_depth-=1
@@ -167,9 +168,9 @@ class Ast2Py:
                     py_op = 'or'
                 case _:
                     py_op = py_op
-            ret +=  '(' + self.ast2py_one_node(n.left) +') ' 
+            ret +=  '(' + self.ast2py_one_node(n.left, 1) +') ' 
             ret += py_op
-            ret += ' (' + self.ast2py_one_node(n.right) + ')'
+            ret += ' (' + self.ast2py_one_node(n.right, 1) + ')'
             
         elif isinstance(n, c_ast.If):
             ret += write_one_line( 'if ' + self.ast2py_one_node(n.cond, 1) + ":", self.m_depth)
@@ -252,8 +253,8 @@ class Ast2Py:
                 ret += write_one_line(call_str, self.m_depth)
         elif isinstance(n, c_ast.TernaryOp):
             #三元表达式
-            tstr = 'if ' + self.ast2py_one_node(n.cond,1) + ' then ' + self.ast2py_one_node(n.iftrue,1) +' else ' + self.ast2py_one_node(n.iffalse,1)
-            ret += tstr
+            tern = '(%s if %s else %s)' % (self.ast2py_one_node(n.iftrue, 1), self.ast2py_one_node(n.cond, 1), self.ast2py_one_node(n.iffalse, 1))
+            ret += write_one_line(tern, self.m_depth)
 
         elif isinstance(n, c_ast.Cast):
             cstr = self.ast2py_one_node(n.to_type,1) +'('+ self.ast2py_one_node(n.expr,1)      +')'
@@ -298,8 +299,13 @@ class Ast2Py:
         elif isinstance(n, c_ast.Continue):
             ret += write_one_line('continue', self.m_depth)
         else:
-            print('Unknown ast type:', type(n))
-            # print('Unknown',ast_node)
+            # switch-case unsupported
+            # goto unsupported
+            print('Unknown ast type:', type(n), n)
+            if just_expr:
+                ret += '0'
+            else:
+                ret += write_one_line('pass', self.m_depth)
 
         return ret
 
