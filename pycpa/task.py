@@ -17,8 +17,12 @@ from enum import Enum
 class Status(Enum):
     OK = 0,
     TIMEOUT = 1,
-    OUT_OF_MEMORY = 2
-    ERROR = 3
+    OUT_OF_MEMORY = 2,
+    ABORTED_BY_USER = 3,
+    ERROR = 4
+
+    def __str__(self):
+        return Enum.__str__(self).replace('Verdict.', '')
 
 
 from pycpa.verdict import Verdict
