@@ -18,7 +18,6 @@ from pycpa.cfa import *
 
 from pycpa.cpa import *
 from pycpa.cpaalgorithm import *
-from pycpa.mcalgorithm import *
 
 from pycpa.verdict import Verdict, evaluate_arg_safety
 
@@ -100,8 +99,8 @@ def main(args):
         # 
         cpa = ARGCPA(CompositeCPA(cpas))
 
-
         result = Result()
+
 
         print('\rrunning CPA algorithm', end='')
         waitlist = set()
