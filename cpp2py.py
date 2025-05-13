@@ -3,7 +3,7 @@
 #from .cparselite import read_funtion_def
 from pycparser import c_parser
 from pycparser import c_ast
-import pcpp
+import pycparser
 import io
 
 import re
@@ -11,55 +11,6 @@ import re
 tab = '\t'
 def write_one_line(buf, depth):
     return f'{tab:.{depth}}{buf}\n'
-
-def cpp_parse(text, input_c_file):
-    """
-    解析include，并生成import
-    """
-    ret = ''
-    py_code=''
-    line_no = 0
-    in_comment = 0
-    for one_line in text.split('\n'):
-        line_no+=1
-        one_line = one_line.strip()
-        if in_comment:
-            if '*/' in one_line:
-                #注释结束
-                if one_line[-2:]!='/*':
-                    print('WARNING: comment in middle may losing code\n', one_line)
-                in_comment=0
-            #ret += '# '+ one_line +'\n'
-            ret +='\n'
-            continue
-
-        if one_line[:2]=='//':
-            #comment one line
-
-            #ret +='# '+ one_line[2:] +  '\n'
-            ret +='\n'
-            continue
-
-
-        if one_line[:2]=='/*':
-            #comment one line
-            ret +='\n'
-            in_comment=1
-            continue
-
-
-        inc = '#include'
-        if one_line[:len(inc)]==inc:
-            inc_file = one_line[len(inc):]
-            inc_file=inc_file.replace('"','').replace('<','').replace('>','').replace('.h','').replace('.hpp','').strip()
-            py_code+= f'import {inc_file}\n'
-            ret +='\n'
-            continue
-
-        ret += one_line+'\n'
-
-    return ret,py_code
-
 
 class Ast2Py:
     def __init__(self):
@@ -81,14 +32,12 @@ class Ast2Py:
 
     def ast2py_fast(self, ast, filelike):
         self.stack = list()
-
-        ret = ''
-
         depth = 0
 
+        # uppermost level of ast
         for i in reversed(ast.ext):
-            self.stack.append(i)
-            self.stack.append(0)
+            self.push_expr(i)
+            self.push_newline(depth)
 
         while len(self.stack) > 0:
             element = self.stack.pop()
@@ -150,7 +99,8 @@ class Ast2Py:
 
             case c_ast.Return():
                 self.push_newline(depth)
-                self.push_expr(n.expr)
+                if n.expr:
+                    self.push_expr(n.expr)
                 self.push_expr('return ')
 
             case c_ast.Constant():
@@ -302,6 +252,7 @@ class Ast2Py:
                 self.push_expr(n.name)
 
             case c_ast.ArrayRef():
+                # TODO fix
                 self.push_expr('[0]')
                 self.push_expr(n.name)
 
@@ -380,7 +331,7 @@ class Ast2Py:
 
             case c_ast.Case():
                 if all(not isinstance(s, c_ast.Break) for s in n.stmts):
-                    print('case does not contain break statement!')
+                    print('Warning: case does not contain break statement!')
 
                 for s in reversed(n.stmts):
                     self.push_expr(s)
@@ -392,7 +343,7 @@ class Ast2Py:
 
             case c_ast.Default():
                 if all(not isinstance(s, c_ast.Break) for s in n.stmts):
-                    print('case does not contain break statement!')
+                    print('Warning: case does not contain break statement!')
 
                 for s in reversed(n.stmts):
                     self.push_expr(s)
@@ -401,12 +352,16 @@ class Ast2Py:
                 self.push_expr('case _:')
 
 
-
-
-            # switch-case unsupported
             # goto unsupported
-            case c_ast.Goto() | c_ast.Label():
-                pass
+            case c_ast.Goto():
+                print('encountered goto, ignoring')
+                self.push_expr('# goto ' + n.name)
+
+            case c_ast.Label():
+                self.push_expr(n.stmt)
+                self.push_newline(depth)
+                # label name becomes comment
+                self.push_expr('# ' + n.name)
 
 
             case c_ast.BinaryOp():
@@ -493,7 +448,6 @@ class Ast2Py:
                 self.push_expr('(')
                 self.push_expr(n.to_type)
 
-
             case _:
                 if n is not None:
                     print('Unknown ast type:', type(n))
@@ -501,8 +455,8 @@ class Ast2Py:
                     # if just_expr:
                     #     self.push_expr('0')
                     # else:
-                self.push_newline(depth)
-                self.push_expr('pass')
+                    self.push_newline(depth)
+                    self.push_expr('pass')
 
     def ast2py_one_node(self, n, just_expr=0):
         ret=''
@@ -776,35 +730,22 @@ class Ast2Py:
 def c2py(input_c_file, output_py_file):
     # Create the parser and ask to parse the text. parse() will throw
     # a ParseError if there's an error in the code
-    #
-    parser = c_parser.CParser()
-    a2py = Ast2Py()
 
-    f = open(input_c_file, 'r')
-    text = f.read()
-    f.close()
-    
-    #预处理
-    #text, py_code = cpp_parse(text, input_c_file)
-    
-    prep = pcpp.Preprocessor()
-    prep.parse(text, input_c_file, {})
+    text = pycparser.preprocess_file(input_c_file)
 
-    b=io.StringIO()
-    prep.write(b)
-    text = b.getvalue()
-
-    f = open('tmp_cprep.c','w')
-    f.write(text)
-    f.close()
+    # f = open('tmp_cprep.c','w')
+    # f.write(text)
+    # f.close()
 
     start_line=0
+    parser = c_parser.CParser()
     ast = parser.parse(text, filename=input_c_file)
 
     f = open(output_py_file ,'w')
 
     # add transpiled code
     b=io.StringIO()
+    a2py = Ast2Py()
     a2py.ast2py_fast(ast, b)
     py_cont = b.getvalue()
 
