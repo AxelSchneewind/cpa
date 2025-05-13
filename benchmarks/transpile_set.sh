@@ -24,7 +24,7 @@ do
     c_file="$(basename $line)"
 
     # filter out files with gotos/switch: not supported yet
-    ([ -n "$(grep 'goto' $line)" ] || [ -n "$(grep 'switch' $line)" ]) && echo "skipping $line" && continue
+    ([ -n "$(grep 'goto' $line)" ]) && echo "skipping $line" && continue
 
     ln -sf "../$line" $benchset/
 
