@@ -1,20 +1,25 @@
 
-from pycpa.analyses import PropertyCPA, PropertyState, CompositeState, ARGState
+from pycpa.cpa import WrappedAbstractState
+from pycpa.analyses import PropertyCPA, PropertyState, CompositeState
 
+from pycpa.specification import Specification, ARGVisitor
+from pycpa.verdict import Verdict
 
-def get_cpas():
+class ReachSafetyARGVisitor(ARGVisitor):
+    def __init__(self):
+        self.result = Verdict.TRUE
+
+    def visit_PropertyState(self, state : PropertyState):
+        sr = Verdict.TRUE if state.safe else Verdict.FALSE
+        self.result &= sr
+        
+    def verdict(self) -> Verdict:
+        return self.result
+
+def get_cpas(cfa_root):
     return [PropertyCPA()]
 
+def get_arg_visitor():
+    return ReachSafetyARGVisitor()
 
-def state_property(state):
-    if isinstance(state, CompositeState):
-        for wrapped in state.wrapped_states:
-            if isinstance(wrapped, PropertyState):
-                return wrapped.safe == True
-    elif isinstance(state, ARGState):
-        return state_property(state.wrapped_state)
-    else:
-        raise NotImplementedError(state)
     
-    return None
-

@@ -19,17 +19,4 @@ class Verdict(Enum):
         return Enum.__str__(self).replace('Verdict.', '')
 
 
-def walk_arg(stack):
-    node = stack.pop()
-    for c in node.children:
-        stack.append(c)
-    yield node
 
-def evaluate_arg_safety(arg_root, state_prop):
-    stack = list()
-    stack.append(arg_root)
-    for node in walk_arg(stack):
-        if state_prop(node) == False:
-            return Verdict.FALSE
-    
-    return Verdict.TRUE

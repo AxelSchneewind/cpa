@@ -1,12 +1,9 @@
-import pycpa.config
 import importlib
 
-# TODO: get list of all files in config and property
-configs = []
-properties = []
+def load_cpa(name : str):
+    modname = 'pycpa.config.' + name
+    return importlib.import_module(modname)
 
-def get_config(name):
-    return importlib.import_module('pycpa.config.' + name)
-
-def get_property(name):
-    return importlib.import_module('pycpa.property.' + name)
+def load_specification(name : str):
+    modname = 'pycpa.property.' + name
+    return importlib.import_module(modname)

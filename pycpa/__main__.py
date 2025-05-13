@@ -2,10 +2,7 @@
 
 import sys
 
-from pycpa.analyses import ARGCPA
-from pycpa.analyses import ARGState
-
-from pycpa.analyses import GraphableARGState
+from pycpa.analyses import ARGCPA, GraphableARGState
 from pycpa.analyses import CompositeCPA
 from pycpa.analyses import LocationCPA
 from pycpa.analyses import PropertyCPA
@@ -15,11 +12,11 @@ from pycpa import configs
 
 from pycpa.ast import *
 from pycpa.cfa import *
-
 from pycpa.cpa import *
-from pycpa.cpaalgorithm import *
+from pycpa.cpaalgorithm import CPAAlgorithm, Status
 
-from pycpa.verdict import Verdict, evaluate_arg_safety
+from pycpa.specification import Specification
+from pycpa.verdict import Verdict
 
 from pycpa.task import Task, Result
 
@@ -96,15 +93,14 @@ def main(args):
         entry_point = cfa_creator.entry_point
     
 
-        # 
-        modules = [ configs.get_config(c) for c in args.config ]
-        property_modules = [ configs.get_property(p) for p in args.property ]
+        # setup cpas and properties
+        analysis_mods = [ configs.load_cpa(c) for c in args.config ]
+        specification_mods = [ configs.load_specification(p) for p in args.property ]
         cpas = []
-        for m in modules:
+        for m in analysis_mods:
             cpas.extend(m.get_cpas(entry_point))
-            
-        for p in property_modules:
-            cpas.extend(p.get_cpas())
+        for p in specification_mods:
+            cpas.extend(p.get_cpas(entry_point))
         # 
         cpa = ARGCPA(CompositeCPA(cpas))
 
@@ -121,14 +117,14 @@ def main(args):
         # run algorithm
         try:
             algo.run(reached, waitlist)
-        except BaseException as x:
-            result.status = Status.ERROR
-            result.witness = str(x)
-            # raise x
         except KeyboardInterrupt as x:
             result.status = Status.ABORTED_BY_USER
             result.witness = str(x)
             aborted = True
+        except BaseException as x:
+            result.status = Status.ERROR
+            result.witness = str(x)
+            raise x
         except:
             result.status = Status.ERROR
 
@@ -148,9 +144,9 @@ def main(args):
 
         # compute verdict for each property
         v = Verdict.TRUE if result.status == Status.OK else Verdict.UNKNOWN
-        result.verdicts = [v for p in property_modules]
-        for i,p in enumerate(property_modules):
-            result.verdicts[i] = evaluate_arg_safety(init, p.state_property)
+        result.verdicts = [v for p in specification_mods]
+        for i, p in enumerate(specification_mods):
+            result.verdicts[i] = p.get_arg_visitor().visit(init).verdict()
             result.verdict &= result.verdicts[i]
 
             print('%s:  %s' % (str(task.properties[i]), str(result.verdicts[i])))
