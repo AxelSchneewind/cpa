@@ -308,6 +308,7 @@ class Ast2Py:
             case c_ast.Break():
                 self.push_newline(depth)
                 self.push_expr('break')
+
             case c_ast.Continue():
                 self.push_newline(depth)
                 self.push_expr('continue')
@@ -367,6 +368,40 @@ class Ast2Py:
                 self.push_expr(':')
                 self.push_expr(n.cond)
                 self.push_expr('if ')
+
+            case c_ast.Switch():
+                self.push_newline(depth)
+                self.push_expr(n.stmt)
+                self.push_newline(depth + 1)
+
+                self.push_expr(':')
+                self.push_expr(n.cond)
+                self.push_expr('match ')
+
+            case c_ast.Case():
+                if all(not isinstance(s, c_ast.Break) for s in n.stmts):
+                    print('case does not contain break statement!')
+
+                for s in reversed(n.stmts):
+                    self.push_expr(s)
+                    self.push_newline(depth + 1)
+
+                self.push_expr(':')
+                self.push_expr(n.expr)
+                self.push_expr('case ')
+
+            case c_ast.Default():
+                if all(not isinstance(s, c_ast.Break) for s in n.stmts):
+                    print('case does not contain break statement!')
+
+                for s in reversed(n.stmts):
+                    self.push_expr(s)
+                    self.push_newline(depth + 1)
+
+                self.push_expr('case _:')
+
+
+
 
             # switch-case unsupported
             # goto unsupported
