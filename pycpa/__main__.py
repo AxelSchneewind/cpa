@@ -57,7 +57,11 @@ def main(args):
             out_prog.write(ast_program)
 
         print('computing AST', end='')
-        tree = ast.parse(ast_program)
+        try:
+            tree = ast.parse(ast_program)
+        except:
+            print('\rfailure, continuing')
+            continue
 
         # prettyprint ast
         with open(output_dir + '/astpretty', 'w') as out_file:
@@ -81,15 +85,15 @@ def main(args):
         CFANode.index = 0  # reset the CFA node indices to produce identical output on re-execution
         visitor = CFACreator()
         visitor.visit(tree)
-        cfa_root = visitor.root
-        dot = graphable_to_dot(GraphableCFANode(cfa_root))
+        entry_point = visitor.entry_point
+        dot = graphable_to_dot([ GraphableCFANode(r) for r in visitor.roots ])
         dot.render(output_dir + '/cfa')
     
         # In[18]:
         CFANode.index = 0  # reset the CFA node indices to produce identical output on re-execution
         cfa_creator = CFACreator()
         cfa_creator.visit(tree)
-        cfa_root = cfa_creator.root
+        entry_point = cfa_creator.entry_point
     
 
         # 
@@ -97,7 +101,7 @@ def main(args):
         property_modules = [ configs.get_property(p) for p in args.property ]
         cpas = []
         for m in modules:
-            cpas.extend(m.get_cpas(cfa_root))
+            cpas.extend(m.get_cpas(entry_point))
             
         for p in property_modules:
             cpas.extend(p.get_cpas())
@@ -120,6 +124,7 @@ def main(args):
         except BaseException as x:
             result.status = Status.ERROR
             result.witness = str(x)
+            # raise x
         except KeyboardInterrupt as x:
             result.status = Status.ABORTED_BY_USER
             result.witness = str(x)
@@ -128,26 +133,27 @@ def main(args):
             result.status = Status.ERROR
 
 
-
         # print status
         print(':  %s' % str(result.status))
+        # if result.witness:
+        #     print('%s' % str(result.witness))
 
         # output arg
         dot = graphable_to_dot(
-                GraphableARGState(init),
+                [ GraphableARGState(init) ],
                 nodeattrs={"style": "filled", "shape": "box", "color": "white"},
             )
         dot.render(output_dir + '/arg')
 
 
         # compute verdict for each property
-        v = result.verdict
-        result.verdicts = [result.verdict for p in property_modules]
+        v = Verdict.TRUE if result.status == Status.OK else Verdict.UNKNOWN
+        result.verdicts = [v for p in property_modules]
         for i,p in enumerate(property_modules):
             result.verdicts[i] = evaluate_arg_safety(init, p.state_property)
-            result.verdict &= v
+            result.verdict &= result.verdicts[i]
 
-            print('%s:  %s' % (str(task.properties[i]), str(result.verdict)))
+            print('%s:  %s' % (str(task.properties[i]), str(result.verdicts[i])))
 
     
 from pycpa.params import parser

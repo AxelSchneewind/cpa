@@ -3,7 +3,7 @@
 from typing import Collection
 
 class Task:
-    def __init__(self, program, configs : Collection[str] = [], properties : Collection[str] = [], max_iterations=None):
+    def __init__(self, program : str, configs : Collection[str] = [], properties : Collection[str] = [], max_iterations=None):
         self.program = program
         self.configs = configs
         self.properties = properties
