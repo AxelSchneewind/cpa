@@ -5,7 +5,7 @@
 
 # In[15]:
 
-from pycpa.cpa import CPA, AbstractState, TransferRelation, MergeOperator, StopOperator
+from pycpa.cpa import CPA, AbstractState, WrappedAbstractState, TransferRelation, MergeOperator, StopOperator
 from pycpa.cfa import Graphable
 from pycpa.analyses import LocationCPA
 
@@ -41,12 +41,13 @@ class ARGTransferRelation(TransferRelation):
         self.wrapped_transfer_relation = wrapped_transfer_relation
 
     def get_abstract_successors(self, predecessor):
-        return [
+        result = [
             ARGState(wrapped_successor, predecessor)
             for wrapped_successor in self.wrapped_transfer_relation.get_abstract_successors(
                 predecessor.wrapped_state
             )
         ]
+        return result
 
 
 class ARGStopOperator(StopOperator):
@@ -128,7 +129,9 @@ class GraphableARGState(Graphable):
             for leaving_edge in loc1.leaving_edges:
                 if leaving_edge.successor == loc2:
                     return [leaving_edge.label()]
-        return [""]
+        if loc1:
+            return [loc1.leaving_edges[0].label()]
+        return ['']
 
     def _extract_location(self, state):
         waitlist = set()
@@ -136,13 +139,10 @@ class GraphableARGState(Graphable):
         location = None
         while waitlist:
             current = waitlist.pop()
+            waitlist.update(WrappedAbstractState.wrapped(current))
             if isinstance(current, LocationCPA.LocationState):
                 location = current.location
                 break
-            if hasattr(current,"wrapped_state"):
-                waitlist.add(current.wrapped_state)
-            elif hasattr(current,"wrapped_states"):
-                waitlist.update(current.wrapped_states)
         return location
 
     def get_successors(self):

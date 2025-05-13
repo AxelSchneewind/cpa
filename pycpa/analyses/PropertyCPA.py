@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from pycpa.cpa import CPA, AbstractState, TransferRelation, MergeOperator, StopOperator, MergeSepOperator
-from pycpa.cfa import InstructionType
+from pycpa.cfa import InstructionType, CFAEdge
 
 import ast
 
@@ -52,12 +52,12 @@ class FunctionCallVisitor(ast.NodeVisitor):
 
 
 class PropertyTransferRelation(TransferRelation):
-    def get_abstract_successors(self, predecessor):
+    def get_abstract_successors(self, predecessor : PropertyState):
         raise NotImplementedError(
             "successors without edge not possible for Property Analysis!"
         )
 
-    def get_abstract_successors_for_edge(self, predecessor, edge):
+    def get_abstract_successors_for_edge(self, predecessor : PropertyState, edge : CFAEdge):
         v = FunctionCallVisitor(predecessor)
         kind = edge.instruction.kind
         if kind == InstructionType.STATEMENT:
@@ -66,8 +66,10 @@ class PropertyTransferRelation(TransferRelation):
         elif kind == InstructionType.ASSUMPTION:
             v.visit(edge.instruction.expression)
             return [v.state]
+        elif kind == InstructionType.REACH_ERROR:
+            return [PropertyState(False)]
         else:
-            raise ValueError("invalid value")
+            return [predecessor]
 
 
 class PropertyStopOperator(StopOperator):

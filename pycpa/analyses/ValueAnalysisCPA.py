@@ -2,7 +2,7 @@
 
 from pycpa.cfa import InstructionType
 
-from pycpa.cpa import CPA, AbstractState , TransferRelation , StopSepOperator , MergeSepOperator
+from pycpa.cpa import CPA, AbstractState, TransferRelation, StopSepOperator, MergeSepOperator
 
 import ast
 import copy
@@ -219,9 +219,9 @@ class ValueExpressionVisitor(ast.NodeVisitor):
     def update(self, other_valuation):
         for lhs, rhs in zip(self.lstack, self.rstack):
             if rhs.is_top():
-                other_valuation.pop(lhs, None)
+                other_valuation.pop(str(lhs), None)
             else:
-                other_valuation[lhs] = rhs.actual
+                other_valuation[str(lhs)] = rhs.actual
 
 class Value:
     __top = None
@@ -424,11 +424,15 @@ class ValueTransferRelation(TransferRelation):
             assert len(v.rstack) == 1, v.rstack
             result = v.rstack.pop()
             if result.is_top():
-                return [predecessor]
+                return [copy.copy(predecessor)]
             passed = True if result.actual else False
-            return [predecessor] if passed else []
+            return [copy.copy(predecessor)] if passed else []
+        elif edge.instruction.kind == InstructionType.CALL:
+            newval = ValueState()
+            newval.valuation = { edge.instruction.param_names[i] : predecessor.valuation[k] for i,k in enumerate(edge.instruction.arg_names) if k in predecessor.valuation }
+            return [newval]
         else:
-            raise ValueError("invalid value")
+            return [copy.copy(predecessor)]
 
 
 class ValueAnalysisCPA(CPA):

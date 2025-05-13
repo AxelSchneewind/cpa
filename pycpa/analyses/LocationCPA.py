@@ -1,12 +1,9 @@
 #!/bin/env/python
 
 from pycpa.cpa import CPA
-from pycpa.cpa import MergeSepOperator
-from pycpa.cpa import StopSepOperator
-from pycpa.cpa import AbstractState
-from pycpa.cpa import TransferRelation
+from pycpa.cpa import MergeSepOperator, StopSepOperator, AbstractState, TransferRelation
 
-from pycpa.cfa import CFANode, CFAEdge
+from pycpa.cfa import CFANode, CFAEdge, InstructionType
 
 from typing import Collection
 
@@ -26,6 +23,7 @@ from typing import Collection
 
 class LocationState(AbstractState):
     def __init__(self, node: CFANode):
+        assert isinstance(node, CFANode), type(node)
         self.location = node
 
     def __str__(self):
@@ -41,9 +39,20 @@ class LocationState(AbstractState):
 class LocationTransferRelation(TransferRelation):
 
     def get_abstract_successors(self, predecessor: LocationState) -> Collection[LocationState]:
-        return [LocationState(edge.successor) for edge in predecessor.location.leaving_edges]
+        return [
+            LocationState(edge.successor) 
+            for edge in predecessor.location.leaving_edges 
+            if edge.kind is not InstructionType.CALL
+        ] + [
+            LocationState(edge.instruction.location) 
+            for edge in predecessor.location.leaving_edges 
+            if edge.kind is InstructionType.CALL
+        ]
 
     def get_abstract_successors_for_edge(self, predecessor: LocationState, edge: CFAEdge) -> Collection[LocationState]:
+        kind = edge.instruction.kind
+        if kind == InstructionType.CALL:
+            return [LocationState(edge.instruction.location)]
         return [LocationState(edge.successor)]
 
 

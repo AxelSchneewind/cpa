@@ -9,14 +9,16 @@
 
 # In[19]:
 
-from pycpa.cpa import AbstractState, TransferRelation, MergeOperator, CPA
+from pycpa.cpa import AbstractState, WrappedAbstractState, TransferRelation, MergeOperator, CPA
 from pycpa.analyses import LocationCPA
 from pycpa.analyses import LocationState
 
 import itertools
 
-class CompositeState(AbstractState):
+class CompositeState(WrappedAbstractState):
     def __init__(self, wrapped_states):
+        assert isinstance(wrapped_states, list) or isinstance(wrapped_states, set) or isinstance(wrapped_states, tuple), type(wrapped_states)
+        assert len(wrapped_states) > 0
         self.wrapped_states = wrapped_states
 
     def is_target(self):
@@ -40,7 +42,19 @@ class CompositeState(AbstractState):
         ).__hash__()
 
     def __str__(self):
-        return "|%s|" % "|\n|".join([str(state) for state in self.wrapped_states])
+        if any((isinstance(w, WrappedAbstractState) for w in self.wrapped_states)):
+            return " %s " % "\n".join([str(state) for state in self.wrapped_states])
+        else:
+            return "(%s)" % ", ".join([str(state) for state in self.wrapped_states])
+    
+    def wrapped(self):
+        result = []
+        for s in self.wrapped_states:
+            if isinstance(s, WrappedAbstractState):
+                result.extend(s.wrapped())
+            else:
+                result.append(s)
+        return result
 
 
 class CompositeStopOperator(AbstractState):
@@ -64,7 +78,7 @@ class CompositeTransferRelation(TransferRelation):
     def get_abstract_successors(self, predecessor):
         location_states = [
             state
-            for state in predecessor.wrapped_states
+            for state in predecessor.wrapped()
             if isinstance(state, LocationState)
         ]
         if len(location_states) == 0:
