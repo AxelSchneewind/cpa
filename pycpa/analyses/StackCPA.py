@@ -31,7 +31,7 @@ class StackState(WrappedAbstractState):
         return hasattr(self.stack[-1], "is_target") and self.stack[-1].is_target()
     
     def wrapped(self):
-        return WrappedAbstractState.wrapped(self.stack[-1])
+        return WrappedAbstractState.unwrap(self.stack[-1])
     
 
 class StackTransferRelation(TransferRelation):
@@ -59,10 +59,10 @@ class StackTransferRelation(TransferRelation):
             for i, wrapped_successor in enumerate(states):
                 # advance instruction pointer 
                 s = result[i].stack[-2]
-                for w, p in zip(WrappedAbstractState.wrapped(s), WrappedAbstractState.wrapped(predecessor.stack[-2])):
+                for w, p in zip(WrappedAbstractState.unwrap_fully(s), WrappedAbstractState.unwrap_fully(predecessor.stack[-2])):
                     if isinstance(p, LocationState):
                         w.location = p.location.leaving_edges[0].successor
-                for w, p in zip(WrappedAbstractState.wrapped(s), WrappedAbstractState.wrapped(predecessor.stack[-1])):
+                for w, p in zip(WrappedAbstractState.unwrap_fully(s), WrappedAbstractState.unwrap_fully(predecessor.stack[-1])):
                     if isinstance(p, ValueState):
                         if '__ret' in p.valuation:
                             w.valuation['__ret'] = copy.copy(p.valuation['__ret'])

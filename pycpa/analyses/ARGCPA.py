@@ -139,7 +139,7 @@ class GraphableARGState(Graphable):
         location = None
         while waitlist:
             current = waitlist.pop()
-            waitlist.update(WrappedAbstractState.wrapped(current))
+            waitlist.update(WrappedAbstractState.unwrap_fully(current))
             if isinstance(current, LocationCPA.LocationState):
                 location = current.location
                 break

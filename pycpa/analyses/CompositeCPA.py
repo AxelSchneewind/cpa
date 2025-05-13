@@ -30,6 +30,7 @@ class CompositeState(WrappedAbstractState):
         )
 
     def __eq__(self, other):
+        assert type(self) == type(other)
         if other is self:
             return True
         if len(self.wrapped_states) != len(other.wrapped_states):
@@ -47,15 +48,6 @@ class CompositeState(WrappedAbstractState):
         else:
             return "(%s)" % ", ".join([str(state) for state in self.wrapped_states])
     
-    def wrapped(self):
-        result = []
-        for s in self.wrapped_states:
-            if isinstance(s, WrappedAbstractState):
-                result.extend(s.wrapped())
-            else:
-                result.append(s)
-        return result
-
 
 class CompositeStopOperator(AbstractState):
     def __init__(self, wrapped_stop_operators):
@@ -78,7 +70,7 @@ class CompositeTransferRelation(TransferRelation):
     def get_abstract_successors(self, predecessor):
         location_states = [
             state
-            for state in predecessor.wrapped()
+            for state in WrappedAbstractState.unwrap_fully(predecessor)
             if isinstance(state, LocationState)
         ]
         if len(location_states) == 0:

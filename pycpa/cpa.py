@@ -20,15 +20,25 @@ class AbstractState(object):
 
 class WrappedAbstractState(AbstractState):
     @staticmethod
-    def wrapped(state) -> Collection[AbstractState]:
+    def unwrap_fully(state) -> Collection[AbstractState]:
+        result = []
+
+        for s in WrappedAbstractState.unwrap(state):
+            for sub in WrappedAbstractState.unwrap(s):
+                result.append(sub)
+        return result
+
+    @staticmethod
+    def unwrap(state) -> Collection[AbstractState]:
         if hasattr(state, 'wrapped_state'):
             return [ state.wrapped_state ]
         elif hasattr(state, 'wrapped_states'):
             return list(state.wrapped_states)
         elif hasattr(state, 'wrapped'):
-            return list(state.wrapped())
+            return state.wrapped()
         else:
             return [state]
+ 
     
 
 
