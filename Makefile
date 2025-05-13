@@ -20,24 +20,37 @@ patch-cpp2py: cpp2py.py
 	@echo 'patching cpp2py'
 	@cp cpp2py.py ./venv/lib/python3.13/site-packages/cpp2py/cpp2py.py
 
+
+# helper targets for benchmark generation
+benchmarks/%.set:
+	@echo 'converting c benchmarks to python'
+	@make -C benchmarks $*.set 
+
 benchmarks/%: benchmarks/%.set patch-cpp2py cpp2py.py
 	@echo 'converting c benchmarks to python'
 	@make -C benchmarks $*/ 
 
-regenerate-benchmarks-%: benchmarks/%.set patch-cpp2py cpp2py.py
+list-benchmarks:
+	@echo benchmarks/*/ | sed  -e 's/ /\n/g' -e 's/benchmarks\///g' | sed -e '/^.*sv-/d'
+
+regenerate-benchmark-%: benchmarks/%.set patch-cpp2py cpp2py.py
 	@echo "converting c benchmark set $* to python"
 	@rm -rf benchmarks/$*/
 	@make -C benchmarks $*/ -B
 
+# main target for generating benchmarks
 generate-benchmarks: patch-cpp2py cpp2py.py 
 	@echo "converting c benchmarks to python"
 	@make -C benchmarks benchmarks -B
 
+# main target for running benchmarks, TODO: define set of benchmark sets somewhere
 run-benchmarks: run-benchmark-ReachSafety-Arrays
 
 run-benchmark-%: venv check-venv benchmarks/% cpp2py.py
 	@echo 'running benchmark'
-	python -m pycpa -p ReachSafety -c ValueAnalysisMergeJoin benchmarks/$*/*.py
+	python -m pycpa -p ReachSafety -c ValueAnalysisMergeJoin --max-iterations 1000 benchmarks/$*/*.py
 
-run-examples: collatz.py unsafe.py
-	python -m pycpa -p ReachSafety -c ValueAnalysisMergeJoin collatz.py unsafe.py
+run-benchmark-Test: 
+
+run-examples: check-venv collatz.py unsafe.py
+	python -m pycpa -p ReachSafety -c ValueAnalysis --max-iterations 300 collatz.py unsafe.py benchmarks/Test/*.py
