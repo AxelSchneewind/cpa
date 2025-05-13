@@ -18,6 +18,19 @@ from typing import Collection
 class AbstractState(object):
     pass
 
+class WrappedAbstractState(AbstractState):
+    @staticmethod
+    def wrapped(state) -> Collection[AbstractState]:
+        if hasattr(state, 'wrapped_state'):
+            return [ state.wrapped_state ]
+        elif hasattr(state, 'wrapped_states'):
+            return list(state.wrapped_states)
+        elif hasattr(state, 'wrapped'):
+            return list(state.wrapped())
+        else:
+            return [state]
+    
+
 
 class TransferRelation:
     def get_abstract_successors(self, predecessor: AbstractState) -> Collection[AbstractState]:

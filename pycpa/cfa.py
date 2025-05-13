@@ -15,21 +15,60 @@ from graphviz import Digraph
 
 # In[7]:
 
+from typing import List
 
 from enum import Enum
-class InstructionType(Enum):
-    STATEMENT = 1
-    ASSUMPTION = 2
-    JUMP = 3        # TODO: check if this is the way to implement subprocedure calls
 
+
+class InstructionType(Enum):
+    STATEMENT = 1,
+    ASSUMPTION = 2,
+    CALL = 3,
+    RETURN = 4,
+    NONDET = 5,
+    EXIT = 5,
+    ABORT = 6,
+    REACH_ERROR = 7,
+    EXTERNAL = 8,
+
+builtin_identifiers = {
+    'exit'          : InstructionType.EXIT,
+    'abort'         : InstructionType.ABORT,
+    'call'          : InstructionType.CALL,
+    'return'        : InstructionType.RETURN,
+    'nondet'        : InstructionType.NONDET,
+    'reach_error'   : InstructionType.REACH_ERROR,
+}
 
 class Instruction:
     """An instruction is either an assignment or an assumption"""
 
-    def __init__(self, expression, kind=InstructionType.STATEMENT, negated=False):
+    def __init__(self, expression, kind=InstructionType.STATEMENT, **params):
         self.kind = kind
         self.expression = expression
-        self.negated = negated  # we might need this information at some point
+        for p in params:
+            if not hasattr(self, p):
+                setattr(self, p, params[p])
+
+        match self.kind:
+            case InstructionType.EXIT:
+                assert hasattr(self,'exit_code')
+            case InstructionType.CALL:
+                assert hasattr(self,'location')
+                assert hasattr(self,'declaration')
+    
+    def __str__(self):
+        identifier = str(self.kind).replace('InstructionType.', '')
+        match self.kind:
+            case InstructionType.EXIT:
+                code = self.exit_code if 'exit_code' in self.parameters else '0'
+                return '%s(%s)' % (identifier, code)
+            case InstructionType.CALL:
+                return 'jump %s' % (self.location)
+            case _:
+                return '%s' % self.identifier
+
+
 
     @staticmethod
     def assumption(expression, negated=False):
@@ -44,8 +83,27 @@ class Instruction:
         return Instruction(expression)
 
     @staticmethod
-    def jump(location):
-        return Instruction(location, kind=InstructionType.JUMP)
+    def builtin(expression, **params):
+        name = str(expression.func.id)
+        if name in builtin_identifiers: 
+            return Instruction(expression, kind=builtin_identifiers[name])
+        else:
+            return Instruction(expression, kind=InstructionType.EXTERNAL, **params)
+
+    @staticmethod
+    def ret(expression : ast.Return):
+        return Instruction(expression, kind=InstructionType.RETURN)
+
+    @staticmethod
+    def call(expression : ast.Call, declaration : ast.FunctionDef, entry_point, argnames : List[ast.arg]):
+        assert all((isinstance(p.arg, ast.Name) or isinstance(p.arg, str) for p in declaration.args.args)), declaration.args.args
+        assert all((isinstance(p.arg, ast.Name) or isinstance(p.arg, str) for p in argnames)), argnames
+        param_names = [str(p.arg) for p in declaration.args.args]
+        arg_names   = [str(p.arg) for p in argnames]
+        return Instruction(expression, kind=InstructionType.CALL, location=entry_point, declaration=declaration, param_names=param_names, arg_names=arg_names)
+
+
+
 
 
 # The  CFA then consists of nodes and edges, for which we declare separate classes.
@@ -53,7 +111,6 @@ class Instruction:
 # A `CFAEdge` contains an `Instruction` as well as references to its predecessor and successor `CFANode`s:
 
 # In[8]:
-
 
 import astunparse
 import astpretty
@@ -101,11 +158,11 @@ class CFAEdge:
 
     def label(self):
         if self.instruction.kind == InstructionType.ASSUMPTION:
-            return '[' + astunparse.unparse(self.instruction.expression).strip() + ']'
+            return str(self.instruction.expression.lineno) + ': [' + astunparse.unparse(self.instruction.expression).strip() + ']'
         elif self.instruction.kind == InstructionType.STATEMENT:
-            return astunparse.unparse(self.instruction.expression).strip()
-        elif self.instruction.kind == InstructionType.JUMP:
-            return 'goto %s' % self.instruction.location
+            return str(self.instruction.expression.lineno) + ': ' + astunparse.unparse(self.instruction.expression).strip()
+        else:
+            return '< %s >' % self.instruction.kind
 
 # #### Task 3: Creating a CFA from an AST using a visitor (10 points)
 # 
@@ -127,20 +184,34 @@ import ast
 # TODO: function for creating temporary variables
 class CFACreator(ast.NodeVisitor):
     def __init__(self):
-        self.root = CFANode()
+        self.global_root = CFANode()
+        self.entry_point = self.global_root
+        self.roots = [self.global_root]
         self.node_stack = list()
-        self.node_stack.append(self.root)
+        self.node_stack.append(self.global_root)
         self.continue_stack = list()
         self.break_stack = list()
         self.function_def = {}
+        self.function_entry_point = {}
 
     def generic_visit(self, node):
         ast.NodeVisitor.generic_visit(self, node)
 
     def visit_FunctionDef(self, node):
+        if node.name in builtin_identifiers:
+            return
+
+        root = CFANode()
         self.function_def[node.name] = node
+        self.function_entry_point[node.name] = root
+
         if node.name == 'main':
-            ast.NodeVisitor.generic_visit(self, node)
+            self.entry_point = root
+
+        self.node_stack.append(root)
+        self.roots.append(root)
+        ast.NodeVisitor.generic_visit(self, node)
+        
 
     def visit_While(self, node): # Note: implement TODOs for break and continue to handle them inside while-loops
         entry_node = self.node_stack.pop()
@@ -171,7 +242,6 @@ class CFACreator(ast.NodeVisitor):
         )
 
         self.node_stack.append(next_node)
-        return 
 
     def visit_Continue(self, node):
         entry_node = self.node_stack.pop()
@@ -183,7 +253,6 @@ class CFACreator(ast.NodeVisitor):
         )
 
         self.node_stack.append(next_node)
-        return
 
     def visit_If(self, node):
         entry_node = self.node_stack.pop()
@@ -226,42 +295,60 @@ class CFACreator(ast.NodeVisitor):
         self.node_stack.append(exit_node)
 
     def visit_Return(self, node):
-        val = node.value if node.value else ast.Constant(0, lineno=node.lineno, col_offset=node.col_offset)
-        self.visit(
-            ast.Expr(
+        val = node.value if node.value else ast.Constant(0)
+        store_instruction = ast.Expr(
                 value=ast.Assign(
-                    [ast.Name('__ret', ast.Store(), lineno=node.lineno, col_offset=node.col_offset)], 
+                    [ast.Name('__ret', ast.Store())], 
                     val,
-                    lineno=node.lineno, col_offset=node.col_offset
                 ), 
-                lineno=node.lineno, col_offset=node.col_offset
             )
-        )
+        store_instruction = ast.copy_location(store_instruction, node)
+        ast.fix_missing_locations(store_instruction)
+        self.visit(store_instruction)
+
+        entry_node = self.node_stack.pop()
+        exit_node = CFANode()
+        edge = CFAEdge(entry_node, exit_node, Instruction.ret(node))
+        self.node_stack.append(exit_node)
 
     def visit_Call(self, node):
-        entry_node = self.node_stack.pop()
-        self.node_stack.append(entry_node)
-
-        # inlining:
-        if node.func.id in self.function_def:
-            # add computing edge for each argument, TODO: add scope to names
-            for name, val in zip(self.function_def[node.func.id].args.args, node.args):
+        if node.func.id in self.function_def and node.func.id not in builtin_identifiers:
+            # add computing edge for each argument
+            arg_names = []
+            for name, val in enumerate(node.args):
+                argname = '__' + str(name)
                 arg_expr = ast.Expr(
                                 ast.Assign(
-                                    [ast.Name(name.arg, ast.Store())], val, 
+                                    [ast.Name(argname, ast.Store())], val, 
                                 ),
                             )
-                ast.copy_location(node, arg_expr)
+                arg_expr = ast.copy_location(arg_expr, node)
+                arg_expr = ast.fix_missing_locations(arg_expr)
                 self.visit(arg_expr)
+                arg_names.append(ast.arg(argname))
             
+            # inlining:
+            # pre_jump_node = self.node_stack.pop()
+            # body_node = CFANode()
+            # edge = CFAEdge(pre_jump_node, body_node, Instruction.statement(node))
+            # self.node_stack.append(body_node)
+
+            # for b in self.function_def[node.func.id].body:
+            #     self.visit(b)
             pre_jump_node = self.node_stack.pop()
             body_node = CFANode()
-            edge = CFAEdge(pre_jump_node, body_node, Instruction.statement(node))
+            edge = CFAEdge(pre_jump_node, body_node, Instruction.call(node, self.function_def[node.func.id], self.function_entry_point[node.func.id], arg_names))
             self.node_stack.append(body_node)
+            return
 
-            for b in self.function_def[node.func.id].body:
-                self.visit(b)
+        if node.func.id in builtin_identifiers:
+            entry_node = self.node_stack.pop()
+            exit_node = CFANode()
+            edge = CFAEdge(entry_node, exit_node, Instruction.builtin(node))
+            self.node_stack.append(exit_node)
+            return
 
+        print('WARNING: call to undefined ', node.func.id, '')
 
 # You can use the code below to draw the generated CFAs for manual inspection.
 # Essentially, a `CFANode` is wrapped into `GraphableCFANode`, which implements the `Graphable` interface.
@@ -304,23 +391,25 @@ class GraphableCFANode(Graphable):
     def __hash__(self):
         return self.node.__hash__()
 
-def graphable_to_dot(root, nodeattrs={"shape": "circle"}):
+def graphable_to_dot(roots, nodeattrs={"shape": "circle"}):
+    assert isinstance(roots, list)
     dot = Digraph()
     for (key, value) in nodeattrs.items():
         dot.attr("node", [(key, value)])
-    dot.node(root.get_node_label())
-    waitlist = set()
-    waitlist.add(root)
-    reached = set()
-    reached.add(root)
-    while not len(waitlist) == 0:
-        node = waitlist.pop()
-        for successor in node.get_successors():
-            for edgelabel in node.get_edge_labels(successor):
-                dot.edge(node.get_node_label(), successor.get_node_label(), edgelabel)
-            if not successor in reached:
-                waitlist.add(successor)
-                reached.add(successor)
-                dot.node(successor.get_node_label())
+    for root in roots:
+        dot.node(root.get_node_label())
+        waitlist = set()
+        waitlist.add(root)
+        reached = set()
+        reached.add(root)
+        while not len(waitlist) == 0:
+            node = waitlist.pop()
+            for successor in node.get_successors():
+                for edgelabel in node.get_edge_labels(successor):
+                    dot.edge(node.get_node_label(), successor.get_node_label(), edgelabel)
+                if not successor in reached:
+                    waitlist.add(successor)
+                    reached.add(successor)
+                    dot.node(successor.get_node_label())
     return dot
 
