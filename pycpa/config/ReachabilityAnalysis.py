@@ -5,4 +5,4 @@ from pycpa.analyses import ARGCPA
 from pycpa.analyses import ValueAnalysisCPA
 
 def get_cpas(cfa_root):
-    return [StackCPA(CompositeCPA([LocationCPA(cfa_root), ValueAnalysisCPA()]))]
+    return [StackCPA(LocationCPA(cfa_root))]
