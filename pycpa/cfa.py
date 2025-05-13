@@ -98,8 +98,9 @@ class Instruction:
     def call(expression : ast.Call, declaration : ast.FunctionDef, entry_point, argnames : List[ast.arg]):
         assert all((isinstance(p.arg, ast.Name) or isinstance(p.arg, str) for p in declaration.args.args)), declaration.args.args
         assert all((isinstance(p.arg, ast.Name) or isinstance(p.arg, str) for p in argnames)), argnames
-        param_names = [str(p.arg) for p in declaration.args.args]
-        arg_names   = [str(p.arg) for p in argnames]
+        param_names = [ str(p.arg.id) if isinstance(p.arg, ast.Name) else str(p.arg) for p in declaration.args.args ]
+        # TODO
+        arg_names   = [ str(p.arg.id) if isinstance(p.arg, ast.Name) else str(p.arg) for p in argnames ]
         return Instruction(expression, kind=InstructionType.CALL, location=entry_point, declaration=declaration, param_names=param_names, arg_names=arg_names)
 
 
@@ -315,16 +316,22 @@ class CFACreator(ast.NodeVisitor):
         if node.func.id in self.function_def and node.func.id not in builtin_identifiers:
             # add computing edge for each argument
             arg_names = []
-            for name, val in enumerate(node.args):
-                argname = '__' + str(name)
-                arg_expr = ast.Expr(
-                                ast.Assign(
-                                    [ast.Name(argname, ast.Store())], val, 
-                                ),
-                            )
-                arg_expr = ast.copy_location(arg_expr, node)
-                arg_expr = ast.fix_missing_locations(arg_expr)
-                self.visit(arg_expr)
+            for i, val in enumerate(node.args):
+                if isinstance(val, ast.Name):
+                    argname = str(val.id)
+                elif isinstance(val, ast.Constant):
+                    argname = str(val.value)
+                else:
+                    argname = '__' + str(i)
+                    arg_expr = ast.Expr(
+                                    ast.Assign(
+                                        [ast.Name(argname, ast.Store())], val, 
+                                    ),
+                                )
+                    arg_expr = ast.copy_location(arg_expr, node)
+                    arg_expr = ast.fix_missing_locations(arg_expr)
+                    self.visit(arg_expr)
+
                 arg_names.append(ast.arg(argname))
             
             # inlining:
