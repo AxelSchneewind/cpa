@@ -113,19 +113,26 @@ class Ast2Py:
     def ast2py_fast_one_node(self, n, depth):
         match n:
             case c_ast.FuncDef():
+                self.push_newline(depth)
                 self.push_expr(n.body)
                 self.push_newline(depth + 1)
                 self.push_expr('):')
 
                 arg_list = []
                 if n.decl.type.args:
-                    for i in n.decl.type.args.params:
-                        self.push_expr(',')
+                    for i in reversed(n.decl.type.args.params[1:]):
                         self.push_expr(i)
+                        self.push_expr(',')
+                    self.push_expr(n.decl.type.args.params[0])
 
                 self.push_expr(f'def {n.decl.name} (')
-                self.push_newline(depth)
-                self.push_newline(depth)
+
+            case c_ast.Typedef():
+                self.push_expr(n.type.type)
+                self.push_expr(' = ')
+                self.push_expr(n.type.declname)
+
+            # TODO: initlist
 
             case c_ast.Compound():
                 if n.block_items and len(n.block_items) > 0:
@@ -134,13 +141,17 @@ class Ast2Py:
                         self.push_newline(depth)
                     self.push_expr(n.block_items[0])
                 else:
-                    self.push_expr('pass')
                     self.push_newline(depth)
+                    self.push_expr('pass')
+
+            case c_ast.EmptyStatement():
+                self.push_newline(depth)
+                self.push_expr('pass')
 
             case c_ast.Return():
+                self.push_newline(depth)
                 self.push_expr(n.expr)
                 self.push_expr('return ')
-                # self.push_newline(depth)
 
             case c_ast.Constant():
                 py_constant = str(n.value)
@@ -154,21 +165,23 @@ class Ast2Py:
                     py_constant = '0'
                 self.push_expr(py_constant)
 
+            case c_ast.ID():
+                self.push_expr(n.name)
+
+
             case c_ast.Typename():
                 selected = 'int'
-                if n.names and len(n.names) > 0:
-                    for t in n.names:
-                        match t:
-                            case 'char':
-                                selected = 'byte'
-                            case 'int' | 'short' | 'long':
-                                selected = 'int'
-                            case 'void':
-                                selected = 'NoneType'
-                            case 'float' | 'double':
-                                selected  = 'float'
-                            case _:
-                                pass
+                match n.name:
+                    case 'char':
+                        selected = 'byte'
+                    case 'int' | 'short' | 'long':
+                        selected = 'int'
+                    case 'void':
+                        selected = 'NoneType'
+                    case 'float' | 'double':
+                        selected  = 'float'
+                    case _:
+                        pass
                 self.push_expr(selected)
 
             case c_ast.IdentifierType():
@@ -187,6 +200,7 @@ class Ast2Py:
                             case _:
                                 pass
                 self.push_expr(selected)
+
             case c_ast.Struct():
                 if n.decls:
                     name = n.name
@@ -276,11 +290,41 @@ class Ast2Py:
 
             case c_ast.Assignment():
                 self.push_expr(n.rvalue)
+                self.push_expr(' ')
                 self.push_expr(n.op)
-                sel.push_expr(n.lvalue)
+                self.push_expr(' ')
+                self.push_expr(n.lvalue)
 
-            case c_ast.ID():
+
+            case c_ast.StructRef():
+                self.push_expr(n.field)
+                self.push_expr('.')
                 self.push_expr(n.name)
+
+            case c_ast.ArrayRef():
+                self.push_expr('[0]')
+                self.push_expr(n.name)
+
+            case c_ast.Break():
+                self.push_newline(depth)
+                self.push_expr('break')
+            case c_ast.Continue():
+                self.push_newline(depth)
+                self.push_expr('continue')
+
+            case c_ast.DoWhile():
+                self.push_newline(depth)
+
+                self.push_expr('break')
+                self.push_newline(depth + 2)
+                self.push_expr(':')
+                self.push_expr(n.cond)
+                self.push_expr('if not ')
+                self.push_newline(depth + 1)
+
+                self.push_expr(n.stmt)
+                self.push_newline(depth + 1)
+                self.push_expr('while True:')
 
             case c_ast.While():
                 self.push_newline(depth)
@@ -289,7 +333,7 @@ class Ast2Py:
                 self.push_expr(':')
                 self.push_expr(n.cond)
                 self.push_expr('while ')
-                self.push_newline(depth)
+
 
             case c_ast.For():
                 self.push_newline(depth)
@@ -306,7 +350,29 @@ class Ast2Py:
                 self.push_newline(depth)
 
                 self.push_expr(n.init)
+                
+            case c_ast.If():
+                if n.iffalse:
+                    self.push_newline(depth)
+
+                    self.push_expr(n.iffalse)
+                    self.push_newline(depth + 1)
+
+                    self.push_expr('else:')
+
                 self.push_newline(depth)
+                self.push_expr(n.iftrue)
+                self.push_newline(depth + 1)
+
+                self.push_expr(':')
+                self.push_expr(n.cond)
+                self.push_expr('if ')
+
+            # switch-case unsupported
+            # goto unsupported
+            case c_ast.Goto() | c_ast.Label():
+                pass
+
 
             case c_ast.BinaryOp():
                 py_op = str(n.op)
@@ -333,22 +399,6 @@ class Ast2Py:
                     self.push_expr('(')
                 else:
                     self.push_expr(n.left)
-                
-            case c_ast.If():
-                self.push_newline(depth)
-
-                self.push_expr(n.iffalse)
-                self.push_newline(depth + 1)
-
-                self.push_expr('else:')
-
-                self.push_expr(n.iftrue)
-                self.push_newline(depth + 1)
-
-                self.push_expr(':')
-                self.push_expr(n.cond)
-                self.push_expr('if ')
-                self.push_newline(depth)
 
             case c_ast.UnaryOp():
                 match n.op:
@@ -384,7 +434,8 @@ class Ast2Py:
                 self.push_expr(')')
 
                 if n.args:
-                    for i in n.args.exprs:
+                    self.push_expr(n.args.exprs[0])
+                    for i in reversed(n.args.exprs[1:]):
                         self.push_expr(',')
                         self.push_expr(i)
                 
@@ -408,30 +459,15 @@ class Ast2Py:
                 self.push_expr(n.to_type)
 
 
-            case c_ast.ArrayRef():
-                self.push_expr('[0]')
-                self.push_expr(n.name)
-
-            case c_ast.Break():
-                self.push_expr('break')
-                self.push_newline(depth)
-            case c_ast.Continue():
-                self.push_expr('continue')
-                self.push_newline(depth)
-
-            # switch-case unsupported
-            # goto unsupported
-            case c_ast.Goto() | c_ast.Label():
-                pass
             case _:
                 if n is not None:
                     print('Unknown ast type:', type(n))
-                    print('str(n)')
+                    print(str(n))
                     # if just_expr:
                     #     self.push_expr('0')
                     # else:
-                    #     self.push_expr('pass')
-                    #     self.push_newline(depth)
+                self.push_newline(depth)
+                self.push_expr('pass')
 
     def ast2py_one_node(self, n, just_expr=0):
         ret=''
