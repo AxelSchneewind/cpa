@@ -100,7 +100,7 @@ class ASTPrinter(ast.NodeVisitor):
 class ASTNameCounter(ast.NodeVisitor):
     def __init__(self):
         self.count = 0
-    # DONE Task 1
+    
     def visit_Name(self, node):
         self.count += 1
         return ast.NodeVisitor.generic_visit(self, node)
@@ -113,7 +113,6 @@ class ASTVisualizer(ast.NodeVisitor):
         self.graph = Digraph()
         self.node_counter = 0
 
-    # DONE Task 2: add implementation here
     def generic_visit(self, node):
         # using this name in the displayed AST
         node_name = "%d %s" % (self.node_counter, node.__class__.__name__)
@@ -130,5 +129,3 @@ class ASTVisualizer(ast.NodeVisitor):
             self.node_stack.append(node_name)
 
         return ast.NodeVisitor.generic_visit(self, node)
-
-

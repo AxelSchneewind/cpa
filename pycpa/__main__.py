@@ -7,10 +7,11 @@ from pycpa.analyses import CompositeCPA
 from pycpa.analyses import LocationCPA
 from pycpa.analyses import PropertyCPA
 from pycpa.analyses import ValueAnalysisCPA
+from pycpa.analyses import PredAbsCPA, PredAbsPrecision
 
 from pycpa import configs
 
-from pycpa.ast import *
+from pycpa.ast import ASTPreprocessor, ASTVisualizer
 from pycpa.cfa import *
 from pycpa.cpa import *
 from pycpa.cpaalgorithm import CPAAlgorithm, Status
@@ -19,6 +20,7 @@ from pycpa.specification import Specification
 from pycpa.verdict import Verdict
 
 from pycpa.task import Task, Result
+
 
 import ast
 import astpretty
@@ -49,27 +51,23 @@ def main(args):
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
+
         print('verifying program', program_name, 'using', args.config, 'against', args.property)
         with open(output_dir + '/program.py', 'w') as out_prog:
             out_prog.write(ast_program)
 
+
         print('computing AST', end='')
-        try:
-            tree = ast.parse(ast_program)
-        except:
-            print('\rfailure, continuing')
-            continue
+        tree = ast.parse(ast_program)
+        tree = ASTPreprocessor().visit(tree)
+        with open(output_dir + '/program-preprocessed.py', 'w') as out_prog:
+            out_prog.write(astunparse.unparse(tree))
 
         # prettyprint ast
         with open(output_dir + '/astpretty', 'w') as out_file:
             out_file.write(astpretty.pformat(tree, show_offsets=False))
 
 
-        # print node types (optional)
-        ast_file = open(output_dir + '/ast.txt' ,'w')
-        astvisitor = ASTPrinter(ast_file)
-        astvisitor.visit(tree)
-    
         # visualize AST
         astvisitor = ASTVisualizer()
         astvisitor.visit(tree)
@@ -80,27 +78,20 @@ def main(args):
         # For testing CFA generation
         # In[11]:
         CFANode.index = 0  # reset the CFA node indices to produce identical output on re-execution
-        visitor = CFACreator()
-        visitor.visit(tree)
-        entry_point = visitor.entry_point
-        dot = graphable_to_dot([ GraphableCFANode(r) for r in visitor.roots ])
-        dot.render(output_dir + '/cfa')
-    
-        # In[18]:
-        CFANode.index = 0  # reset the CFA node indices to produce identical output on re-execution
         cfa_creator = CFACreator()
         cfa_creator.visit(tree)
         entry_point = cfa_creator.entry_point
-    
+        dot = graphable_to_dot([ GraphableCFANode(r) for r in cfa_creator.roots ])
+        dot.render(output_dir + '/cfa')
 
         # setup cpas and properties
         analysis_mods = [ configs.load_cpa(c) for c in args.config ]
         specification_mods = [ configs.load_specification(p) for p in args.property ]
         cpas = []
         for m in analysis_mods:
-            cpas.extend(m.get_cpas(entry_point))
+            cpas.extend(m.get_cpas(entry_point, cfa_roots=cfa_creator.roots))
         for p in specification_mods:
-            cpas.extend(p.get_cpas(entry_point))
+            cpas.extend(p.get_cpas(entry_point, cfa_roots=cfa_creator.roots))
         # 
         cpa = ARGCPA(CompositeCPA(cpas))
 
