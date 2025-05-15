@@ -11,7 +11,7 @@ from pycpa.analyses import PredAbsCPA, PredAbsPrecision
 
 from pycpa import configs
 
-from pycpa.ast import ASTPreprocessor, ASTVisualizer
+from pycpa.ast import ASTPreprocessor, EnsureReturn, RemoveBuiltins, ASTVisualizer
 from pycpa.cfa import *
 from pycpa.cpa import *
 from pycpa.cpaalgorithm import CPAAlgorithm, Status
@@ -59,6 +59,8 @@ def main(args):
 
         print('computing AST', end='')
         tree = ast.parse(ast_program)
+        tree = RemoveBuiltins(builtin_identifiers).visit(tree)
+        tree = EnsureReturn().visit(tree)
         tree = ASTPreprocessor().visit(tree)
         with open(output_dir + '/program-preprocessed.py', 'w') as out_prog:
             out_prog.write(astunparse.unparse(tree))
@@ -76,7 +78,6 @@ def main(args):
 
         print('\rcomputing CFA', end='')
         # For testing CFA generation
-        # In[11]:
         CFANode.index = 0  # reset the CFA node indices to produce identical output on re-execution
         cfa_creator = CFACreator()
         cfa_creator.visit(tree)

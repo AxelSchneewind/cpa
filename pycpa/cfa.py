@@ -30,14 +30,21 @@ class InstructionType(Enum):
     ABORT = 6,
     REACH_ERROR = 7,
     EXTERNAL = 8,
+    NOP = 9
 
 builtin_identifiers = {
-    'exit'          : InstructionType.EXIT,
-    'abort'         : InstructionType.ABORT,
-    'call'          : InstructionType.CALL,
-    'return'        : InstructionType.RETURN,
-    'nondet'        : InstructionType.NONDET,
-    'reach_error'   : InstructionType.REACH_ERROR,
+    'exit'                          : InstructionType.EXIT,
+    'abort'                         : InstructionType.ABORT,
+    'call'                          : InstructionType.CALL,
+    'return'                        : InstructionType.RETURN,
+    'nondet'                        : InstructionType.NONDET,
+    '__VERIFIER_nondet_char'        : InstructionType.NONDET,
+    '__VERIFIER_nondet_short'       : InstructionType.NONDET,
+    '__VERIFIER_nondet_int'         : InstructionType.NONDET,
+    '__VERIFIER_nondet_uint'        : InstructionType.NONDET,
+    '__VERIFIER_nondet_ulong'       : InstructionType.NONDET,
+    '__VERIFIER_nondet_long'        : InstructionType.NONDET,
+    'reach_error'                   : InstructionType.REACH_ERROR,
 }
 
 class Instruction:
@@ -51,8 +58,6 @@ class Instruction:
                 setattr(self, p, params[p])
 
         match self.kind:
-            case InstructionType.EXIT:
-                assert hasattr(self,'exit_code')
             case InstructionType.CALL:
                 assert hasattr(self,'location')
                 assert hasattr(self,'declaration')
@@ -102,6 +107,10 @@ class Instruction:
         # TODO
         arg_names   = [ str(p.arg.id) if isinstance(p.arg, ast.Name) else str(p.arg) for p in argnames ]
         return Instruction(expression, kind=InstructionType.CALL, location=entry_point, declaration=declaration, param_names=param_names, arg_names=arg_names)
+
+    @staticmethod
+    def nop(expression):
+        return Instruction(expression, kind=InstructionType.NOP)
 
 
 
@@ -199,19 +208,26 @@ class CFACreator(ast.NodeVisitor):
         ast.NodeVisitor.generic_visit(self, node)
 
     def visit_FunctionDef(self, node):
+        pre = self.node_stack.pop()
+
+        # for continuing after definition 
+        post = CFANode()
+        edge = CFAEdge(pre, post, Instruction.nop(node))
+        self.node_stack.append(post)
+
+        # ignore definitions of builtin functions
         if node.name in builtin_identifiers:
             return
 
+        # 
         root = CFANode()
         self.function_def[node.name] = node
         self.function_entry_point[node.name] = root
 
-        if node.name == 'main':
-            self.entry_point = root
-
         self.node_stack.append(root)
         self.roots.append(root)
         ast.NodeVisitor.generic_visit(self, node)
+
         
 
     def visit_While(self, node): # Note: implement TODOs for break and continue to handle them inside while-loops
@@ -274,20 +290,8 @@ class CFACreator(ast.NodeVisitor):
         merged_exit = CFANode.merge(left_exit, right_exit)
         self.node_stack.append(merged_exit)
 
-    # TODO: get calls from expression and run these before assignment
     def visit_Expr(self, node):
-        # entry_node = self.node_stack.pop()
-        # exit_node = CFANode()
-        # edge = CFAEdge(entry_node, exit_node, Instruction.statement(node))
-        # self.node_stack.append(exit_node)
         self.visit(node.value)
-
-    # TODO: get calls from expression and run these before assignment
-    def visit_AugAssign(self, node):
-        entry_node = self.node_stack.pop()
-        exit_node = CFANode()
-        edge = CFAEdge(entry_node, exit_node, Instruction.statement(node))
-        self.node_stack.append(exit_node)
 
     def visit_Assign(self, node):
         entry_node = self.node_stack.pop()
@@ -310,9 +314,17 @@ class CFACreator(ast.NodeVisitor):
         entry_node = self.node_stack.pop()
         exit_node = CFANode()
         edge = CFAEdge(entry_node, exit_node, Instruction.ret(node))
-        self.node_stack.append(exit_node)
+        # self.node_stack.append(exit_node)
 
     def visit_Call(self, node):
+        if node.func.id in builtin_identifiers:
+            entry_node = self.node_stack.pop()
+            exit_node = CFANode()
+            edge = CFAEdge(entry_node, exit_node, Instruction.builtin(node))
+            self.node_stack.append(exit_node)
+            return
+
+
         if node.func.id in self.function_def and node.func.id not in builtin_identifiers:
             # add computing edge for each argument
             arg_names = []
@@ -346,13 +358,6 @@ class CFACreator(ast.NodeVisitor):
             body_node = CFANode()
             edge = CFAEdge(pre_jump_node, body_node, Instruction.call(node, self.function_def[node.func.id], self.function_entry_point[node.func.id], arg_names))
             self.node_stack.append(body_node)
-            return
-
-        if node.func.id in builtin_identifiers:
-            entry_node = self.node_stack.pop()
-            exit_node = CFANode()
-            edge = CFAEdge(entry_node, exit_node, Instruction.builtin(node))
-            self.node_stack.append(exit_node)
             return
 
         print('WARNING: call to undefined ', node.func.id, '')

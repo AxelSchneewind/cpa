@@ -1,12 +1,5 @@
-
 import ast
-from ast import AST
 
-
-from typing import List
-
-
-# TODO
 class ASTPreprocessor(ast.NodeTransformer):
     """
         AST transformer that ensures a few desirable properties of the AST:
