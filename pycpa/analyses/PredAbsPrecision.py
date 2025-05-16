@@ -5,6 +5,7 @@ import pysmt
 from pycpa.cfa import Instruction, InstructionType, CFANode
 
 import ast
+import astpretty
 import astunparse
 
 import re
@@ -42,6 +43,15 @@ class FormulaBuilder(ast.NodeVisitor):
                 return get_env().formula_manager.Bool(val != 0)
             case _:
                 return get_env().formula_manager.Bool(0)
+
+    @staticmethod
+    def BV_to_Bool(bv):
+        return NotEquals(bv, FormulaBuilder.BV(0))
+
+    @staticmethod
+    def Bool_to_BV(b):
+        assert get_type(b) == types.BOOL
+        return Ite(b, FormulaBuilder.BV(1), FormulaBuilder.BV(0))
 
 
     def __init__(self, instruction : InstructionType, current_type=dict(), enable_ssa=False, ssa_indices=dict()):
@@ -93,6 +103,34 @@ class FormulaBuilder(ast.NodeVisitor):
         else:
             return name
 
+    def make_variable(self, name, required_type):
+        if required_type is None:
+            required_type = self.int_type
+        return Symbol(name, required_type)
+
+    def cast(self, value, required_type):
+        if get_type(value) == required_type:
+            return value
+        match required_type, get_type(value):
+            case self.int_type, self.bool_type:
+                value = self.Bool_to_BV(value)
+            case self.bool_type, self.int_type:
+                value = self.BV_to_Bool(value)
+        assert get_type(value) == required_type
+        return value
+
+    def make_equality(self, left, right):
+        if get_type(right) != get_type(left):
+            right = self.cast(right, get_type(left))
+        match get_type(left):
+            case self.bool_type:
+                result = Iff(left, right)
+            case self.int_type:
+                result = Equals(left, right)
+            case _:
+                assert False
+        return result
+
     def visit(self, node, required_type=None, is_rvalue=True):
         """ generic visit function, overwritten to pass required_type and is_rvalue """
 
@@ -101,72 +139,75 @@ class FormulaBuilder(ast.NodeVisitor):
 
         result = None
         if hasattr(self, attrname):
-            result = getattr(self, attrname)(node, required_type=self.int_type, is_rvalue=is_rvalue)
+            result = getattr(self, attrname)(node, required_type=required_type, is_rvalue=is_rvalue)
         else:
             print('not supported: %s' % t)
             result = self.BV(0)
 
-        assert(required_type == None or get_type(result) == required_type), (node, get_type(result), required_type)
+        if required_type:
+            result = self.cast(result, required_type)
+
+        assert(required_type == None or get_type(result) == required_type)
         return result
 
     def visit_Name(self, node, required_type, is_rvalue=True):
         var_name = self.ssa_current_identifier(node.id)
-
         if not is_rvalue:
-            assert required_type is not None
             var_name = self.ssa_advance_identifier(node.id)
-            self.store_type(node.id, required_type)
-        elif required_type is None:
-            required_type = self.lookup_type(node.id)
 
-        return Symbol(var_name, required_type)
+        return self.make_variable(var_name, self.int_type)
 
     def visit_Constant(self, node, required_type, **params):
         match required_type, node.n:
             case self.int_type, int():
-                return self.BV(node.n)
-            # case self.bool_type, int():
-            #     return self.Bool(bool(node.n != 0))
+                result = self.BV(node.n)
+            case self.bool_type, int():
+                result = self.Bool(bool(node.n != 0))
             case None, int():
-                return self.BV(node.n)
+                result = self.BV(node.n)
             # case str():
-                # return types[str](node.n)
+                # result = types[str](node.n)
             case self.int_type, _:
-                return self.BV(0)
-            # case self.bool_type, _:
-            #     return self.Bool(False)
+                result = self.BV(0)
+            case self.bool_type, _:
+                result = self.Bool(False)
             case None, _:
-                return self.BV(0)
+                result = self.BV(0)
             case _:
-                return self.BV(node.n)
+                result = self.BV(node.n)
+        return result
 
     def visit_Subscript(self, node, required_type, is_rvalue=False):
         var_name = '%s[%s]' % (node.value.id, node.slice.value)
         name = self.ssa_current_identifier(var_name)
         if not is_rvalue:
             name = self.ssa_advance_identifier(var_name)
-        return Symbol(name, self.int_type)
+
+        return self.make_variable(name, self.int_type)
 
     def visit_UnaryOp(self, node, **params):
         operand = self.visit(node.operand)
         if isinstance(node.op, ast.Not):
             match get_type(operand):
                 case self.bool_type:
-                    return Not(operand)
+                    result = Not(operand)
                 case self.int_type:
-                    return Equals(operand, self.BV(0))
+                    result = Equals(operand, self.BV(0))
         elif isinstance(node.op, ast.USub):
-            return BVNeg(operand)
+            result = BVNeg(operand)
         elif isinstance(node.op, ast.UAdd):
-            return operand
+            result = operand
         elif isinstance(node.op, ast.Invert):
-            return BVNot(operand)
+            result = BVNot(operand)
         else:
             raise NotImplementedError("Operator %s is not implemented!" % node.op)
 
+        assert get_type(result) == self.bool_type
+        return result
+
     def visit_BoolOp(self, node, required_type, **params):
-        left_result = self.visit(node.values[0])
-        right_result = self.visit(node.values[1], required_type=get_type(left_result))
+        left_result = self.visit(node.values[0], required_type=self.bool_type)
+        right_result = self.visit(node.values[1], required_type=self.bool_type)
 
         result = None
         match node.op:
@@ -176,48 +217,53 @@ class FormulaBuilder(ast.NodeVisitor):
                 result = Or(left_result, right_result)
             case _:
                 raise NotImplementedError("Operator %s is not implemented!" % op)
+
+        assert get_type(result) == self.bool_type
         return result
 
     def visit_Compare(self, node, required_type, **params):
         left_result = self.visit(node.left)
         right_result = self.visit(node.comparators[0], required_type=get_type(left_result))
         ltype = get_type(left_result)
+        assert get_type(left_result) == get_type(right_result)
 
         op = node.ops[0]
         result = None
         match op:
             case ast.Eq():
-                match ltype:
-                    # case self.bool_type:
-                    #     result = Iff(left_result, right_result)
-                    case self.int_type:
-                        result = Ite(Equals(left_result, right_result), self.BV(True), self.BV(False))
+                result = self.make_equality(left_result, right_result)
             case ast.Gt():
                 result = BVSGT(left_result, right_result)
             case ast.GtE():
                 result = BVSGE(left_result, right_result)
-            case ast.LT():
+            case ast.Lt():
                 result = BVSLT(left_result, right_result)
             case ast.LtE():
                 result = BVSLE(left_result, right_result)
             case ast.NotEq():
-                result = Ite(NotEquals(left_result, right_result), self.BV(True), self.BV(False))
+                result = Not(self.make_equality(left_result, right_result))
             case _:
                 raise NotImplementedError("Operator %s is not implemented!" % op)
+
+        assert get_type(result) == self.bool_type
         return result
 
     def visit_Return(self, node, required_type, **params):
+        if required_type is None:
+            required_type = self.int_type
         if node.value:
             right_result = self.visit(node.value, required_type)
-            return Equals(Symbol('__ret', required_type), right_result)
-        return self.Bool(True)
+            return self.make_equality(self.make_variable('__ret', required_type), right_result)
+        return self.BV(1)
 
     def visit_Call(self, node, required_type, **params):
+        if required_type is None:
+            required_type = self.int_type
         if hasattr(self.instruction, 'target'):
-            left  = Symbol(self.ssa_advance_identifier(self.instruction.target), self.int_type)
-            right = Symbol(self.ssa_current_identifier('__ret'), self.int_type)
-            return Equals(left, right)
-        return self.Bool(True)
+            left  = self.make_variable(self.ssa_advance_identifier(self.instruction.target), self.int_type)
+            right = self.make_variable(self.ssa_current_identifier('__ret'), self.int_type)
+            return self.make_equality(left, right)
+        return self.BV(1)
                
 
     def visit_Assign(self, node, **params):
@@ -238,34 +284,37 @@ class FormulaBuilder(ast.NodeVisitor):
                         var_name = '%s[%s]' % (name, i)
                         self.ssa_advance_index(name)
                         self.store_type(name, get_type(val))
-                        clauses.append(Equals(Symbol(var_name, get_type(val)), val))
-                result = And(clauses)
+                        clauses.append(Equals(self.make_variable(var_name, get_type(val)), val))
+                result = self.cast(And(clauses), self.int_type)
 
             case ast.Name() | ast.Num() | ast.Constant() | ast.Subscript() | ast.BinOp() | ast.UnaryOp():
-                right_result = self.visit(node.value)
-                left_result = self.visit(node.targets[0], required_type=get_type(right_result), is_rvalue=False)
+                left_result = self.visit(node.targets[0], required_type=self.int_type, is_rvalue=False)
+                right_result = self.visit(node.value, required_type=self.int_type)
 
                 # assert isinstance(node.targets[0], Name)
                 # left_result = Symbol()
                 # assert isinstance(left_result, Symbol)
                 # left_result = left_result   # TODO increment SSA index
 
-                assert left_result is not None and right_result is not None, (astunparse.unparse(node))
-                result = Equals(left_result, right_result)
+                result = self.make_equality(left_result, right_result)
+                assert get_type(left_result) == self.int_type
 
             case ast.Compare():
-                right_result = self.visit(node.value)
-                left_result = self.visit(node.targets[0], required_type=get_type(right_result), is_rvalue=False)
-                result = Equals(left_result, right_result)
+                left_result = self.visit(node.targets[0], required_type=self.int_type, is_rvalue=False)
+                right_result = self.visit(node.value, required_type=self.int_type)
+                result = self.make_equality(left_result, right_result)
+                assert get_type(left_result) == self.int_type
 
             case ast.Call():
-                right_result = Symbol('__ret', self.int_type)
-                left_result = self.visit(node.targets[0], is_rvalue=False)
-                result = Equals(left_result, right_result)
+                right_result = self.make_variable('__ret', required_type=self.int_type)
+                left_result = self.visit(node.targets[0], required_type=self.int_type, is_rvalue=False)
+                result = self.make_equality(left_result, right_result)
+                assert get_type(left_result) == self.int_type
 
             case _:
                 print(type(node.value))
                 raise NotImplementedError()
+
         return result
 
     def visit_AugAssign(self, node, **params):
@@ -287,6 +336,7 @@ class FormulaBuilder(ast.NodeVisitor):
     def visit_BinOp(self, node, **params):
         left_result = self.visit(node.left)
         right_result = self.visit(node.right, required_type=get_type(left_result))
+        assert get_type(left_result) == get_type(right_result) == self.int_type
 
         op = node.op
         result = None
@@ -316,8 +366,8 @@ class PredAbsPrecision:
     @staticmethod
     def from_cfa_edge(cfa_edge) -> pysmt.formula:
         match cfa_edge.instruction.expression:
-            case ast.Assign() | ast.Compare() | ast.Expr() | ast.UnaryOp():
-                return FormulaBuilder(cfa_edge, enable_ssa=False).visit(cfa_edge.instruction.expression)
+            case ast.Assign() | ast.Compare() | ast.BoolOp() | ast.Expr() | ast.UnaryOp() | ast.BinOp():
+                return FormulaBuilder(cfa_edge, enable_ssa=False).visit(cfa_edge.instruction.expression, required_type=types.BV64)
             case ast.FunctionDef() | ast.Return() | ast.Call():
                 pass # safe to ignore
             case _:
