@@ -8,15 +8,20 @@ class EnsureReturn(ast.NodeTransformer):
     """
 
     def visit_FunctionDef(self, node) -> ast.FunctionDef:
-        if isinstance(node.body[-1], ast.Pass):
-            ret = ast.Return()
-            ast.copy_location(ret, node)
-            node.body[-1] = ret
-            return node
-        if not isinstance(node.body[-1], ast.Return):
-            ret = ast.Return()
-            ast.copy_location(ret, node)
-            node.body.append(ret)
-            return node
+        assert len(node.body) > 0
+        match node.body[-1]:
+            case ast.Return():
+                return node
+            case ast.Pass():
+                ret = ast.Return()
+                ast.copy_location(ret, node)
+                node.body[-1] = ret
+                return node
+            case _:
+                ret = ast.Return()
+                ast.copy_location(ret, node)
+                node.body.append(ret)
+                return node
+        
 
               

@@ -9,10 +9,11 @@ class SetExecutionContext(ast.NodeTransformer):
     def __init__(self):
         pass
 
-    def visit_Module(self, node) -> ast.FunctionDef:
+    def visit_Module(self, node) -> ast.Module:
+        """ Adds initial statements """
         statement = ast.Assign(
-            [ast.Name('__name__', ast.Store())],
-            ast.Constant('__name__')
+            targets=[ast.Name('__name__', ast.Store())],
+            value=ast.Constant('__main__')
         )
 
         if len(node.body) > 0:

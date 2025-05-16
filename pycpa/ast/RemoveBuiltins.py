@@ -9,7 +9,7 @@ class RemoveBuiltins(ast.NodeTransformer):
 
     def __init__(self, builtin_identifiers):
         self.builtin = builtin_identifiers
-        self.pattern = re.compile(r'^__')
+        self.pattern = re.compile(r'^__(tmp|ret)')
 
     def visit_FunctionDef(self, node) -> ast.FunctionDef:
         """
@@ -31,7 +31,8 @@ class RemoveBuiltins(ast.NodeTransformer):
             )
             ast.copy_location(newname, node)
             return newname
-        return node
+        else:
+            return node
             
 
 

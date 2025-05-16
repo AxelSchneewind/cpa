@@ -9,12 +9,19 @@ class ASTPreprocessor(ast.NodeTransformer):
             - an arithmetic expression without function calls
             - exactly one function call
         Augmented assignments are expanded to ordinary ones.
+        Arguments to function calls are:
+            - Names
+            - Constants
     """
 
     def __init__(self):
         self.instruction_stack = list()
         self.current_tmp_ctr = 0
+
+        # stores whether a visited call has to be extracted
+        # always the case if not a single expression
         self.extract = False
+        self.extract_expr = False
 
     def push_instruction(self, instruction):
         assert isinstance(instruction, ast.AST)
@@ -37,7 +44,7 @@ class ASTPreprocessor(ast.NodeTransformer):
     def pop_instructions(self):
         current = list(reversed(self.instruction_stack))
         self.instruction_stack.clear()
-        self.current_tmp_ctr = 0
+        # self.current_tmp_ctr = 0
         return current
 
     def visit_sequence(self, statements : list) -> list[ast.AST]:
@@ -47,13 +54,14 @@ class ASTPreprocessor(ast.NodeTransformer):
             result.extend(self.pop_instructions())
             result.append(expr)
             self.extract = False
+            self.extract_expr = False
 
         assert all(isinstance(a, ast.AST) for a in result), result
+        assert len(self.instruction_stack) == 0
         return result
 
 
-    def assign_result_to(self, call : ast.Call, return_var : str) -> ast.AST:
-        assert isinstance(call, ast.Call)
+    def assign_result_to(self, call : ast.AST, return_var : str) -> ast.AST:
         expr = ast.Assign(
             targets = [ast.Name(return_var, ctx=ast.Store())],
             value = call
@@ -62,12 +70,54 @@ class ASTPreprocessor(ast.NodeTransformer):
         ast.fix_missing_locations(expr)
         return expr
 
-    def visit_Call(self, node: ast.Call) -> ast.Name:
-        do_extract = self.extract
-
+    def extract_expression(self, node) -> ast.Name:
         var_name = '__tmp_' + str(self.current_tmp_ctr)
         self.current_tmp_ctr += 1
+
+        self.push_instruction(self.assign_result_to(node, var_name))
+
+        result = ast.Name(
+            id = var_name,
+            ctx = ast.Load(),
+        )
+        return result
+
+    def extract_expression_last(self, node) -> ast.Name:
+        var_name = '__tmp_' + str(self.current_tmp_ctr)
+        self.current_tmp_ctr += 1
+
+        self.push_instruction_below(self.assign_result_to(node, var_name))
+
+        result = ast.Name(
+            id = var_name,
+            ctx = ast.Load(),
+        )
+        return result
+
+
+
+
+    def visit_BinOp(self, node):
+        if not self.extract_expr:
+            return node
+        return self.extract_expression(node)
+    def visit_Compare(self, node):
+        if not self.extract_expr:
+            return node
+        return self.extract_expression(node)
+    def visit_UnaryOp(self, node):
+        if not self.extract_expr:
+            return node
+        return self.extract_expression(node)
+    def visit_UnaryOp(self, node):
+        if not self.extract_expr:
+            return node
+        return self.extract_expression(node)
+
+    def visit_Call(self, node: ast.Call) -> ast.Name:
+        do_extract = self.extract
         self.extract = True
+        self.extract_expr = True
 
         call = ast.Call(
             func=node.func,
@@ -76,9 +126,7 @@ class ASTPreprocessor(ast.NodeTransformer):
 
         if do_extract:
             # here, the instruction for this call has to be put under the instructions of the args
-            self.push_instruction_below(self.assign_result_to(call, var_name))
-
-            head = ast.Name(var_name, ctx=ast.Load())
+            head = self.extract_expression_last(call)
             ast.copy_location(head, node)
             ast.fix_missing_locations(head)
 
@@ -88,6 +136,7 @@ class ASTPreprocessor(ast.NodeTransformer):
             return call
 
     def visit_Assign(self, node) -> ast.Assign:
+        self.extract = True
         target, value = node.targets[0], node.value
 
         if (isinstance(node.targets[0], ast.Tuple) and isinstance(node.value, ast.Tuple)):
@@ -111,13 +160,7 @@ class ASTPreprocessor(ast.NodeTransformer):
             else:
                 target, value = node.targets[0].elts[0], node.value.elts[0]
 
-        # complex expression: extract calls
-        if not isinstance(value, ast.Call):
-            self.extract = True
-
         right = self.visit(value)
-
-        self.extract = False
         left  = self.visit(target)
 
         head = ast.Assign([left], right)
@@ -126,6 +169,7 @@ class ASTPreprocessor(ast.NodeTransformer):
 
         return head
 
+    # TODO: extract to different class
     def visit_AugAssign(self, node) -> ast.AugAssign:
         assert isinstance(node.target, ast.Name), node.target
         match node.target:
@@ -154,28 +198,34 @@ class ASTPreprocessor(ast.NodeTransformer):
         body = self.visit_sequence(node.body)
         orelse = self.visit_sequence(node.orelse)
 
+        self.extract = True
         test = self.visit(node.test)
 
-        head = ast.If(test, body, orelse)
-        ast.copy_location(head, node)
-        ast.fix_missing_locations(head)
-
-        return head
+        node.body = body
+        node.orelse = orelse
+        node.test = test
+        return node
 
     def visit_While(self, node) -> ast.While:
-        test = self.visit(node.test)
-        test_instructions = list(self.instruction_stack)
-
         body = self.visit_sequence(node.body)
-        body.extend(test_instructions)   # has to be recomputed for next test
 
-        head = ast.While(test, body)
-        ast.copy_location(head, node)
-        ast.fix_missing_locations(head)
+        self.extract = True
+        test = self.visit(node.test)
 
-        return head
+        body.extend(self.instruction_stack)   # has to be recomputed for next test
+        
+        node.body = body
+        node.test = test
+        return node
+
+    def visit_FunctionDef(self, node) -> ast.Module:
+        body = self.visit_sequence(node.body)
+        node.body = body
+        return node
 
     def visit_Module(self, node) -> ast.Module:
         body = self.visit_sequence(node.body)
-        return ast.Module(body)
+        node.body = body
+        return node
+
               
