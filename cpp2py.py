@@ -276,7 +276,7 @@ class Ast2Py:
 
                 self.push_expr(n.stmt)
                 self.push_newline(depth + 1)
-                self.push_expr('While True:')
+                self.push_expr('while True:')
 
             case c_ast.While():
                 self.push_newline(depth)
@@ -287,7 +287,7 @@ class Ast2Py:
                     self.push_expr(n.cond)
                 else:
                     self.push_expr('True')
-                self.push_expr('While ')
+                self.push_expr('while ')
 
 
             case c_ast.For():
