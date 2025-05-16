@@ -276,29 +276,36 @@ class Ast2Py:
 
                 self.push_expr(n.stmt)
                 self.push_newline(depth + 1)
-                self.push_expr('while True:')
+                self.push_expr('While True:')
 
             case c_ast.While():
                 self.push_newline(depth)
                 self.push_expr(n.stmt)
                 self.push_newline(depth + 1)
                 self.push_expr(':')
-                self.push_expr(n.cond)
-                self.push_expr('while ')
+                if n.cond:
+                    self.push_expr(n.cond)
+                else:
+                    self.push_expr('True')
+                self.push_expr('While ')
 
 
             case c_ast.For():
                 self.push_newline(depth)
 
-                self.push_expr(n.next)
-                self.push_newline(depth + 1)
+                if n.next is not None:
+                    self.push_expr(n.next)
+                    self.push_newline(depth + 1)
 
                 self.push_expr(n.stmt)
                 self.push_newline(depth + 1)
 
                 self.push_expr(':')
-                self.push_expr(n.cond)
-                self.push_expr('while ')
+                if n.cond:
+                    self.push_expr(n.cond)
+                else:
+                    self.push_expr('True')
+                self.push_expr('While ')
                 self.push_newline(depth)
 
                 self.push_expr(n.init)
@@ -331,7 +338,7 @@ class Ast2Py:
 
             case c_ast.Case():
                 if all(not isinstance(s, c_ast.Break) for s in n.stmts):
-                    print('Warning: case does not contain break statement!')
+                    print('Warning: case does not contain a break statement! (code nonequivalent)')
 
                 for s in reversed(n.stmts):
                     self.push_expr(s)
