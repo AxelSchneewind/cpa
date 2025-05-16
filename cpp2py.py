@@ -270,7 +270,10 @@ class Ast2Py:
                 self.push_expr('break')
                 self.push_newline(depth + 2)
                 self.push_expr(':')
-                self.push_expr(n.cond)
+                if n.cond:
+                    self.push_expr(n.cond)
+                else:
+                    self.push_expr('False')
                 self.push_expr('if not ')
                 self.push_newline(depth + 1)
 
@@ -305,7 +308,7 @@ class Ast2Py:
                     self.push_expr(n.cond)
                 else:
                     self.push_expr('True')
-                self.push_expr('While ')
+                self.push_expr('while ')
                 self.push_newline(depth)
 
                 self.push_expr(n.init)
