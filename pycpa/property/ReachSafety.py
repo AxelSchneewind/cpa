@@ -16,7 +16,7 @@ class ReachSafetyARGVisitor(ARGVisitor):
     def verdict(self) -> Verdict:
         return self.result
 
-def get_cpas(cfa_root):
+def get_cpas(**params):
     return [PropertyCPA()]
 
 def get_arg_visitor():
