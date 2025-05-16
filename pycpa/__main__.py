@@ -11,7 +11,7 @@ from pycpa.analyses import PredAbsCPA, PredAbsPrecision
 
 from pycpa import configs
 
-from pycpa.ast import ASTPreprocessor, EnsureReturn, RemoveBuiltins, ASTVisualizer
+from pycpa.ast import ASTPreprocessor, EnsureReturn, RemoveBuiltins, ASTVisualizer, SetExecutionContext
 from pycpa.cfa import *
 from pycpa.cpa import *
 from pycpa.cpaalgorithm import CPAAlgorithm, Status
@@ -31,6 +31,18 @@ from graphviz import Digraph
 
 import os
 
+
+transformers = [
+    RemoveBuiltins(builtin_identifiers),
+    SetExecutionContext(),
+    EnsureReturn(),
+    ASTPreprocessor(),
+]
+
+def preprocess_ast(tree):
+    for t in transformers:
+        tree = t.visit(tree)
+    return tree
 
 def main(args): 
     ast_program = ""
@@ -58,10 +70,7 @@ def main(args):
 
 
         print('computing AST', end='')
-        tree = ast.parse(ast_program)
-        tree = RemoveBuiltins(builtin_identifiers).visit(tree)
-        tree = EnsureReturn().visit(tree)
-        tree = ASTPreprocessor().visit(tree)
+        tree = preprocess_ast(ast.parse(ast_program))
         with open(output_dir + '/program-preprocessed.py', 'w') as out_prog:
             out_prog.write(astunparse.unparse(tree))
 
@@ -90,9 +99,9 @@ def main(args):
         specification_mods = [ configs.load_specification(p) for p in args.property ]
         cpas = []
         for m in analysis_mods:
-            cpas.extend(m.get_cpas(entry_point, cfa_roots=cfa_creator.roots,output_dir=output_dir))
+            cpas.extend(m.get_cpas(entry_point=entry_point, cfa_roots=cfa_creator.roots,output_dir=output_dir))
         for p in specification_mods:
-            cpas.extend(p.get_cpas(entry_point, cfa_roots=cfa_creator.roots,output_dir=output_dir))
+            cpas.extend(p.get_cpas(entry_point=entry_point, cfa_roots=cfa_creator.roots,output_dir=output_dir))
         # 
         cpa = ARGCPA(CompositeCPA(cpas))
 
