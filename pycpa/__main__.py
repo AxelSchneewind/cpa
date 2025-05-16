@@ -1,17 +1,8 @@
 #!/usr/bin/env python
 
-import sys
-
-from pycpa.analyses import ARGCPA, GraphableARGState
-from pycpa.analyses import CompositeCPA
-from pycpa.analyses import LocationCPA
-from pycpa.analyses import PropertyCPA
-from pycpa.analyses import ValueAnalysisCPA
-from pycpa.analyses import PredAbsCPA, PredAbsPrecision
-
 from pycpa import configs
 
-from pycpa.ast import ExpandAugAssign, ASTPreprocessor, EnsureReturn, RemoveBuiltins, ASTVisualizer, SetExecutionContext
+from pycpa.preprocessor import preprocess_ast
 from pycpa.cfa import *
 from pycpa.cpa import *
 from pycpa.cpaalgorithm import CPAAlgorithm, Status
@@ -21,7 +12,6 @@ from pycpa.verdict import Verdict
 
 from pycpa.task import Task, Result
 
-
 import ast
 import astpretty
 import astunparse
@@ -30,20 +20,9 @@ import graphviz
 from graphviz import Digraph
 
 import os
+import sys
 
 
-transformers = [
-    ExpandAugAssign(),
-    RemoveBuiltins(set(builtin_identifiers.keys())),
-    SetExecutionContext(),
-    EnsureReturn(),
-    ASTPreprocessor(),
-]
-
-def preprocess_ast(tree):
-    for t in transformers:
-        tree = t.visit(tree)
-    return tree
 
 def main(args): 
     ast_program = ""
@@ -55,9 +34,12 @@ def main(args):
             break       
 
         task = Task(program, args.config, args.property, max_iterations=args.max_iterations)
+        print('verifying program', program_name, 'using', args.config, 'against', args.property)
+
 
         with open(program) as file:
             ast_program = file.read()
+
 
         program_name = os.path.splitext(os.path.basename(program))[0]
         output_dir = './out/' + program_name + '/'
@@ -65,7 +47,6 @@ def main(args):
             os.makedirs(output_dir)
 
 
-        print('verifying program', program_name, 'using', args.config, 'against', args.property)
         with open(output_dir + '/program.py', 'w') as out_prog:
             out_prog.write(ast_program)
 
