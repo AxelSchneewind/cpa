@@ -72,19 +72,44 @@ class ValueExpressionVisitor(ast.NodeVisitor):
 
     def visit_Name(self, node):
         if isinstance(node.ctx, ast.Store):
-            self.lstack.append(node.id)
+            self.lstack.append(str(node.id))
         elif isinstance(node.ctx, ast.Load):
             var_name = node.id
             self.rstack.append(self.get_value_of(var_name))
 
-    def visit_Num(self, node):
-        self.rstack.append(Value(node.n))
-
     def visit_Constant(self, node):
         self.rstack.append(Value(node.n))
 
-    def visit_NameConstant(self, node):
-        self.rstack.append(Value(node.value))
+    def visit_Subscript(self, node):
+        result = None
+        if isinstance(node.ctx, ast.Load):
+            self.visit(node.slice)
+            sl  = self.rstack.pop()
+
+            self.visit(node.value)
+            val = self.rstack.pop()
+            if val is None or sl is None or sl.is_top() or val.is_top():
+                self.rstack.append(Value.get_top())
+            else:
+                varname = '%s[%s]' % (str(val.actual), str(sl.actual))
+                if varname in self.valuation:
+                    self.rstack.append(self.valuation[varname])
+                else:
+                    self.rstack.append(Value.get_top())
+        elif isinstance(node.ctx, ast.Store):
+            assert isinstance(node.value, ast.Name), ('encountered invalid subscript: %s' % node)
+
+            self.visit(node.slice)
+            sl  = self.rstack.pop()
+
+            val = node.value.id
+
+            if sl is None or sl.is_top():
+                print('write to unknown memory location encountered, nuking value state')
+                self.valuation = {}
+            else:
+                varname = '%s[%s]' % (str(val.actual if isinstance(val, Value) else val), str(sl.actual))
+                self.lstack.append(varname)
 
     def visit_UnaryOp(self, node):
         self.visit(node.operand)
@@ -98,7 +123,6 @@ class ValueExpressionVisitor(ast.NodeVisitor):
         elif isinstance(node.op, ast.Invert):
             self.rstack.append(result.do_invert())
         else:
-            # TODO Task 8: implement other unary operators like unary negation
             raise NotImplementedError("Operator %s is not implemented!" % node.op)
 
     def visit_BoolOp(self, node):
@@ -144,16 +168,25 @@ class ValueExpressionVisitor(ast.NodeVisitor):
                 result = left_result.do_ne(comp_results[0])
             case ast.Eq():
                 result = left_result.do_eq(comp_results[0])
-            case ast.Neq():
-                result = left_result.do_ne(comp_results[0])
             case _:
                 raise NotImplementedError("Operator %s is not implemented!" % op)
         self.rstack.append(result)
 
-    # DONE Task 8: implement other operations like subtraction or multiplication for hidden programs
     def visit_Assign(self, node):
-        self.visit(node.targets[0])
-        self.visit(node.value)
+        assert len(node.targets) == 1
+
+        if isinstance(node.value, ast.List) and isinstance(node.targets[0], ast.Name):
+            name = node.targets[0].id
+            
+            for i, expr in enumerate(node.value.elts):
+                self.visit(expr)
+                val = self.rstack.pop()
+                if val is not None and not val.is_top():
+                    self.lstack.append('%s[%s]' % (name, i))
+                    self.rstack.append(val)
+        else:
+            self.visit(node.targets[0])
+            self.visit(node.value)
 
     def visit_AugAssign(self, node):
         # modified right side
@@ -431,6 +464,13 @@ class ValueTransferRelation(TransferRelation):
             newval = ValueState()
             newval.valuation = { edge.instruction.param_names[i] : predecessor.valuation[k] for i,k in enumerate(edge.instruction.arg_names) if k in predecessor.valuation }
             return [newval]
+        elif edge.instruction.kind == InstructionType.NONDET:
+            successor = ValueState(predecessor)
+            if hasattr(edge.instruction, 'target'):
+                successor.valuation[edge.instruction.target] = Value.get_top()
+            else:
+                successor.valuation['__ret'] = Value.get_top()
+            return [successor]
         else:
             return [copy.copy(predecessor)]
 

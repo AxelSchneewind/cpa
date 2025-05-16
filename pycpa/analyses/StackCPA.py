@@ -57,15 +57,26 @@ class StackTransferRelation(TransferRelation):
 
         elif kind == InstructionType.RETURN:
             for i, wrapped_successor in enumerate(states):
-                # advance instruction pointer 
+                if len(result[i].stack) < 2:
+                    continue
+
                 s = result[i].stack[-2]
+
+                # advance instruction pointer 
                 for w, p in zip(WrappedAbstractState.unwrap_fully(s), WrappedAbstractState.unwrap_fully(predecessor.stack[-2])):
                     if isinstance(p, LocationState):
                         w.location = p.location.leaving_edges[0].successor
+
+                # write return value
                 for w, p in zip(WrappedAbstractState.unwrap_fully(s), WrappedAbstractState.unwrap_fully(predecessor.stack[-1])):
                     if isinstance(p, ValueState):
                         if '__ret' in p.valuation:
-                            w.valuation['__ret'] = copy.copy(p.valuation['__ret'])
+                            # if target attribute is provided, directly write to that variable
+                            if hasattr(edge.instruction, 'target'):
+                                w.valuation[edge.instruction.target] = copy.copy(p.valuation['__ret'])
+                            # otherwise, set __ret
+                            else:
+                                w.valuation['__ret'] = copy.copy(p.valuation['__ret'])
 
                 result[i].stack.pop()
             return result
