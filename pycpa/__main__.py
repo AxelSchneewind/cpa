@@ -33,7 +33,7 @@ import os
 
 
 transformers = [
-    RemoveBuiltins(builtin_identifiers),
+    RemoveBuiltins(set(builtin_identifiers.keys())),
     SetExecutionContext(),
     EnsureReturn(),
     ASTPreprocessor(),
