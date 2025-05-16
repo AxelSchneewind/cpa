@@ -11,7 +11,7 @@ from pycpa.analyses import PredAbsCPA, PredAbsPrecision
 
 from pycpa import configs
 
-from pycpa.ast import ASTPreprocessor, EnsureReturn, RemoveBuiltins, ASTVisualizer, SetExecutionContext
+from pycpa.ast import ExpandAugAssign, ASTPreprocessor, EnsureReturn, RemoveBuiltins, ASTVisualizer, SetExecutionContext
 from pycpa.cfa import *
 from pycpa.cpa import *
 from pycpa.cpaalgorithm import CPAAlgorithm, Status
@@ -33,6 +33,7 @@ import os
 
 
 transformers = [
+    ExpandAugAssign(),
     RemoveBuiltins(set(builtin_identifiers.keys())),
     SetExecutionContext(),
     EnsureReturn(),
