@@ -188,19 +188,6 @@ class ValueExpressionVisitor(ast.NodeVisitor):
             self.visit(node.targets[0])
             self.visit(node.value)
 
-    def visit_AugAssign(self, node):
-        # modified right side
-        expr = ast.BinOp(
-            ast.Name(
-                node.target.id, ast.Load(),
-            ), 
-            node.op, 
-            node.value,
-        )
-        ast.copy_location(node, expr)
-        self.visit(expr)
-        self.visit(node.target)
-    
     def visit_BinOp(self, node):
         self.visit(node.left)
         left_result = self.rstack.pop()
