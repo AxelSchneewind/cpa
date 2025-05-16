@@ -4,5 +4,6 @@ from pycpa.analyses import StackCPA
 from pycpa.analyses import ARGCPA
 from pycpa.analyses import ValueAnalysisCPA
 
-def get_cpas(entry_point, **params):
+def get_cpas(entry_point=None, **params):
+    assert entry_point
     return [StackCPA(LocationCPA(entry_point))]
