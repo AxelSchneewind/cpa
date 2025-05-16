@@ -44,13 +44,23 @@ generate-benchmarks: patch-cpp2py cpp2py.py
 	@make -C benchmarks benchmarks -B
 
 # main target for running benchmarks, TODO: define set of benchmark sets somewhere
-run-benchmarks: run-benchmark-ReachSafety-Arrays
 
 run-benchmark-%: venv check-venv benchmarks/% cpp2py.py
 	@echo 'running benchmark'
-	python -m pycpa -p ReachSafety -c ValueAnalysisMergeJoin --max-iterations 1000 benchmarks/$*/*.py
+	python -m pycpa -p ReachSafety -c PredicateAnalysis --max-iterations 1 benchmarks/$*/*.py
+
+run-benchmarks: run-benchmark-ReachSafety-Arrays/ run-benchmark-ControlFlow/ run-benchmark-Floats/ run-benchmark-Heap/ run-benchmark-Loops/ run-benchmark-ProductLines/ run-benchmark-Sequentialized/ run-benchmark-XCSP/ run-benchmark-Combinations/ 
 
 run-benchmark-Test: 
 
 run-examples: check-venv collatz.py unsafe.py
-	python -m pycpa -p ReachSafety -c ValueAnalysis --max-iterations 300 collatz.py unsafe.py benchmarks/Test/*.py
+	python -m pycpa -p ReachSafety -c PredicateAnalysis --max-iterations 300 collatz.py unsafe.py benchmarks/Test/*.py
+
+run-%: check-venv %.py
+	python -m pycpa -p ReachSafety -c PredicateAnalysis --max-iterations 300 $*.py 
+
+
+
+# separate file for testing
+test: check-venv
+	python -m pycpa.test
