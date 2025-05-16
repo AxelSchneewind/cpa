@@ -127,12 +127,25 @@ class ASTPreprocessor(ast.NodeTransformer):
         return head
 
     def visit_AugAssign(self, node) -> ast.AugAssign:
-        assign = ast.Assign(
-            targets =[node.target], 
-            value = ast.BinOp([node.target], node.op, node.value)
-        )
-        ast.copy_location(assign, node)
-        ast.fix_missing_locations(assign)
+        assert isinstance(node.target, ast.Name), node.target
+        match node.target:
+            case ast.Name():
+                assign = ast.Assign(
+                    targets =[
+                        ast.Name(id=node.target.id, ctx=ast.Load()), 
+                    ], 
+                    value = ast.BinOp(
+                        ast.Name(id=node.target.id, ctx=ast.Store()), 
+                        node.op, node.value
+                    )
+                )
+                ast.copy_location(assign, node)
+                ast.fix_missing_locations(assign)
+            case ast.Subscript():
+                # TODO
+                raise NotImplementedError()
+            case _:
+                assert False, node.target
 
         return self.visit(assign)
 
