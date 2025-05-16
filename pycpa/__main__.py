@@ -90,9 +90,9 @@ def main(args):
         specification_mods = [ configs.load_specification(p) for p in args.property ]
         cpas = []
         for m in analysis_mods:
-            cpas.extend(m.get_cpas(entry_point, cfa_roots=cfa_creator.roots))
+            cpas.extend(m.get_cpas(entry_point, cfa_roots=cfa_creator.roots,output_dir=output_dir))
         for p in specification_mods:
-            cpas.extend(p.get_cpas(entry_point, cfa_roots=cfa_creator.roots))
+            cpas.extend(p.get_cpas(entry_point, cfa_roots=cfa_creator.roots,output_dir=output_dir))
         # 
         cpa = ARGCPA(CompositeCPA(cpas))
 
