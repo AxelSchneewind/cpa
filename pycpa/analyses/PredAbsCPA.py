@@ -18,26 +18,23 @@ import astpretty
 class PredAbsState(AbstractState):
     def __init__(self, other=None):
         if other:
-            self.formula = copy.copy(other.formula)
+            self.predicates = copy.copy(other.predicates)
             self.ssa_indices = copy.copy(other.ssa_indices)
         else:
-            self.formula = TRUE()
-            self.ssa_indices = {}
+            self.predicates  : set[pysmt.fnode] = {}        # set of predicates
+            self.ssa_indices : dict[str,int]    = {}        # mapping from program variable names to their highest ssa index
 
     def subsumes(self, other):
-        """
-            TODO: check implication i guess (self.formula => other.formula)
-            should be doable using pySMT satisfiability check
-        """
-        return False
+        return self.predicates.issubset(other.predicates)   # simple subset check
+
     def __eq__(self, other):
-        return self.formula == other.formula
+        return self.predicates == other.predicates
 
     def __hash__(self):
-        return self.formula.__hash__()
+        return self.predicates.__hash__()
 
     def __str__(self):
-        return "{%s}" % self.formula
+        return "{%s}" % self.predicates
 
 
 class PredAbsTransferRelation(TransferRelation):
@@ -50,7 +47,7 @@ class PredAbsTransferRelation(TransferRelation):
         )
 
     def get_abstract_successors_for_edge(self, predecessor, edge):
-        old = predecessor.formula
+        old = predecessor.predicates
         match edge.instruction.kind:
             case InstructionType.STATEMENT:
                 formula = PredAbsPrecision.ssa_from_assign(edge, predecessor.ssa_indices)
