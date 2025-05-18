@@ -7,10 +7,14 @@ from pycpa.cfa import *
 from pycpa.cpa import *
 from pycpa.cpaalgorithm import CPAAlgorithm, Status
 
+from pycpa.analyses import ARGCPA, CompositeCPA, GraphableARGState
+
 from pycpa.specification import Specification
 from pycpa.verdict import Verdict
 
 from pycpa.task import Task, Result
+
+from pycpa.ast import ASTVisualizer
 
 import ast
 import astpretty
@@ -33,6 +37,7 @@ def main(args):
         if aborted == True:
             break       
 
+        program_name = os.path.splitext(os.path.basename(program))[0]
         task = Task(program, args.config, args.property, max_iterations=args.max_iterations)
         print('verifying program', program_name, 'using', args.config, 'against', args.property)
 
@@ -41,7 +46,6 @@ def main(args):
             ast_program = file.read()
 
 
-        program_name = os.path.splitext(os.path.basename(program))[0]
         output_dir = './out/' + program_name + '/'
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
@@ -95,7 +99,7 @@ def main(args):
         init = cpa.get_initial_state()
         waitlist.add(init)
         reached.add(init)
-        algo = CPAAlgorithm(cpa, task, result)
+        algo = CPAAlgorithm(cpa, task, result, specification_mods)
 
         # run algorithm
         try:
@@ -106,7 +110,6 @@ def main(args):
             aborted = True
         except BaseException as x:
             result.status = Status.ERROR
-            result.witness = str(x)
             raise x
         except:
             result.status = Status.ERROR
@@ -129,7 +132,7 @@ def main(args):
         v = Verdict.TRUE if result.status == Status.OK else Verdict.UNKNOWN
         result.verdicts = [v for p in specification_mods]
         for i, p in enumerate(specification_mods):
-            result.verdicts[i] = p.get_arg_visitor().visit(init).verdict()
+            result.verdicts[i] = p.check_arg_state(init)
             result.verdict &= result.verdicts[i]
 
             print('%s:  %s' % (str(task.properties[i]), str(result.verdicts[i])))

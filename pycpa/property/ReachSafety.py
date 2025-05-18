@@ -19,7 +19,9 @@ class ReachSafetyARGVisitor(ARGVisitor):
 def get_cpas(**params):
     return [PropertyCPA()]
 
-def get_arg_visitor():
-    return ReachSafetyARGVisitor()
+def check_arg_state(state):
+    v = ReachSafetyARGVisitor()
+    v.visit(state)
+    return v.verdict()
 
     
