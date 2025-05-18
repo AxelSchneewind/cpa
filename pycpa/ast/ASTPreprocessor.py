@@ -123,6 +123,8 @@ class ASTPreprocessor(ast.NodeTransformer):
             func=node.func,
             args=[self.visit(arg) for arg in node.args]
         )
+        ast.copy_location(call, node)
+        ast.fix_missing_locations(call)
 
         if do_extract:
             # here, the instruction for this call has to be put under the instructions of the args
