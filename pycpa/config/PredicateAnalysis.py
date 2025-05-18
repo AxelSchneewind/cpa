@@ -1,4 +1,4 @@
-from pycpa.analyses import PredAbsPrecision
+from pycpa.analyses import PredAbsPrecision, PredAbsCPA
 from pycpa.analyses import CompositeCPA
 from pycpa.analyses import LocationCPA
 from pycpa.analyses import StackCPA
