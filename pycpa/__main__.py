@@ -18,7 +18,6 @@ from pycpa.ast import ASTVisualizer
 
 import ast
 import astpretty
-import astunparse
 
 import graphviz
 from graphviz import Digraph
@@ -58,7 +57,7 @@ def main(args):
         print('computing AST', end='')
         tree = preprocess_ast(ast.parse(ast_program))
         with open(output_dir + '/program-preprocessed.py', 'w') as out_prog:
-            out_prog.write(astunparse.unparse(tree))
+            out_prog.write(ast.unparse(tree))
 
         # prettyprint ast
         with open(output_dir + '/astpretty', 'w') as out_file:
@@ -99,7 +98,7 @@ def main(args):
         init = cpa.get_initial_state()
         waitlist.add(init)
         reached.add(init)
-        algo = CPAAlgorithm(cpa, task, result, specification_mods)
+        algo = CPAAlgorithm(cpa, task, result)
 
         # run algorithm
         try:

@@ -7,7 +7,6 @@ from pycpa.analyses.FormulaBuilder import FormulaBuilder
 
 import ast
 import astpretty
-import astunparse
 
 import re
 

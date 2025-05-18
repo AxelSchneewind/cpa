@@ -122,7 +122,6 @@ class Instruction:
 
 # In[8]:
 
-import astunparse
 import astpretty
 
 class CFANode:
@@ -168,9 +167,13 @@ class CFAEdge:
 
     def label(self):
         if self.instruction.kind == InstructionType.ASSUMPTION:
-            return str(self.instruction.expression.lineno) + ': [' + astunparse.unparse(self.instruction.expression).strip() + ']'
+            return str(self.instruction.expression.lineno) + ': [' + ast.unparse(self.instruction.expression).strip() + ']'
         elif self.instruction.kind == InstructionType.STATEMENT:
-            return str(self.instruction.expression.lineno) + ': ' + astunparse.unparse(self.instruction.expression).strip()
+            return str(self.instruction.expression.lineno) + ': ' + ast.unparse(self.instruction.expression).strip()
+        elif self.instruction.kind == InstructionType.CALL:
+            return str(self.instruction.expression.lineno) + ': ' + self.instruction.declaration.name.strip()
+        elif self.instruction.kind == InstructionType.RETURN:
+            return str(self.instruction.expression.lineno) + ': ' + ast.unparse(self.instruction.expression).strip()
         else:
             return '< %s >' % self.instruction.kind
 

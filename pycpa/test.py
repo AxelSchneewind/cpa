@@ -9,7 +9,6 @@ from pycpa.analyses import PredAbsCPA, PredAbsState, PredAbsTransferRelation, Pr
 
 import ast
 import astpretty
-import astunparse
 
 import graphviz
 from graphviz import Digraph

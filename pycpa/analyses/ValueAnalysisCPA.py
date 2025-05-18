@@ -7,7 +7,6 @@ from pycpa.cpa import CPA, AbstractState, TransferRelation, StopSepOperator, Mer
 import ast
 import copy
 
-import astunparse
 import astpretty
 
 # ### Value Analysis via ValueAnalysisCPA
