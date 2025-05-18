@@ -18,6 +18,11 @@ from typing import Collection
 class FormulaBuilder(ast.NodeVisitor):
     """ NodeVisitor that computes a formula from expressions on CFA-edges """
 
+    # types used in formulas
+    int_type = types.BV64
+    bool_type = types.BOOL
+
+
     # use bitvectors for all variables
     # creates a constant from the given value
     @staticmethod
@@ -54,7 +59,7 @@ class FormulaBuilder(ast.NodeVisitor):
         return Ite(b, FormulaBuilder.BV(1), FormulaBuilder.BV(0))
 
 
-    def __init__(self, instruction : Instruction, current_type=dict(), ssa_indices=None):
+    def __init__(self, instruction : Instruction, current_type=dict(), ssa_indices=None, required_type=int_type):
         """
             takes a single instruction and computes a formula from it
         """
@@ -65,9 +70,7 @@ class FormulaBuilder(ast.NodeVisitor):
         self.enable_ssa = (ssa_indices is not None)
         self.ssa_indices = ssa_indices
 
-        # types used in formulas
-        self.int_type = types.BV64
-        self.bool_type = types.BOOL
+        self.required_type = required_type
 
     
     def store_type(self, name, current):
@@ -109,13 +112,16 @@ class FormulaBuilder(ast.NodeVisitor):
         return Symbol(name, required_type)
 
     def cast(self, value, required_type):
-        if get_type(value) == required_type:
+        actual_type = get_type(value)
+        if required_type == actual_type:
             return value
-        match required_type, get_type(value):
+
+        match required_type, actual_type:
             case self.int_type, self.bool_type:
                 value = self.Bool_to_BV(value)
             case self.bool_type, self.int_type:
                 value = self.BV_to_Bool(value)
+
         assert get_type(value) == required_type
         return value
 
@@ -290,8 +296,8 @@ class FormulaBuilder(ast.NodeVisitor):
                 result = And(clauses), self.int_type
 
             case ast.Name() | ast.Num() | ast.Constant() | ast.Subscript() | ast.BinOp() | ast.UnaryOp() | ast.Compare() | ast.BoolOp():
-                left_result = self.visit(node.targets[0], required_type=self.int_type, is_rvalue=False)
                 right_result = self.visit(node.value, required_type=self.int_type)
+                left_result = self.visit(node.targets[0], required_type=self.int_type, is_rvalue=False)
 
                 result = self.make_equality(left_result, right_result)
                 assert get_type(left_result) == self.int_type
@@ -335,32 +341,3 @@ class FormulaBuilder(ast.NodeVisitor):
 
 
 
-
-
-class PredAbsPrecision:
-    def __init__(self, predicates : Collection[pysmt.fnode]):
-        self.predicates = predicates
-
-
-    
-    @staticmethod
-    def ssa_from_assign(expression, current_indices : dict[str,int] = dict()) -> pysmt.formula:
-        """
-            computes a formula in SSA-form from the given assignment
-        """
-        assert isinstance(expression, ast.Assign)
-
-        result = None
-        match expression.value:
-            case ast.Call():
-                result = TRUE()       # TODO: implement
-            case ast.BinOp() | ast.UnaryOp() | ast.BoolOp() | ast.Name() | ast.Constant():
-                fb =  FormulaBuilder(cfa_edge, enable_ssa=False)
-                result = fb.visit(expression, required_type=types.BV64, enable_ssa=True, current_indices=current_indices)
-            case ast.Expr():
-                result = TRUE()
-            case _:
-                assert False, (f"need to add case for %s" % expression)
-
-        return result
-    

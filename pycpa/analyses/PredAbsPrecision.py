@@ -32,14 +32,17 @@ class PredAbsPrecision:
         result = None
         match expression.value:
             case ast.Call():
-                result = TRUE()       # TODO: implement
-            case ast.BinOp() | ast.UnaryOp() | ast.BoolOp() | ast.Name() | ast.Constant():
+                result = TRUE()
+            case ast.Compare() | ast.BinOp() | ast.UnaryOp() | ast.BoolOp() | ast.Name() | ast.Constant():
                 fb =  FormulaBuilder(cfa_edge.instruction, ssa_indices=ssa_indices)
-                result = fb.visit(expression, required_type=types.BV64)
+                result = fb.visit(expression)
             case ast.Expr():
                 result = TRUE()
+            case ast.Assign():
+                fb =  FormulaBuilder(cfa_edge.instruction, ssa_indices=ssa_indices)
+                result = fb.visit(expression)
             case _:
-                assert False, (f"need to add case for %s" % expression)
+                assert False, (f"need to add case for %s, %s" % (expression.value, ast.unparse(expression.value)))
 
         return result
     
@@ -50,14 +53,13 @@ class PredAbsPrecision:
         """
         expression = cfa_edge.instruction.expression
         kind = cfa_edge.instruction.kind
-        assert kind == InstructionType.STATEMENT
-        assert isinstance(expression, ast.Assign)
+        assert kind == InstructionType.ASSUMPTION, kind
 
         result = None
         match expression:
             case ast.Compare() | ast.BoolOp() | ast.UnaryOp() | ast.Name() | ast.Constant():
-                fb =  FormulaBuilder(cfa_edge.instruction, enable_ssa=False)
-                result = fb.visit(expression, required_type=types.BV64, enable_ssa=True, ssa_indices=ssa_indices)
+                fb =  FormulaBuilder(cfa_edge.instruction, ssa_indices=ssa_indices)
+                result = fb.visit(expression, required_type=types.BV64)
             case ast.Call():
                 result = TRUE()         # TODO
             case _:

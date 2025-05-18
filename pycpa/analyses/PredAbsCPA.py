@@ -17,12 +17,12 @@ import astpretty
 
 class PredAbsState(AbstractState):
     def __init__(self, other=None):
-        if other:
+        if other is not None:
             self.predicates = copy.copy(other.predicates)
             self.ssa_indices = copy.copy(other.ssa_indices)
         else:
-            self.predicates  : set[pysmt.fnode] = {}        # set of predicates
-            self.ssa_indices : dict[str,int]    = {}        # mapping from program variable names to their highest ssa index
+            self.predicates  : set[pysmt.fnode] = set()         # set of predicates
+            self.ssa_indices : dict[str,int]    = dict()        # mapping from program variable names to their highest ssa index
 
     def subsumes(self, other):
         return self.predicates.issubset(other.predicates)   # simple subset check
@@ -31,7 +31,9 @@ class PredAbsState(AbstractState):
         return self.predicates == other.predicates
 
     def __hash__(self):
-        return self.predicates.__hash__()
+        assert self.predicates is not None, self
+        result = len(self.predicates) * len(self.ssa_indices) * id(self.predicates) * id(self.ssa_indices)
+        return result
 
     def __str__(self):
         return "{%s}" % self.predicates
@@ -48,22 +50,26 @@ class PredAbsTransferRelation(TransferRelation):
 
     def get_abstract_successors_for_edge(self, predecessor, edge):
         old = predecessor.predicates
+        result = []
         match edge.instruction.kind:
             case InstructionType.STATEMENT:
-                formula = PredAbsPrecision.ssa_from_assign(edge, predecessor.ssa_indices)
-                print('statement edge: ', formula)
+                formula = PredAbsPrecision.ssa_from_assign(edge, ssa_indices=predecessor.ssa_indices)
+                print('statement edge: ', formula, 'for', astunparse.unparse(edge.instruction.expression))
                 # TODO
-                return [copy.copy(predecessor)]
+                result = [PredAbsState(predecessor)]
             case InstructionType.ASSUMPTION:
-                formula = PredAbsPrecision.ssa_from_assume(edge, predecessor.ssa_indices)
-                print('assume edge: ', formula)
+                formula = PredAbsPrecision.ssa_from_assume(edge, ssa_indices=predecessor.ssa_indices)
+                print('assume edge: ', formula, 'for', astunparse.unparse(edge.instruction.expression))
                 # TODO
-                return [copy.copy(predecessor)]
+                result = [PredAbsState(predecessor)]
             case InstructionType.CALL | InstructionType.NONDET:
                 # ignore this for now
-                return [copy.copy(predecessor)]
+                result = [PredAbsState(predecessor)]
             case _:
-                return [copy.copy(predecessor)]
+                result = [PredAbsState(predecessor)]
+
+        assert result[0].predicates is not None, predecessor
+        return result
 
 
 class PredAbsCPA(CPA):
