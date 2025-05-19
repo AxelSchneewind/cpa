@@ -1,19 +1,74 @@
+#!/usr/bin/env python3
+"""
+Command-line interface shared by all pycpa entry points.
+"""
+
 import argparse
 
+# --------------------------------------------------------------------------- #
+#  Core parser                                                                #
+# --------------------------------------------------------------------------- #
+parser = argparse.ArgumentParser(
+    prog        = "pycpa",
+    description = "Predicate Abstraction, Value Analysis, and other CPAs "
+                  "for Python/C benchmarks",
+)
 
-parser = argparse.ArgumentParser(prog='pycpa', usage='TODO', description='python implementation of CPA')
-parser.add_argument('program', help='the program to validate', nargs='+')
+# --------------------------------------------------------------------------- #
+#  Positional: program(s)                                                     #
+# --------------------------------------------------------------------------- #
+parser.add_argument(
+    "program",
+    nargs="+",
+    help="one or more .py files to verify",
+)
 
-parser.add_argument('-c', '--config', action='append', required=True, help='which analysis configuration to use (use --list-configs to get a list of available ones)')
-parser.add_argument('-p', '--property', action='append', required=True, help='which analysis configuration to use (use --list-configs to get a list of available ones)')
-parser.add_argument('--list-configs', help='a list of available analyses')
-parser.add_argument('--list-properties', help='a list of available properties')
-parser.add_argument('--verbose', action='store_true', help='print each predicate set as it is created')
+# --------------------------------------------------------------------------- #
+#  Mandatory analysis / property choices                                      #
+# --------------------------------------------------------------------------- #
+parser.add_argument(
+    "-c", "--config",
+    action   = "append",
+    required = True,
+    metavar  = "CPA",
+    help     = "analysis configuration to use "
+               "(repeat for multiple CPAs; see --list-configs)",
+)
+parser.add_argument(
+    "-p", "--property",
+    action   = "append",
+    required = True,
+    metavar  = "SPEC",
+    help     = "property to check "
+               "(repeat for multiple specs; see --list-properties)",
+)
 
+# --------------------------------------------------------------------------- #
+#  Optional listings                                                          #
+# --------------------------------------------------------------------------- #
+parser.add_argument(
+    "--list-configs",
+    action = "store_true",
+    help   = "print available analysis configurations and exit",
+)
+parser.add_argument(
+    "--list-properties",
+    action = "store_true",
+    help   = "print available specification modules and exit",
+)
 
-parser.add_argument('--max-iterations', help='maximum number of CPA loop iterations', type=int)
-
-# TODO add parameters
-
-
-
+# --------------------------------------------------------------------------- #
+#  Runtime knobs                                                              #
+# --------------------------------------------------------------------------- #
+parser.add_argument(
+    "--max-iterations",
+    type    = int,
+    default = 50_000,
+    metavar = "N",
+    help    = "ARG node budget per run / CEGAR round (default: 50 000)",
+)
+parser.add_argument(
+    "--verbose",
+    action = "store_true",
+    help   = "print each new predicate set and CEGAR round progress",
+)

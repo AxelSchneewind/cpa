@@ -20,20 +20,25 @@ from typing import Collection
 
 # In[14]:
 
-
+# LocationCPA.py
 class LocationState(AbstractState):
     def __init__(self, node: CFANode):
-        assert isinstance(node, CFANode), type(node)
         self.location = node
 
+    # NEW ---------------------------------------------------------------- #
+    def is_target(self) -> bool:
+        """The state is a target iff the CFA node was tagged is_error=True."""
+        return getattr(self.location, "is_error", False)
+    # -------------------------------------------------------------------- #
+
     def __str__(self):
-        return "@%s" % self.location.node_id
+        return f"@{self.location.node_id}"
 
     def __eq__(self, other):
         return self.location == other.location
 
     def __hash__(self):
-        return self.location.__hash__()
+        return hash(self.location)
 
 
 class LocationTransferRelation(TransferRelation):

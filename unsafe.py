@@ -7,7 +7,6 @@ def a():
     y = 2
     return y
 
-
 def b():
     a()
 
@@ -17,7 +16,6 @@ def VERIFIER_assert(cond):
     else:
         pass
     return 
-
 
 def main():
     x = 10
@@ -32,7 +30,5 @@ def main():
         else:
             z = 3 * z + 1
     VERIFIER_assert(False)
-
     b()
-
     c()
