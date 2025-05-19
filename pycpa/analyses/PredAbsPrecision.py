@@ -34,12 +34,12 @@ class PredAbsPrecision:
                 result = TRUE()
             case ast.Compare() | ast.BinOp() | ast.UnaryOp() | ast.BoolOp() | ast.Name() | ast.Constant():
                 fb =  FormulaBuilder(cfa_edge.instruction, ssa_indices=ssa_indices)
-                result = fb.visit(expression)
+                result = fb.visit(expression, required_type = FormulaBuilder.bool_type)
             case ast.Expr():
                 result = TRUE()
             case ast.Assign():
                 fb =  FormulaBuilder(cfa_edge.instruction, ssa_indices=ssa_indices)
-                result = fb.visit(expression)
+                result = fb.visit(expression = FormulaBuilder.bool_type)
             case _:
                 assert False, (f"need to add case for %s, %s" % (expression.value, ast.unparse(expression.value)))
 
@@ -58,7 +58,7 @@ class PredAbsPrecision:
         match expression:
             case ast.Compare() | ast.BoolOp() | ast.UnaryOp() | ast.Name() | ast.Constant():
                 fb =  FormulaBuilder(cfa_edge.instruction, ssa_indices=ssa_indices)
-                result = fb.visit(expression, required_type=types.BV64)
+                result = fb.visit(expression, required_type=FormulaBuilder.bool_type)
             case ast.Call():
                 result = TRUE()         # TODO
             case _:

@@ -11,7 +11,6 @@ import pysmt
 import ast
 import copy
 
-import astunparse
 import astpretty
 
 
@@ -54,12 +53,12 @@ class PredAbsTransferRelation(TransferRelation):
         match edge.instruction.kind:
             case InstructionType.STATEMENT:
                 formula = PredAbsPrecision.ssa_from_assign(edge, ssa_indices=predecessor.ssa_indices)
-                print('statement edge: ', formula, 'for', astunparse.unparse(edge.instruction.expression))
+                print('statement edge: ', formula, 'for', ast.unparse(edge.instruction.expression))
                 # TODO
                 result = [PredAbsState(predecessor)]
             case InstructionType.ASSUMPTION:
                 formula = PredAbsPrecision.ssa_from_assume(edge, ssa_indices=predecessor.ssa_indices)
-                print('assume edge: ', formula, 'for', astunparse.unparse(edge.instruction.expression))
+                print('assume edge: ', formula, 'for', ast.unparse(edge.instruction.expression))
                 # TODO
                 result = [PredAbsState(predecessor)]
             case InstructionType.CALL | InstructionType.NONDET:
