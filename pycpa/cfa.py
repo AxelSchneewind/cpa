@@ -2,6 +2,7 @@
 
 import ast
 from graphviz import Digraph
+from typing import List, Optional 
 
 # ### 1.2 Converting the AST into a CFA
 # 
@@ -17,20 +18,32 @@ from graphviz import Digraph
 
 from typing import List
 
-from enum import Enum
+from enum import Enum, auto
 
+
+# class InstructionType(Enum):
+#     STATEMENT = 1,
+#     ASSUMPTION = 2,
+#     CALL = 3,
+#     RETURN = 4,
+#     NONDET = 5,
+#     EXIT = 5,
+#     ABORT = 6,
+#     REACH_ERROR = 7,
+#     EXTERNAL = 8,
+#     NOP = 9
 
 class InstructionType(Enum):
-    STATEMENT = 1,
-    ASSUMPTION = 2,
-    CALL = 3,
-    RETURN = 4,
-    NONDET = 5,
-    EXIT = 5,
-    ABORT = 6,
-    REACH_ERROR = 7,
-    EXTERNAL = 8,
-    NOP = 9
+    STATEMENT     = auto()
+    ASSUMPTION    = auto()
+    CALL          = auto()
+    RETURN        = auto()
+    NONDET        = auto()
+    EXIT          = auto()
+    ABORT         = auto()
+    REACH_ERROR   = auto()
+    EXTERNAL      = auto()
+    NOP           = auto()
 
 builtin_identifiers = {
     'exit'                          : InstructionType.EXIT,
@@ -38,6 +51,8 @@ builtin_identifiers = {
     'call'                          : InstructionType.CALL,
     'return'                        : InstructionType.RETURN,
     'nondet'                        : InstructionType.NONDET,
+    "assume"                        : InstructionType.ASSUMPTION,
+    "nondet_int"                    : InstructionType.NONDET,
     '__VERIFIER_nondet_char'        : InstructionType.NONDET,
     '__VERIFIER_nondet_short'       : InstructionType.NONDET,
     '__VERIFIER_nondet_int'         : InstructionType.NONDET,
@@ -46,6 +61,8 @@ builtin_identifiers = {
     '__VERIFIER_nondet_long'        : InstructionType.NONDET,
     'reach_error'                   : InstructionType.REACH_ERROR,
 }
+
+builtin_identifiers["reach_error"] = InstructionType.REACH_ERROR
 
 class Instruction:
     """An instruction is either an assignment or an assumption"""
@@ -62,16 +79,41 @@ class Instruction:
                 assert hasattr(self,'location')
                 assert hasattr(self,'declaration')
     
+    # def __str__(self):
+    #     identifier = str(self.kind).replace('InstructionType.', '')
+    #     match self.kind:
+    #         case InstructionType.EXIT:
+    #             code = self.exit_code if 'exit_code' in self.parameters else '0'
+    #             return '%s(%s)' % (identifier, code)
+    #         case InstructionType.CALL:
+    #             return 'jump %s' % (self.location)
+    #         case _:
+    #             return '%s' % self.identifier
+
     def __str__(self):
-        identifier = str(self.kind).replace('InstructionType.', '')
+        """
+        Human-readable version of the instruction that never crashes.
+        Uses `ast.unparse` (built-in since Python 3.9) for nice code
+        snippets; falls back to `ast.dump` if unparse is unavailable.
+        """
+        try:
+            from ast import unparse as _unparse
+            _show = lambda e: _unparse(e).strip()
+        except ImportError:                       # < 3.9
+            _show = lambda e: ast.dump(e)
+
         match self.kind:
-            case InstructionType.EXIT:
-                code = self.exit_code if 'exit_code' in self.parameters else '0'
-                return '%s(%s)' % (identifier, code)
+            case InstructionType.ASSUMPTION:
+                return f"assume({_show(self.expression)})"
+            case InstructionType.STATEMENT:
+                return _show(self.expression)
             case InstructionType.CALL:
-                return 'jump %s' % (self.location)
+                return f"call {getattr(self, 'location', '?')}"
+            case InstructionType.EXIT:
+                code = getattr(self, 'exit_code', 0)
+                return f"exit({code})"
             case _:
-                return '%s' % self.identifier
+                return self.kind.name.lower()
 
 
 
@@ -89,7 +131,7 @@ class Instruction:
 
     @staticmethod
     def builtin(expression, **params):
-        name = str(expression.func.id)
+        name = str(expression.func.id).strip()
         if name in builtin_identifiers: 
             return Instruction(expression, kind=builtin_identifiers[name])
         else:
@@ -99,14 +141,86 @@ class Instruction:
     def ret(expression : ast.Return):
         return Instruction(expression, kind=InstructionType.RETURN)
 
+    # @staticmethod
+    # def call(expression: ast.Call, declaration: ast.FunctionDef, entry_point, exit_point=None, argnames: List[ast.arg] = None):
+    #     assert all((isinstance(p.arg, ast.Name) or isinstance(p.arg, str) for p in declaration.args.args)), declaration.args.args
+    #     assert all((isinstance(p.arg, ast.Name) or isinstance(p.arg, str) for p in argnames)), argnames
+    #     argnames = argnames or []
+    #     assert all((isinstance(p.arg, ast.Name) or isinstance(p.arg, str) for p in argnames)), argnames
+    #     param_names = [ str(p.arg.id) if isinstance(p.arg, ast.Name) else str(p.arg) for p in declaration.args.args ]
+    #     # TODO
+    #     arg_names   = [ str(p.arg.id) if isinstance(p.arg, ast.Name) else str(p.arg) for p in argnames ]
+
+    #     return Instruction(
+    #         expression,
+    #         kind          = InstructionType.CALL,
+    #         location      = entry_point,   # entry of the callee
+    #         exit_point    = exit_point,    # (optional) exit of the callee
+    #         declaration   = declaration,
+    #         param_names   = param_names,
+    #         arg_names     = arg_names
+    #     )
+        # arg_names   = [ str(p.arg.id) if isinstance(p.arg, ast.Name) else str(p.arg) for p in argnames ]
+        # return Instruction(expression, kind=InstructionType.CALL, location=entry_point, declaration=declaration, param_names=param_names, arg_names=arg_names)
+
+
     @staticmethod
-    def call(expression : ast.Call, declaration : ast.FunctionDef, entry_point, argnames : List[ast.arg]):
-        assert all((isinstance(p.arg, ast.Name) or isinstance(p.arg, str) for p in declaration.args.args)), declaration.args.args
-        assert all((isinstance(p.arg, ast.Name) or isinstance(p.arg, str) for p in argnames)), argnames
-        param_names = [ str(p.arg.id) if isinstance(p.arg, ast.Name) else str(p.arg) for p in declaration.args.args ]
-        # TODO
-        arg_names   = [ str(p.arg.id) if isinstance(p.arg, ast.Name) else str(p.arg) for p in argnames ]
-        return Instruction(expression, kind=InstructionType.CALL, location=entry_point, declaration=declaration, param_names=param_names, arg_names=arg_names)
+    def call(expression: ast.Call, declaration: ast.FunctionDef, entry_point, exit_point_or_args: Optional[object] = None, argnames: Optional[List[ast.arg]] = None):
+        """
+        Build a CALL instruction.
+
+        Supports both old and new call sites:
+
+            • Instruction.call(node, decl, entry, args)          # old
+            • Instruction.call(node, decl, entry, exit, args)    # new
+        """
+        # ------------------------------------------------------------------
+        # 1.  Disambiguate the positional 4th argument
+        # ------------------------------------------------------------------
+        from pycpa.cfa import CFANode        # local import to avoid cycles
+
+        if isinstance(exit_point_or_args, CFANode):
+            exit_point = exit_point_or_args          # new style
+        else:
+            # old style: the 4th positional arg was the arg list
+            exit_point = None
+            if argnames is None:
+                argnames = exit_point_or_args
+
+        argnames = argnames or []
+
+        # ------------------------------------------------------------------
+        # 2.  Sanity checks and name extraction
+        # ------------------------------------------------------------------
+        def _to_str(x):
+            """Return identifier string for ast.arg, ast.Name or str."""
+            if isinstance(x, ast.arg):   # function parameters
+                return str(x.arg)
+            if isinstance(x, ast.Name):  # plain identifier expr
+                return str(x.id)
+            return str(x)  
+                      # fallback (e.g. already a str)
+        # every element must be a supported node
+        assert all(isinstance(p, (ast.arg, ast.Name, str))
+                for p in declaration.args.args), declaration.args.args
+        assert all(isinstance(p, (ast.arg, ast.Name, str))
+                for p in argnames), argnames
+
+        param_names = [_to_str(p) for p in declaration.args.args]
+        arg_names   = [_to_str(p) for p in argnames]
+
+        # ------------------------------------------------------------------
+        # 3.  Create and return the Instruction
+        # ------------------------------------------------------------------
+        return Instruction(
+            expression,
+            kind        = InstructionType.CALL,
+            location    = entry_point,      # entry node of callee
+            exit_point  = exit_point,       # may be None
+            declaration = declaration,
+            param_names = param_names,
+            arg_names   = arg_names
+        )
 
     @staticmethod
     def nop(expression):
@@ -193,136 +307,202 @@ import ast
 # TODO: somehow track scopes and make variable names fully qualified
 # TODO: function for creating temporary variables
 class CFACreator(ast.NodeVisitor):
-    def __init__(self):
-        self.global_root = CFANode()
-        self.entry_point = self.global_root
-        self.roots = [self.global_root]
-        self.node_stack = list()
-        self.node_stack.append(self.global_root)
-        self.continue_stack = list()
-        self.break_stack = list()
-        self.function_def = {}
-        self.function_entry_point = {}
+    """
+    Builds a control-flow automaton (CFA) from a Python AST.
+    After visiting the whole AST you can query:
+        • self.roots          – list[CFANode]  (one per function; 0th is global)
+        • self.entry_point    – CFANode        (first node of main module)
+    """
+    def __init__(self) -> None:
+        super().__init__()
+        self.global_root           = CFANode()        #  entry of the main module
+        self.entry_point           = self.global_root
+        self.roots:      list[CFANode] = [self.global_root]
+
+        # node-stacks for building edges
+        self.node_stack:     list[CFANode] = [self.global_root]
+        self.continue_stack: list[CFANode] = []
+        self.break_stack:    list[CFANode] = []
+
+        # for (optional) function-call support
+        self.function_def:          dict[str, ast.FunctionDef] = {}
+        self.function_entry_point:  dict[str, CFANode]         = {}
+        self.function_exit_point:   dict[str, CFANode]         = {}
 
     def generic_visit(self, node):
-        ast.NodeVisitor.generic_visit(self, node)
+        super().generic_visit(node)
+    
+    def visit_Module(self, node: ast.Module):
+        for stmt in node.body:
+            self.visit(stmt)
 
-    def visit_FunctionDef(self, node):
-        pre = self.node_stack.pop()
+    # def visit_FunctionDef(self, node):
+    #     pre = self.node_stack.pop()
 
-        # for continuing after definition 
-        post = CFANode()
-        edge = CFAEdge(pre, post, Instruction.nop(node))
-        self.node_stack.append(post)
+    #     # for continuing after definition 
+    #     post = CFANode()
+    #     edge = CFAEdge(pre, post, Instruction.nop(node))
+    #     self.node_stack.append(post)
 
-        # ignore definitions of builtin functions
-        if node.name in builtin_identifiers:
-            return
+    #     # ignore definitions of builtin functions
+    #     if node.name in builtin_identifiers:
+    #         return
 
-        # 
-        root = CFANode()
-        self.function_def[node.name] = node
-        self.function_entry_point[node.name] = root
+    #     # 
+    #     root = CFANode()
+    #     self.function_def[node.name] = node
+    #     self.function_entry_point[node.name] = root
 
-        self.node_stack.append(root)
-        self.roots.append(root)
-        ast.NodeVisitor.generic_visit(self, node)
+    #     self.node_stack.append(root)
+    #     self.roots.append(root)
+    #     ast.NodeVisitor.generic_visit(self, node)
 
-        
+    def visit_FunctionDef(self, node: ast.FunctionDef):
+        entry = CFANode()
+        exit_  = CFANode()
+        caller = self.node_stack[-1]
+        CFAEdge(caller, entry, Instruction.nop(node))   # jump over definition
 
-    def visit_While(self, node): # Note: implement TODOs for break and continue to handle them inside while-loops
-        entry_node = self.node_stack.pop()
-        inside = CFANode()
-        self.continue_stack.append(entry_node)
-        edge = CFAEdge(entry_node, inside, Instruction.assumption(node.test))
-        outside = CFANode()
-        self.break_stack.append(outside)
-        edge = CFAEdge(
-            entry_node, outside, Instruction.assumption(node.test, negated=True)
-        )
-        self.node_stack.append(inside)
-        for statement in node.body:
-            self.visit(statement)
-        body_exit_node = self.node_stack.pop()
-        CFANode.merge(entry_node, body_exit_node)
-        self.node_stack.append(outside)
-        self.continue_stack.pop()
+        self.function_def[node.name]          = node
+        self.function_entry_point[node.name]  = entry
+        self.function_exit_point[node.name]   = exit_
+
+        self.roots.append(entry)              # so we plot each function
+
+        # visit function body
+        self.node_stack.append(entry)
+        for stmt in node.body:
+            self.visit(stmt)
+        body_exit = self.node_stack.pop()
+        CFAEdge(body_exit, exit_, Instruction.nop(node))
+
+        # continue in caller
+        self.node_stack.append(exit_)
+
+    def visit_While(self, node: ast.While):
+        loop_head = self.node_stack.pop()
+
+        # body entry
+        body_entry = CFANode()
+        CFAEdge(loop_head, body_entry, Instruction.assumption(node.test))
+
+        # exit
+        loop_exit = CFANode()
+        CFAEdge(loop_head, loop_exit,
+                Instruction.assumption(node.test, negated=True))
+
+        # manage break/continue stacks
+        self.break_stack.append(loop_exit)
+        self.continue_stack.append(loop_head)
+
+        # traverse loop body
+        self.node_stack.append(body_entry)
+        for stmt in node.body:
+            self.visit(stmt)
+        body_exit = self.node_stack.pop()
+        CFANode.merge(loop_head, body_exit)       # back-edge
+
+        # clean up stacks
         self.break_stack.pop()
+        self.continue_stack.pop()
 
-    def visit_Break(self, node):
-        entry_node = self.node_stack.pop()
-        next_node = CFANode()            # create node for next line after break
+        self.node_stack.append(loop_exit)
 
-        # make edge from entry node to break node
-        edge = CFAEdge(
-            entry_node, self.break_stack[-1], Instruction.statement(node)
-        )
+    def visit_Break(self, node: ast.Break):
+        pred = self.node_stack.pop()
+        CFAEdge(pred, self.break_stack[-1], Instruction.statement(node))
+        self.node_stack.append(CFANode())         # dead node (no successors)
 
-        self.node_stack.append(next_node)
+    def visit_Continue(self, node: ast.Continue):
+        pred = self.node_stack.pop()
+        CFAEdge(pred, self.continue_stack[-1], Instruction.statement(node))
+        self.node_stack.append(CFANode())
 
-    def visit_Continue(self, node):
-        entry_node = self.node_stack.pop()
-        next_node = CFANode()             # create node for next line after break
+    def visit_If(self, node: ast.If):
+        entry = self.node_stack.pop()
 
-        # make edge from entry node to continue node
-        edge = CFAEdge(
-            entry_node, self.continue_stack[-1], Instruction.statement(node)
-        )
+        # true branch
+        true_node = CFANode()
+        CFAEdge(entry, true_node, Instruction.assumption(node.test))
+        self.node_stack.append(true_node)
+        for stmt in node.body:
+            self.visit(stmt)
+        true_exit = self.node_stack.pop()
 
-        self.node_stack.append(next_node)
+        # false branch
+        false_node = CFANode()
+        CFAEdge(entry, false_node,
+                Instruction.assumption(node.test, negated=True))
+        self.node_stack.append(false_node)
+        for stmt in node.orelse:
+            self.visit(stmt)
+        false_exit = self.node_stack.pop()
 
-    def visit_If(self, node):
-        entry_node = self.node_stack.pop()
-        left = CFANode()
-        edge = CFAEdge(entry_node, left, Instruction.assumption(node.test))
-        right = CFANode()
-        edge = CFAEdge(
-            entry_node, right, Instruction.assumption(node.test, negated=True)
-        )
-        self.node_stack.append(left)
-        for statement in node.body:
-            self.visit(statement)
-        left_exit = self.node_stack.pop()
-        self.node_stack.append(right)
-        for statement in node.orelse:
-            self.visit(statement)
-        right_exit = self.node_stack.pop()
-        merged_exit = CFANode.merge(left_exit, right_exit)
-        self.node_stack.append(merged_exit)
+        # merge
+        merged = CFANode.merge(true_exit, false_exit)
+        self.node_stack.append(merged)
 
-    def visit_Expr(self, node):
+    def visit_Expr(self, node: ast.Expr):
         self.visit(node.value)
 
-    def visit_Assign(self, node):
-        entry_node = self.node_stack.pop()
-        exit_node = CFANode()
-        edge = CFAEdge(entry_node, exit_node, Instruction.statement(node))
-        self.node_stack.append(exit_node)
+    def visit_Assign(self, node: ast.Assign):
+        pred = self.node_stack.pop()
+        succ = CFANode()
+        CFAEdge(pred, succ, Instruction.statement(node))
+        self.node_stack.append(succ)
 
-    def visit_Return(self, node):
-        val = node.value if node.value else ast.Constant(0)
-        store_instruction = ast.Expr(
-                value=ast.Assign(
-                    [ast.Name('__ret', ast.Store())], 
-                    val,
-                ), 
-            )
-        store_instruction = ast.copy_location(store_instruction, node)
-        ast.fix_missing_locations(store_instruction)
-        self.visit(store_instruction)
-
-        entry_node = self.node_stack.pop()
-        exit_node = CFANode()
-        edge = CFAEdge(entry_node, exit_node, Instruction.ret(node))
+    def visit_Return(self, node: ast.Return):
+        pred = self.node_stack.pop()
+        succ = CFANode()
+        CFAEdge(pred, succ, Instruction.ret(node))
+        self.node_stack.append(succ)
         # self.node_stack.append(exit_node)
 
-    def visit_Call(self, node):
-        if node.func.id in builtin_identifiers:
-            entry_node = self.node_stack.pop()
-            exit_node = CFANode()
-            edge = CFAEdge(entry_node, exit_node, Instruction.builtin(node))
-            self.node_stack.append(exit_node)
+    # def visit_Call(self, node):
+    #     func = node.func.id if isinstance(node.func, ast.Name) else None
+    #     if func in self.function_entry_point:
+    #         caller = self.node_stack[-1]
+    #         entry  = self.function_entry_point[func]
+    #         exit_  = self.function_exit_point[func]
+    #         declaration = self.function_def[func]              # <— the AST
+    #         # get the parameter names for this call
+    #         arg_names = [arg.arg for arg in declaration.args.args]
+
+    #         middle = CFANode()
+    #         CFAEdge(caller, middle,
+    #                 Instruction.call(node, declaration, entry, exit_, arg_names))
+    #         # step into function body
+    #         self.node_stack.append(middle)
+    #         # return from call
+    #         CFAEdge(self.node_stack.pop(), exit_, Instruction.nop(node))
+    #         self.node_stack.append(exit_)
+    #     else:
+    #         # still warn on truly undefined calls
+    #         print(f"WARNING: call to undefined  {func}")
+    def visit_Call(self, node: ast.Call):
+        func = node.func.id if isinstance(node.func, ast.Name) else None
+        if isinstance(node.func, ast.Name) and node.func.id == "reach_error":
+            pred = self.node_stack.pop()
+            succ = CFANode()
+            CFAEdge(pred, succ, Instruction.builtin(node))   # kind = REACH_ERROR
+            self.node_stack.append(succ)
             return
+
+        if func in self.function_entry_point:
+            caller = self.node_stack[-1]
+            entry = self.function_entry_point[func]
+            exit_ = self.function_exit_point[func]
+            declaration = self.function_def[func]
+            arg_names = [arg.arg for arg in declaration.args.args]
+
+            middle = CFANode()
+            CFAEdge(caller, middle,
+                    Instruction.call(node, declaration, entry, exit_, arg_names))
+            self.node_stack.append(middle)
+            CFAEdge(self.node_stack.pop(), exit_, Instruction.nop(node))
+            self.node_stack.append(exit_)
+        else:
+            print(f"WARNING: call to undefined {func}")
 
 
         if node.func.id in self.function_def and node.func.id not in builtin_identifiers:

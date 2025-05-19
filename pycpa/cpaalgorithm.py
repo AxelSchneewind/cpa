@@ -12,11 +12,12 @@ from pycpa.task import Task, Result, Status
 
 
 class CPAAlgorithm:
-    def __init__(self, cpa, task : Task, result : Result):
+    def __init__(self, cpa, task, result, specifications=None):
         self.cpa = cpa
         self.iterations = 0
         self.task = task
         self.result = result
+        self.specifications = specifications or []
 
     def run(self, reached, waitlist):
         while len(waitlist) > 0:

@@ -8,6 +8,8 @@ parser.add_argument('-c', '--config', action='append', required=True, help='whic
 parser.add_argument('-p', '--property', action='append', required=True, help='which analysis configuration to use (use --list-configs to get a list of available ones)')
 parser.add_argument('--list-configs', help='a list of available analyses')
 parser.add_argument('--list-properties', help='a list of available properties')
+parser.add_argument('--verbose', action='store_true', help='print each predicate set as it is created')
+
 
 parser.add_argument('--max-iterations', help='maximum number of CPA loop iterations', type=int)
 

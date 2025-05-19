@@ -1,0 +1,115 @@
+Metadata-Version: 2.1
+Name: cpp2py
+Version: 0.0.2
+Summary: convert c/cpp code to python.
+Home-page: https://github.com/Jiangshan00001/cpp2py
+Author: jiangshan00001
+Author-email: 710806594@qq.com
+License: UNKNOWN
+Keywords: cpp,c,cpp2py,cpp2python
+Platform: UNKNOWN
+Classifier: Intended Audience :: End Users/Desktop
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: System Administrators
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX
+Classifier: License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Description-Content-Type: text/markdown
+Requires-Dist: pcpp
+Requires-Dist: pycparser
+Requires-Dist: pyobjc (>=2.4) ; platform_system == "Darwin"
+Requires-Dist: pywin32 ; platform_system == "Windows"
+
+# cpp2py
+A tool to convert c/c++ code to python code
+
+
+# how to install:
+pip install cpp2py
+
+
+# how to use in python:
+
+import cpp2py
+cpp2py.c2py(input_c_file_path, output_py_file_name)
+cpp2py.py2c(input_py_file_path, output_c_file_name)
+
+
+```
+from cpp2py import cpp2py
+cpp2py.c2py('./c1.c', 'c1.py')
+
+```
+
+c1.c:
+
+```
+int main(int argc, char **argv)
+{
+int a=1;
+int b=2;
+int c;
+c=a+b;
+return 0;
+}
+```
+
+generated:
+c1.py
+
+```
+def main(argc, argv):
+	a = 1
+	b = 2
+	c = a+b
+	return 0
+
+
+```
+
+
+
+
+# how to use in cmd(TBD):
+
+python -m cpp2py -i input_c_file_path -o output_py_file_path -f convert_format
+eg: python -m cpp2py -i input_file.c -o output.py -f c2py
+
+convert_format: c2py py2c cpp2py py2cpp
+
+
+
+# current stage
+
+```
+c2py C
+py2c X
+cpp2py X
+py2cpp X
+
+x--not finished
+y--finished
+C--partly working
+
+```
+
+
+
+
+
+
+
+
+
+
+

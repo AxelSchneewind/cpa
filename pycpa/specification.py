@@ -6,11 +6,27 @@ from typing import Collection
 
 class ARGVisitor:
     def _walk_arg(self, root : ARGState):
-        yield root
-        for c in root.children:
-            for d in self._walk_arg(c):
-                yield d
-
+        # yield root
+        # for c in root.children:
+        #     for d in self._walk_arg(c):
+        #         yield d
+        """
+        Breadth-first iteration over the ARG without recursion.
+        Prevents RecursionError on very large graphs.
+        """
+        from collections import deque
+        todo   = deque([root])
+        seen   = set()
+        while todo:
+            n = todo.popleft()
+            if n in seen:
+                continue
+            seen.add(n)
+            yield n
+            # `children` is whatever field your ARG node uses
+            for c in getattr(n, "children", []):
+                todo.append(c)
+                
     def visit(self, root : ARGState):
         for n in self._walk_arg(root):
             self.visit_cpas(n)

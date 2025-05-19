@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+from pycpa.cfa import CFACreator, CFANode, CFAEdge, InstructionType
 from pycpa import configs
 
 from pycpa.preprocessor import preprocess_ast
@@ -57,8 +57,22 @@ def main(args):
 
         print('computing AST', end='')
         tree = preprocess_ast(ast.parse(ast_program))
-        with open(output_dir + '/program-preprocessed.py', 'w') as out_prog:
-            out_prog.write(astunparse.unparse(tree))
+        # with open(output_dir + '/program-preprocessed.py', 'w') as out_prog:
+        #     out_prog.write(astunparse.unparse(tree))
+        try:
+            unparsed_src = astunparse.unparse(tree)
+            with open(output_dir + '/program-preprocessed.py', 'w') as out_prog:
+                out_prog.write(unparsed_src)
+        except Exception as e:
+            # Some custom AST nodes (e.g. Call without .keywords) break astunparse.
+            # Skip pretty-printing – it does NOT affect the analysis itself.
+            print(f"\nskip source rewrite: {e}")    
+
+        # try:
+        #     src = astunparse.unparse(tree)
+        #     out_prog.write(src)
+        # except Exception as e:
+        #     print(f"Skipping source rewrite: {e}")
 
         # prettyprint ast
         with open(output_dir + '/astpretty', 'w') as out_file:
