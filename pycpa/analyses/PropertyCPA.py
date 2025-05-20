@@ -26,7 +26,7 @@ class PropertyState(AbstractState):
         return other.safe == None or self.safe == other.safe
 
     def __eq__(self, other):
-        return self.safe == other.safe
+        return isinstance(other, PropertyState) and self.safe == other.safe
 
     def __hash__(self):
         return self.safe.__hash__()

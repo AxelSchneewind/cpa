@@ -27,7 +27,7 @@ class PredAbsState(AbstractState):
         return self.predicates.issubset(other.predicates)   # simple subset check
 
     def __eq__(self, other):
-        return self.predicates == other.predicates
+        return isinstance(other, PredAbsState) and self.predicates == other.predicates
 
     def __hash__(self):
         assert self.predicates is not None, self
