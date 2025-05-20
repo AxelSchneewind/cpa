@@ -104,10 +104,13 @@ class PredAbsTransferRelation(TransferRelation):
         if   kind == InstructionType.STATEMENT:
             trans = PredAbsPrecision.ssa_from_assign(edge, ssa_indices=ssa_idx)
         elif kind == InstructionType.ASSUMPTION:
-            expr = PredAbsPrecision.ssa_from_assume(edge, ssa_indices=predecessor.ssa_indices)      # use old ssa_indices to not interfere with new state
-            if not is_sat(And(expr, And(predecessor.predicates))):
+            expr = PredAbsPrecision.ssa_from_assume(edge, ssa_indices=ssa_idx)
+
+            predecessor_formula = PredAbsPrecision.ssa_set_indices(And(predecessor.predicates), predecessor.ssa_indices)
+            if not is_sat(And(expr, predecessor_formula)):
                 return []
-            trans = PredAbsPrecision.ssa_from_assume(edge, ssa_indices=ssa_idx)
+
+            trans = expr
         elif kind == InstructionType.CALL:
             trans = PredAbsPrecision.ssa_from_call(edge, ssa_indices=ssa_idx)
         elif kind == InstructionType.REACH_ERROR:
