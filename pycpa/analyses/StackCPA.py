@@ -53,7 +53,13 @@ class StackTransferRelation(TransferRelation):
         kind = edge.instruction.kind
         if kind == InstructionType.CALL:
             for i, wrapped_successor in enumerate(states):
+                # advance program counter, has to happen here to prevent stopping of exploration
+                for p in WrappedAbstractState.unwrap_fully(result[i].stack[-1]):
+                    if isinstance(p, LocationState):
+                        p.location = p.location.leaving_edges[0].successor
+
                 result[i].stack.append(wrapped_successor)
+                
 
         elif kind == InstructionType.RETURN:
             for i, wrapped_successor in enumerate(states):
@@ -61,11 +67,6 @@ class StackTransferRelation(TransferRelation):
                     continue
 
                 s = result[i].stack[-2]
-
-                # advance instruction pointer 
-                for w, p in zip(WrappedAbstractState.unwrap_fully(s), WrappedAbstractState.unwrap_fully(predecessor.stack[-2])):
-                    if isinstance(p, LocationState):
-                        w.location = p.location.leaving_edges[0].successor
 
                 # write return value
                 for w, p in zip(WrappedAbstractState.unwrap_fully(s), WrappedAbstractState.unwrap_fully(predecessor.stack[-1])):
