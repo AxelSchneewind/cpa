@@ -33,6 +33,18 @@ class StackState(WrappedAbstractState):
     def wrapped(self):
         return WrappedAbstractState.unwrap(self.stack[-1])
     
+    def __eq__(self, other):
+        if not isinstance(other, StackState):
+            return False
+        if len(self.stack) != len(other.stack):
+            return False
+        return all(a==b for a,b in zip(self.stack, other.stack))
+
+    def __hash__(self):
+        return tuple(
+            s.__hash__() for s in self.stack
+        ).__hash__()
+    
 
 class StackTransferRelation(TransferRelation):
     def __init__(self, wrapped_transfer_relation):

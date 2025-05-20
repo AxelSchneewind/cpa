@@ -35,6 +35,12 @@ class ARGState(AbstractState):
     def is_target(self):
         return hasattr(self.wrapped_state, "is_target") and self.wrapped_state.is_target()
 
+    def __eq__(self, other):
+        return self.wrapped_state.__eq__(other.wrapped_state)
+    
+    def __hash__(self):
+        return self.wrapped_state.__hash__()
+
 
 class ARGTransferRelation(TransferRelation):
     def __init__(self, wrapped_transfer_relation, arg_cpa):
@@ -162,6 +168,9 @@ class GraphableARGState(Graphable):
 
     def __eq__(self, other):
         return self.arg_state == other.arg_state
+
+    def get_node_id(self):
+        return self.arg_state.state_id
 
     def __hash__(self):
         return self.arg_state.__hash__()

@@ -39,7 +39,7 @@ class CompositeState(WrappedAbstractState):
 
     def __hash__(self):
         return tuple(
-            wrapped_state.__hash__ for wrapped_state in self.wrapped_states
+            wrapped_state.__hash__() for wrapped_state in self.wrapped_states
         ).__hash__()
 
     def __str__(self):
