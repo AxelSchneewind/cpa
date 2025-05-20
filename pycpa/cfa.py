@@ -171,7 +171,7 @@ class CFAEdge:
         elif self.instruction.kind == InstructionType.STATEMENT:
             return str(self.instruction.expression.lineno) + ': ' + ast.unparse(self.instruction.expression).strip()
         elif self.instruction.kind == InstructionType.CALL:
-            return str(self.instruction.expression.lineno) + ': ' + self.instruction.declaration.name.strip()
+            return str(self.instruction.expression.lineno) + ': ' + self.instruction.declaration.name.strip() + '()'
         elif self.instruction.kind == InstructionType.RETURN:
             return str(self.instruction.expression.lineno) + ': ' + ast.unparse(self.instruction.expression).strip()
         else:
@@ -226,6 +226,9 @@ class CFACreator(ast.NodeVisitor):
         root = CFANode()
         self.function_def[node.name] = node
         self.function_entry_point[node.name] = root
+
+        if node.name == 'main':
+            self.entry_point = root
 
         self.node_stack.append(root)
         self.roots.append(root)
