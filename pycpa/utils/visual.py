@@ -29,25 +29,57 @@ class Graphable:
 # ------------------------------------------------------------------ #
 #  generic Graphable → graphviz helper                               #
 # ------------------------------------------------------------------ #
-def graphable_to_dot(roots: Iterable[Graphable],
-                     *,
-                     name: str = "G") -> Digraph:
-    g = Digraph(name=name, graph_attr={"rankdir": "LR"})
-    seen: set[Graphable] = set()
+def cfa_to_dot(roots, nodeattrs={"shape": "circle"}):
+    assert isinstance(roots, list)
+    dot = Digraph()
+    for (key, value) in nodeattrs.items():
+        dot.attr("node", [(key, value)])
+    for root in roots:
+        dot.node(root.get_node_label())
+        waitlist = set()
+        waitlist.add(root)
+        reached = set()
+        reached.add(root)
+        while not len(waitlist) == 0:
+            node = waitlist.pop()
+            for successor in node.get_successors():
+                for edgelabel in node.get_edge_labels(successor):
+                    dot.edge(str(id(node)), str(id(successor)), label=edgelabel)
+                if not successor in reached:
+                    waitlist.add(successor)
+                    reached.add(successor)
+                    label = successor.get_node_label()
+                    if 'reacherror' in label:
+                        dot.node(str(id(successor)), label=label, color='red')
+                    else:
+                        dot.node(str(id(successor)), label=label)
+    return dot
 
-    def visit(n: Graphable):
-        if n in seen:
-            return
-        seen.add(n)
-        g.node(str(id(n)), label=n.get_node_label(), shape="box")
-        for succ in n.get_successors():
-            visit(succ)
-            for lbl in n.get_edge_labels(succ):
-                g.edge(str(id(n)), str(id(succ)), label=lbl)
-
-    for r in roots:
-        visit(r)
-    return g
+def arg_to_dot(roots, nodeattrs={"shape": "circle"}):
+    assert isinstance(roots, list)
+    dot = Digraph()
+    for (key, value) in nodeattrs.items():
+        dot.attr("node", [(key, value)])
+    for root in roots:
+        dot.node(root.get_node_label())
+        waitlist = set()
+        waitlist.add(root)
+        reached = set()
+        reached.add(root)
+        while not len(waitlist) == 0:
+            node = waitlist.pop()
+            for successor in node.get_successors():
+                for edgelabel in node.get_edge_labels(successor):
+                    dot.edge(str(id(node)), str(id(successor)), label=edgelabel)
+                if not successor in reached:
+                    waitlist.add(successor)
+                    reached.add(successor)
+                    label = successor.get_node_label()
+                    if 'unsafe' in label:
+                        dot.node(str(id(successor)), label=label, color='red')
+                    else:
+                        dot.node(str(id(successor)), label=label)
+    return dot
 
 
 # ------------------------------------------------------------------ #

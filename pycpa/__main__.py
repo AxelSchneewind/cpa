@@ -16,6 +16,8 @@ from pycpa.task import Task, Result
 
 from pycpa.ast import ASTVisualizer
 
+from pycpa.utils.visual import cfa_to_dot, arg_to_dot
+
 import ast
 import astpretty
 
@@ -76,7 +78,7 @@ def main(args):
         cfa_creator = CFACreator()
         cfa_creator.visit(tree)
         entry_point = cfa_creator.entry_point
-        dot = graphable_to_dot([ GraphableCFANode(r) for r in cfa_creator.roots ])
+        dot = cfa_to_dot([ GraphableCFANode(r) for r in cfa_creator.roots ])
         dot.render(output_dir + '/cfa')
 
         # setup cpas and properties
@@ -120,7 +122,7 @@ def main(args):
         #     print('%s' % str(result.witness))
 
         # output arg
-        dot = graphable_to_dot(
+        dot = arg_to_dot(
                 [ GraphableARGState(init) ],
                 nodeattrs={"style": "filled", "shape": "box", "color": "white"},
             )
@@ -131,7 +133,8 @@ def main(args):
         v = Verdict.TRUE if result.status == Status.OK else Verdict.UNKNOWN
         result.verdicts = [v for p in specification_mods]
         for i, p in enumerate(specification_mods):
-            result.verdicts[i] = p.check_arg_state(init)
+            result.verdicts[i] = v
+            result.verdicts[i] &= p.check_arg_state(init)
             result.verdict &= result.verdicts[i]
 
             print('%s:  %s' % (str(task.properties[i]), str(result.verdicts[i])))
