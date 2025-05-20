@@ -301,7 +301,7 @@ class PredAbsPrecision(Iterable):
         expr = edge.instruction.expression
         ssa_map = ssa_indices if ssa_indices is not None else {}
         phi = _expr2smt(expr, ssa_map)
-        return phi
+        return _bool(phi)
     
     @staticmethod
     def ssa_from_raise(edge: CFAEdge, ssa_indices=None) -> FNode:
