@@ -104,6 +104,9 @@ class PredAbsTransferRelation(TransferRelation):
         if   kind == InstructionType.STATEMENT:
             trans = PredAbsPrecision.ssa_from_assign(edge, ssa_indices=ssa_idx)
         elif kind == InstructionType.ASSUMPTION:
+            expr = PredAbsPrecision.ssa_from_assume(edge, ssa_indices=predecessor.ssa_indices)      # use old ssa_indices to not interfere with new state
+            if not is_sat(And(expr, And(predecessor.predicates))):
+                return []
             trans = PredAbsPrecision.ssa_from_assume(edge, ssa_indices=ssa_idx)
         elif kind == InstructionType.CALL:
             trans = PredAbsPrecision.ssa_from_call(edge, ssa_indices=ssa_idx)

@@ -167,7 +167,7 @@ class PredAbsPrecision(Iterable):
     #  (NEW) SSA for CALL edges:  copy actuals → formals, fresh ret var  #
     # ------------------------------------------------------------------ #
     @staticmethod
-    def ssa_from_call(edge: CFAEdge, ssa=None, ssa_indices=None) -> FNode:
+    def ssa_from_call(edge: CFAEdge, ssa_indices=None) -> FNode:
         """
         Build an SSA formula for a function-call edge.
 
@@ -176,7 +176,7 @@ class PredAbsPrecision(Iterable):
               lhs_var#k+1  =  ret_sym
           (ret_sym is fresh, unconstrained BV64)
         """
-        ssa = ssa if ssa is not None else (ssa_indices or {})
+        ssa = ssa_indices if ssa_indices is not None else {}
         instr = edge.instruction
 
         # safeguard: if we lack meta-data, over-approximate with TRUE
@@ -201,7 +201,7 @@ class PredAbsPrecision(Iterable):
 
         
     @staticmethod
-    def ssa_from_assert(edge: CFAEdge, ssa=None, ssa_indices=None) -> FNode:
+    def ssa_from_assert(edge: CFAEdge, ssa_indices=None) -> FNode:
         """
         Handle Python 'assert' statements by extracting the test expression
         and translating it into an SMT predicate for refinement.
@@ -216,12 +216,12 @@ class PredAbsPrecision(Iterable):
         return _bool(_expr2smt(test_expr, ssa_map))
 
     @staticmethod
-    def ssa_from_raise(edge: CFAEdge, ssa=None, ssa_indices=None) -> FNode:
+    def ssa_from_raise(edge: CFAEdge, ssa_indices=None) -> FNode:
         # print(f"[DEBUG PredAbsPrecision] ssa_from_raise: kind={edge.instruction.kind}, expr={edge.instruction.expression!r}")
         return FALSE()
 
     @staticmethod
-    def ssa_from_assign(edge: CFAEdge, ssa=None, ssa_indices=None) -> FNode:
+    def ssa_from_assign(edge: CFAEdge, ssa_indices=None) -> FNode:
         expr = getattr(edge.instruction, 'expression', None)
         # print(f"[DEBUG PredAbsPrecision] ssa_from_assign: kind={edge.instruction.kind}, expr={expr!r}")
 
@@ -232,7 +232,7 @@ class PredAbsPrecision(Iterable):
 
         # 2) standard assignment
         if isinstance(expr, ast.Assign):
-            ssa_map = ssa if ssa is not None else (ssa_indices or {})
+            ssa_map = ssa_indices if ssa_indices is not None else {}
             var     = expr.targets[0].id
             lhs     = _ssa(var, _next(var, ssa_map))
             rhs     = _cast(_expr2smt(expr.value, ssa_map), BV64)
@@ -243,17 +243,17 @@ class PredAbsPrecision(Iterable):
         return TRUE()
 
     @staticmethod
-    def ssa_from_assume(edge: CFAEdge, ssa=None, ssa_indices=None) -> FNode:
+    def ssa_from_assume(edge: CFAEdge, ssa_indices=None) -> FNode:
         # Handles both 'assert' and 'if' conditions
         expr = edge.instruction.expression
-        ssa_map = ssa or (ssa_indices or {})
+        ssa_map = ssa_indices if ssa_indices is not None else {}
         phi = _expr2smt(expr, ssa_map)
         if getattr(edge.instruction, 'negated', False):
             return Not(phi)
         return phi
     
     @staticmethod
-    def ssa_from_raise(edge: CFAEdge, ssa=None, ssa_indices=None) -> FNode:
+    def ssa_from_raise(edge: CFAEdge, ssa_indices=None) -> FNode:
         """
         Handle Python 'raise' by mapping it to FALSE(), marking an error path.
         """
@@ -262,9 +262,9 @@ class PredAbsPrecision(Iterable):
 
 
     @staticmethod
-    def ssa_from_call(edge: CFAEdge, ssa=None, ssa_indices=None) -> FNode:
+    def ssa_from_call(edge: CFAEdge, ssa_indices=None) -> FNode:
         # Inline the original call handler logic
-        ssa_map = ssa if ssa is not None else (ssa_indices or {})
+        ssa_map = ssa_indices if ssa_indices is not None else {}
         instr = edge.instruction
         if not hasattr(instr, "param_names") or not hasattr(instr, "arg_names"):
             return TRUE()
@@ -287,26 +287,26 @@ class PredAbsPrecision(Iterable):
         # Python `assert` → assume
         if isinstance(expr, ast.Assert):
             # print("  → mining assert condition")
-            return PredAbsPrecision.ssa_from_assume(edge, {}, {})
+            return PredAbsPrecision.ssa_from_assume(edge, {})
 
         # explicit CFA assume edge
         if edge.instruction.kind == InstructionType.ASSUMPTION:
             # print("  → mining an ASSUMPTION edge")
-            return PredAbsPrecision.ssa_from_assume(edge, {}, {})
+            return PredAbsPrecision.ssa_from_assume(edge, {})
 
         # statements (assign or raise)
         if edge.instruction.kind == InstructionType.STATEMENT:
             if isinstance(expr, ast.Raise):
                 # print("  → mining a Raise statement")
-                return PredAbsPrecision.ssa_from_raise(edge, {}, {})
+                return PredAbsPrecision.ssa_from_raise(edge, {})
             else:
                 # print("  → mining a STATEMENT edge")
-                return PredAbsPrecision.ssa_from_assign(edge, {}, {})
+                return PredAbsPrecision.ssa_from_assign(edge, {})
 
         # function calls
         if edge.instruction.kind == InstructionType.CALL:
             # print("  → mining a CALL edge")
-            return PredAbsPrecision.ssa_from_call(edge, {}, {})
+            return PredAbsPrecision.ssa_from_call(edge, {})
 
         return None
 
