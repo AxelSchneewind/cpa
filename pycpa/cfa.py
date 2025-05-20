@@ -402,6 +402,9 @@ class GraphableCFANode(Graphable):
 
     def get_successors(self):
         return [GraphableCFANode(edge.successor) for edge in self.node.leaving_edges]
+    
+    def get_node_id(self):
+        return self.node.node_id
 
     def __eq__(self, other):
         return self.node == other.node

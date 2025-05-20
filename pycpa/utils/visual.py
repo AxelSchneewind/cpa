@@ -35,24 +35,20 @@ def cfa_to_dot(roots, nodeattrs={"shape": "circle"}):
     for (key, value) in nodeattrs.items():
         dot.attr("node", [(key, value)])
     for root in roots:
-        dot.node(root.get_node_label())
+        dot.node(str(root.get_node_id()), label=root.get_node_label())
         waitlist = set()
         waitlist.add(root)
         reached = set()
         reached.add(root)
         while not len(waitlist) == 0:
             node = waitlist.pop()
+            dot.node(str(node.get_node_id()), label=node.get_node_label())
+            reached.add(node)
             for successor in node.get_successors():
                 for edgelabel in node.get_edge_labels(successor):
-                    dot.edge(str(id(node)), str(id(successor)), label=edgelabel)
-                if not successor in reached:
+                    dot.edge(str(node.get_node_id()), str(successor.get_node_id()), label=edgelabel)
+                if successor not in reached:
                     waitlist.add(successor)
-                    reached.add(successor)
-                    label = successor.get_node_label()
-                    if 'reacherror' in label:
-                        dot.node(str(id(successor)), label=label, color='red')
-                    else:
-                        dot.node(str(id(successor)), label=label)
     return dot
 
 def arg_to_dot(roots, nodeattrs={"shape": "circle"}):
@@ -61,24 +57,27 @@ def arg_to_dot(roots, nodeattrs={"shape": "circle"}):
     for (key, value) in nodeattrs.items():
         dot.attr("node", [(key, value)])
     for root in roots:
-        dot.node(root.get_node_label())
+        dot.node(str(root.get_node_id()), label=root.get_node_label())
         waitlist = set()
         waitlist.add(root)
         reached = set()
         reached.add(root)
         while not len(waitlist) == 0:
             node = waitlist.pop()
+
+            label = node.get_node_label()
+            assert label is not None and len(label) > 0
+            if 'unsafe' in label:
+                dot.node(str(node.get_node_id()), label=label, color='red')
+            else:
+                dot.node(str(node.get_node_id()), label=label)
+            reached.add(node)
+
             for successor in node.get_successors():
                 for edgelabel in node.get_edge_labels(successor):
-                    dot.edge(str(id(node)), str(id(successor)), label=edgelabel)
-                if not successor in reached:
+                    dot.edge(str(node.get_node_id()), str(successor.get_node_id()), label=edgelabel)
+                if successor not in reached:
                     waitlist.add(successor)
-                    reached.add(successor)
-                    label = successor.get_node_label()
-                    if 'unsafe' in label:
-                        dot.node(str(id(successor)), label=label, color='red')
-                    else:
-                        dot.node(str(id(successor)), label=label)
     return dot
 
 
