@@ -320,7 +320,6 @@ class CFACreator(ast.NodeVisitor):
         entry_node = self.node_stack.pop()
         exit_node = CFANode()
         edge = CFAEdge(entry_node, exit_node, Instruction.ret(node))
-        # self.node_stack.append(exit_node)
 
     def visit_Call(self, node):
         if node.func.id in builtin_identifiers:
@@ -329,7 +328,6 @@ class CFACreator(ast.NodeVisitor):
             edge = CFAEdge(entry_node, exit_node, Instruction.builtin(node))
             self.node_stack.append(exit_node)
             return
-
 
         if node.func.id in self.function_def and node.func.id not in builtin_identifiers:
             # add computing edge for each argument
@@ -340,26 +338,10 @@ class CFACreator(ast.NodeVisitor):
                 elif isinstance(val, ast.Constant):
                     argname = str(val.value)
                 else:
-                    argname = '__' + str(i)
-                    arg_expr = ast.Expr(
-                                    ast.Assign(
-                                        [ast.Name(argname, ast.Store())], val, 
-                                    ),
-                                )
-                    arg_expr = ast.copy_location(arg_expr, node)
-                    arg_expr = ast.fix_missing_locations(arg_expr)
-                    self.visit(arg_expr)
+                    assert False, 'encountered argument that isnt name or constant'
 
                 arg_names.append(ast.arg(argname))
-            
-            # inlining:
-            # pre_jump_node = self.node_stack.pop()
-            # body_node = CFANode()
-            # edge = CFAEdge(pre_jump_node, body_node, Instruction.statement(node))
-            # self.node_stack.append(body_node)
 
-            # for b in self.function_def[node.func.id].body:
-            #     self.visit(b)
             pre_jump_node = self.node_stack.pop()
             body_node = CFANode()
             edge = CFAEdge(pre_jump_node, body_node, Instruction.call(node, self.function_def[node.func.id], self.function_entry_point[node.func.id], arg_names))
