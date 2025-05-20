@@ -53,13 +53,7 @@ class StackTransferRelation(TransferRelation):
         kind = edge.instruction.kind
         if kind == InstructionType.CALL:
             for i, wrapped_successor in enumerate(states):
-                # advance program counter, has to happen here to prevent stopping of exploration
-                for p in WrappedAbstractState.unwrap_fully(result[i].stack[-1]):
-                    if isinstance(p, LocationState):
-                        p.location = p.location.leaving_edges[0].successor
-
                 result[i].stack.append(wrapped_successor)
-                
 
         elif kind == InstructionType.RETURN:
             for i, wrapped_successor in enumerate(states):
@@ -67,6 +61,11 @@ class StackTransferRelation(TransferRelation):
                     continue
 
                 s = result[i].stack[-2]
+
+                # advance instruction pointer 
+                for w, p in zip(WrappedAbstractState.unwrap_fully(s), WrappedAbstractState.unwrap_fully(predecessor.stack[-2])):
+                    if isinstance(p, LocationState):
+                        w.location = p.location.leaving_edges[0].successor
 
                 # write return value
                 for w, p in zip(WrappedAbstractState.unwrap_fully(s), WrappedAbstractState.unwrap_fully(predecessor.stack[-1])):
@@ -105,21 +104,12 @@ class StackMergeOperator(MergeOperator):
         self.wrapped_merge_operator = wrapped_merge_operator
 
     def merge(self, state1, state2):
+        if len(state1.stack) == len(state2.stack) > 0:
+            frame = self.wrapped_merge_operator.merge(state1.stack[-1], state2.stack[-1])
+            state2.stack[-1] = frame
+            return state2
+
         return state2
-        # # merge upper stack frame
-        # wrapped_state1 = state1.stack[-1]
-        # wrapped_state2 = state2.stack[-1]
-        # upper_merge_result = self.wrapped_merge_operator.merge(wrapped_state1, wrapped_state2)
-
-        # # merge stack by suffix-relation
-
-        # if upper_merge_result == wrapped_state2:
-        #     return state2
-        # else:
-        #     state2[-1] = upper_merge_result
-        #     return state2
-
-
 
 
 class StackCPA(CPA):

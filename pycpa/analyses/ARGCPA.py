@@ -37,17 +37,20 @@ class ARGState(AbstractState):
 
 
 class ARGTransferRelation(TransferRelation):
-    def __init__(self, wrapped_transfer_relation):
+    def __init__(self, wrapped_transfer_relation, arg_cpa):
         self.wrapped_transfer_relation = wrapped_transfer_relation
+        self.arg_cpa = arg_cpa          # keep back-link
 
     def get_abstract_successors(self, predecessor):
-        result = [
-            ARGState(wrapped_successor, predecessor)
-            for wrapped_successor in self.wrapped_transfer_relation.get_abstract_successors(
-                predecessor.wrapped_state
-            )
-        ]
+        result = []
+        for wrapped_succ in \
+                self.wrapped_transfer_relation.get_abstract_successors(
+                    predecessor.wrapped_state):
+            succ = ARGState(wrapped_succ, predecessor)
+            self.arg_cpa._arg_nodes.add(succ)      # ← NEW
+            result.append(succ)
         return result
+
 
 
 class ARGStopOperator(StopOperator):
@@ -95,9 +98,14 @@ class ARGMergeOperator(MergeOperator):
 class ARGCPA(CPA):
     def __init__(self, wrapped_cpa):
         self.wrapped_cpa = wrapped_cpa
+        self.arg_root   = None          # will be set in get_initial_state()
+        self._arg_nodes = set()         # grows in transfer relation
 
     def get_initial_state(self):
-        return ARGState(self.wrapped_cpa.get_initial_state())
+        root = ARGState(self.wrapped_cpa.get_initial_state())
+        self.arg_root = root            # store the unique root
+        self._arg_nodes = {root}
+        return root
 
     def get_stop_operator(self):
         return ARGStopOperator(self.wrapped_cpa.get_stop_operator())
@@ -106,7 +114,11 @@ class ARGCPA(CPA):
         return ARGMergeOperator(self.wrapped_cpa.get_merge_operator())
 
     def get_transfer_relation(self):
-        return ARGTransferRelation(self.wrapped_cpa.get_transfer_relation())
+        return ARGTransferRelation(
+            self.wrapped_cpa.get_transfer_relation(),   # wrapped TR
+            self                                         # back-link
+        )
+
 
 
 # For visualization of the resulting ARG, we can reuse the `Graphable` interface we used before:
@@ -129,7 +141,7 @@ class GraphableARGState(Graphable):
             for leaving_edge in loc1.leaving_edges:
                 if leaving_edge.successor == loc2:
                     return [leaving_edge.label()]
-        if loc1 and len(loc1.leaving_edges) > 0:
+        if loc1:
             return [loc1.leaving_edges[0].label()]
         return ['']
 

@@ -408,26 +408,3 @@ class GraphableCFANode(Graphable):
 
     def __hash__(self):
         return self.node.__hash__()
-
-def graphable_to_dot(roots, nodeattrs={"shape": "circle"}):
-    assert isinstance(roots, list)
-    dot = Digraph()
-    for (key, value) in nodeattrs.items():
-        dot.attr("node", [(key, value)])
-    for root in roots:
-        dot.node(root.get_node_label())
-        waitlist = set()
-        waitlist.add(root)
-        reached = set()
-        reached.add(root)
-        while not len(waitlist) == 0:
-            node = waitlist.pop()
-            for successor in node.get_successors():
-                for edgelabel in node.get_edge_labels(successor):
-                    dot.edge(node.get_node_label(), successor.get_node_label(), edgelabel)
-                if not successor in reached:
-                    waitlist.add(successor)
-                    reached.add(successor)
-                    dot.node(successor.get_node_label())
-    return dot
-

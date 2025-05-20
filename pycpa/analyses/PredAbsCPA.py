@@ -1,92 +1,157 @@
 #!/usr/bin/env python
+"""
+Predicate-abstraction CPA with Cartesian abstraction and SSA support.
+"""
 
-from pycpa.cfa import InstructionType
+from __future__ import annotations
+import copy
+import ast
+import sys
+from typing import List, Set, Dict
+
+from pysmt.shortcuts import And, Not, TRUE, FALSE, is_sat
+import pysmt.fnode as fnode
+from pysmt.exceptions import SolverReturnedUnknownResultError
+
+from pycpa.cfa import InstructionType, CFAEdge
 from pycpa.cpa import CPA, AbstractState, TransferRelation, StopSepOperator, MergeSepOperator
 
 from pycpa.analyses.PredAbsPrecision import PredAbsPrecision
 
-from pysmt.shortcuts import TRUE, And, Or
-import pysmt
-
-import ast
-import copy
-
-import astpretty
-
-
+# --------------------------------------------------------------------------- #
+# Abstract State
+# --------------------------------------------------------------------------- #
 class PredAbsState(AbstractState):
-    def __init__(self, other=None):
-        if other is not None:
-            self.predicates = copy.copy(other.predicates)
-            self.ssa_indices = copy.copy(other.ssa_indices)
+    def __init__(self, other: PredAbsState | None = None) -> None:
+        if other:
+            self.predicates: Set[fnode.FNode] = set(other.predicates)
+            self.ssa_indices: Dict[str, int] = copy.deepcopy(other.ssa_indices)
         else:
-            self.predicates  : set[pysmt.fnode] = set()         # set of predicates
-            self.ssa_indices : dict[str,int]    = dict()        # mapping from program variable names to their highest ssa index
+            self.predicates = set()
+            self.ssa_indices = {}
 
-    def subsumes(self, other):
-        return self.predicates.issubset(other.predicates)   # simple subset check
+    def subsumes(self, other: PredAbsState) -> bool:
+        return other.predicates.issubset(self.predicates)
 
-    def __eq__(self, other):
-        return isinstance(other, PredAbsState) and self.predicates == other.predicates
-
-    def __hash__(self):
-        assert self.predicates is not None, self
-        result = len(self.predicates) * len(self.ssa_indices) * id(self.predicates) * id(self.ssa_indices)
-        return result
-
-    def __str__(self):
-        return "{%s}" % self.predicates
-
-
-class PredAbsTransferRelation(TransferRelation):
-    def __init__(self, precision : set[pysmt.fnode]):
-        self.precision = precision
-
-    def get_abstract_successors(self, predecessor):
-        raise NotImplementedError(
-            "successors without edge not possible for Predicate Analysis!"
+    def __eq__(self, other: object) -> bool:
+        return (
+            isinstance(other, PredAbsState) and
+            self.predicates == other.predicates and
+            self.ssa_indices == other.ssa_indices
         )
 
-    def get_abstract_successors_for_edge(self, predecessor, edge):
-        old = predecessor.predicates
-        result = []
-        match edge.instruction.kind:
-            case InstructionType.STATEMENT:
-                formula = PredAbsPrecision.ssa_from_assign(edge, ssa_indices=predecessor.ssa_indices)
-                print('statement edge: ', formula, 'for', ast.unparse(edge.instruction.expression))
-                # TODO
-                result = [PredAbsState(predecessor)]
-            case InstructionType.ASSUMPTION:
-                formula = PredAbsPrecision.ssa_from_assume(edge, ssa_indices=predecessor.ssa_indices)
-                print('assume edge: ', formula, 'for', ast.unparse(edge.instruction.expression))
-                # TODO
-                result = [PredAbsState(predecessor)]
-            case InstructionType.CALL | InstructionType.NONDET:
-                # ignore this for now
-                result = [PredAbsState(predecessor)]
-            case _:
-                result = [PredAbsState(predecessor)]
+    def __hash__(self) -> int:
+        return hash(frozenset(self.predicates)) ^ hash(frozenset(self.ssa_indices.items()))
 
-        assert result[0].predicates is not None, predecessor
-        return result
+    def __str__(self) -> str:
+        return '{' + ', '.join(str(p) for p in self.predicates) + '}'
 
+# --------------------------------------------------------------------------- #
+# Transfer Relation
+# --------------------------------------------------------------------------- #
+class PredAbsTransferRelation(TransferRelation):
+    """
+    Cartesian abstraction:
+      succ.predicates = { t ∈ π |  SP(edge, ∧preds(pre)) ⇒ t }
+    """
+    def __init__(self, precision: Set[fnode.FNode]) -> None:
+        self.precision = precision
 
+    @staticmethod
+    def _implied_predicates(ctx: Set[fnode.FNode],
+                            trans: fnode.FNode,
+                            precision: Set[fnode.FNode]) -> Set[fnode.FNode]:
+        phi = And(list(ctx)) if ctx else TRUE()
+        phi = And(phi, trans)
+
+        implied: Set[fnode.FNode] = set()
+        for p in precision:
+            try:
+                sat = is_sat(And(phi, Not(p)))
+            except SolverReturnedUnknownResultError:
+                sat = True
+            if not sat:                 # UNSAT ⇒ φ ⇒ p
+                implied.add(p)
+        
+        # ------------------------------------------------------------ #
+        #  VERBOSE LOGGING – print each *new* predicate set once
+        # ------------------------------------------------------------ #
+        # WTF
+        main = sys.modules.get("__main__")
+        if getattr(main, "args", None) and getattr(main.args, "verbose", False):
+            seen = getattr(PredAbsCPA, "_seen_predsets", set())
+            key  = frozenset(implied)
+            if key not in seen:
+                seen.add(key)
+                PredAbsCPA._seen_predsets = seen
+                print("New predicate set:", '{' + ', '.join(map(str, implied)) + '}')
+        # ------------------------------------------------------------ #
+
+        return implied
+
+    def get_abstract_successors(self, predecessor: PredAbsState) -> List[PredAbsState]:
+        raise NotImplementedError
+
+    def get_abstract_successors_for_edge(self,
+                                         predecessor: PredAbsState,
+                                         edge: CFAEdge
+                                        ) -> List[PredAbsState]:
+        # 1) Copy SSA indices locally
+        ssa_idx = copy.deepcopy(predecessor.ssa_indices)
+
+        # 2) Compute strongest‐post condition (trans)
+        kind = edge.instruction.kind
+        if   kind == InstructionType.STATEMENT:
+            trans = PredAbsPrecision.ssa_from_assign(edge, ssa_indices=ssa_idx)
+        elif kind == InstructionType.ASSUMPTION:
+            trans = PredAbsPrecision.ssa_from_assume(edge, ssa_indices=ssa_idx)
+        elif kind == InstructionType.CALL:
+            trans = PredAbsPrecision.ssa_from_call(edge, ssa_indices=ssa_idx)
+        elif kind == InstructionType.REACH_ERROR:
+            # **special case**: hitting an error-edge → FALSE
+            trans = FALSE()
+        else:
+            trans = TRUE()
+
+        # 3) If this is truly unsatisfiable (i.e. error-edge), preserve it
+        if trans.is_false():
+            succ = PredAbsState()
+            succ.ssa_indices = ssa_idx
+            succ.predicates  = {trans}
+            return [succ]
+
+        # 4) Otherwise do Cartesian abstraction
+        new_preds = self._implied_predicates(
+            predecessor.predicates,
+            trans,
+            self.precision
+        )
+        succ = PredAbsState()
+        succ.ssa_indices = ssa_idx
+        succ.predicates  = new_preds
+        return [succ]
+
+# --------------------------------------------------------------------------- #
+# CPA wrapper
+# --------------------------------------------------------------------------- #
 class PredAbsCPA(CPA):
-    def __init__(self, initial_precision : set[pysmt.fnode]):
-        self.precision = initial_precision
+    def __init__(self, initial_precision) -> None:
+        self.precision = (
+            initial_precision.predicates
+            if hasattr(initial_precision, "predicates")
+            else set(initial_precision)
+        )
 
-    def get_initial_state(self):
+    def get_initial_state(self) -> PredAbsState:
         return PredAbsState()
 
-    def get_stop_operator(self):
+    def get_stop_operator(self) -> StopSepOperator:
         return StopSepOperator(PredAbsState.subsumes)
 
-    def get_merge_operator(self):
+    def get_merge_operator(self) -> MergeSepOperator:
         return MergeSepOperator()
 
-    def get_transfer_relation(self):
+    def get_transfer_relation(self) -> TransferRelation:
         return PredAbsTransferRelation(self.precision)
-
-
 
 

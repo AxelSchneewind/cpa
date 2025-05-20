@@ -38,6 +38,18 @@ class WrappedAbstractState(AbstractState):
             return state.wrapped()
         else:
             return [state]
+
+    @staticmethod
+    def get_substates(state : AbstractState, state_type : type) -> Collection[AbstractState]:
+        result = []
+
+        for s in WrappedAbstractState.unwrap(state):
+            for sub in WrappedAbstractState.unwrap(s):
+                if isinstance(sub, state_type):
+                    result.append(sub)
+        return result
+
+
  
     
 

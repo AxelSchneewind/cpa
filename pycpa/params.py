@@ -11,6 +11,8 @@ parser.add_argument('--list-properties', help='a list of available properties')
 
 parser.add_argument('--max-iterations', help='maximum number of CPA loop iterations', type=int)
 
+parser.add_argument('--verbose', help='print more output', type=int)
+
 # TODO add parameters
 
 
