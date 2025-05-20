@@ -287,8 +287,8 @@ class PredAbsPrecision(Iterable):
         if isinstance(expr, ast.Assign):
             ssa_map = ssa_indices if ssa_indices is not None else {}
             var     = expr.targets[0].id
-            lhs     = _ssa(var, _next(var, ssa_map))
             rhs     = _cast(_expr2smt(expr.value, ssa_map), BV64)
+            lhs     = _ssa(var, _next(var, ssa_map))
             # print(f"  → Assign {var}#{ssa_map[var]} = {rhs}")
             return Equals(lhs, rhs)
 
@@ -301,8 +301,6 @@ class PredAbsPrecision(Iterable):
         expr = edge.instruction.expression
         ssa_map = ssa_indices if ssa_indices is not None else {}
         phi = _expr2smt(expr, ssa_map)
-        if getattr(edge.instruction, 'negated', False):
-            return Not(phi)
         return phi
     
     @staticmethod
@@ -323,8 +321,8 @@ class PredAbsPrecision(Iterable):
             return TRUE()
         conjuncts = []
         for formal, actual in zip(instr.param_names, instr.arg_names):
-            lhs = _ssa(formal, _next(formal, ssa_map))
             rhs = _expr2smt(ast.Name(id=actual, ctx=ast.Load()), ssa_map)
+            lhs = _ssa(formal, _next(formal, ssa_map))
             conjuncts.append(Equals(lhs, rhs))
         if hasattr(instr, "ret_var") and instr.ret_var:
             ret_sym = Symbol(f"ret_{instr.declaration.name}", BV64)
@@ -367,7 +365,7 @@ class PredAbsPrecision(Iterable):
 
 
     @staticmethod
-    def from_cfa(roots: List[CFANode]) -> "PredAbsPrecision":
+    def from_cfa(roots: List[CFANode]) -> PredAbsPrecision:
         preds: Set[FNode] = {TRUE(), FALSE()}
         todo, seen = list(roots), set()
         while todo:
