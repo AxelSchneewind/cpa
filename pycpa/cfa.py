@@ -207,9 +207,6 @@ class CFACreator(ast.NodeVisitor):
         self.function_def = {}
         self.function_entry_point = {}
 
-    def generic_visit(self, node):
-        ast.NodeVisitor.generic_visit(self, node)
-
     def visit_FunctionDef(self, node):
         pre = self.node_stack.pop()
 
@@ -234,9 +231,10 @@ class CFACreator(ast.NodeVisitor):
         self.roots.append(root)
         ast.NodeVisitor.generic_visit(self, node)
 
-        
+        # final return statement is guaranteed, remove its exit node
+        self.node_stack.pop()
 
-    def visit_While(self, node): # Note: implement TODOs for break and continue to handle them inside while-loops
+    def visit_While(self, node):
         entry_node = self.node_stack.pop()
         inside = CFANode()
         self.continue_stack.append(entry_node)
@@ -307,12 +305,10 @@ class CFACreator(ast.NodeVisitor):
 
     def visit_Return(self, node):
         val = node.value if node.value else ast.Constant(0)
-        store_instruction = ast.Expr(
-                value=ast.Assign(
+        store_instruction = ast.Assign(
                     [ast.Name('__ret', ast.Store())], 
-                    val,
-                ), 
-            )
+                    val
+                )
         store_instruction = ast.copy_location(store_instruction, node)
         ast.fix_missing_locations(store_instruction)
         self.visit(store_instruction)
@@ -320,6 +316,7 @@ class CFACreator(ast.NodeVisitor):
         entry_node = self.node_stack.pop()
         exit_node = CFANode()
         edge = CFAEdge(entry_node, exit_node, Instruction.ret(node))
+        self.node_stack.append(exit_node)
 
     def visit_Call(self, node):
         if node.func.id in builtin_identifiers:
