@@ -35,11 +35,33 @@ except ImportError:
 #  SSA helpers                                                                #
 # --------------------------------------------------------------------------- #
 def _ssa(var: str, idx: int) -> FNode:
+    assert not '#' in var
     return Symbol(f"{var}#{idx}", BV64)
 
 def _next(var: str, ssa: Dict[str, int]) -> int:
     ssa[var] = ssa.get(var, 0) + 1
     return ssa[var]
+
+def _ssa_get_name(symbol : FNode) -> str:
+    [name, idx] = symbol.symbol_name().split('#')
+    return name
+
+def _ssa_get_idx(symbol : FNode) -> str:
+    [name, idx] = symbol.symbol_name().split('#')
+    return idx
+
+
+# returns a modified symbol with incremented index
+def _ssa_increment_index(symbol : FNode, increment : int) -> FNode:
+    (name, idx) = _ssa_get_name(symbol), _ssa_get_idx(symbol)
+    idx = int(idx) + increment
+    return _ssa(name, idx)
+
+def _ssa_set_index(symbol : FNode, idx : int) -> FNode:
+    name = _ssa_get_name(symbol)
+    return _ssa(name, idx)
+
+
 
 # --------------------------------------------------------------------------- #
 #  Expression → SMT (covers all needed cases)                                 #
@@ -55,12 +77,14 @@ def _cast(formula : FNode, target_type):
 
     return formula
 
-def _expr2smt(node: ast.AST, ssa: Dict[str, int]) -> FNode:
-    def _bool(t: FNode) -> FNode:
-        return _cast(t, BOOL)
-    def _bv(t: FNode) -> FNode:
-        return _cast(t, BV64)
 
+def _bool(t: FNode) -> FNode:
+    return _cast(t, BOOL)
+def _bv(t: FNode) -> FNode:
+    return _cast(t, BV64)
+
+
+def _expr2smt(node: ast.AST, ssa: Dict[str, int]) -> FNode:
     match node:
         # identifiers / literals ---------------------------------------------
         case ast.Name(id=v):
@@ -162,6 +186,35 @@ class PredAbsPrecision(Iterable):
     def __iter__(self):        return iter(self.predicates)
     def __contains__(self, p): return p in self.predicates
     def __len__(self):         return len(self.predicates)
+
+    # Helper function to modify all ssa-indices in a formula
+    @staticmethod
+    def ssa_set_indices(formula : FNode, increment : int | dict[str,int]) -> FNode:
+        result = formula
+
+        substitution_targets = []
+        for sub in result.get_free_variables():
+            if sub.is_symbol():
+                if isinstance(increment, dict) and _ssa_get_name(sub) not in increment:
+                    continue
+                substitution_targets.append(sub)
+        
+        substitution = {}
+        if isinstance(increment, int):
+            substitution = {
+                target : _ssa_set_index(target, increment) 
+                for target in substitution_targets
+            }
+        else:
+            substitution = {
+                target : _ssa_set_index(target, increment[_ssa_get_name(target)]) 
+                for target in substitution_targets
+                if _ssa_get_name(target) in increment
+            }
+
+        result = result.substitute(substitution)
+        return result
+
 
     # ------------------------------------------------------------------ #
     #  (NEW) SSA for CALL edges:  copy actuals → formals, fresh ret var  #
