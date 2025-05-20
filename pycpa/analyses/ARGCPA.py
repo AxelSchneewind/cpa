@@ -129,7 +129,7 @@ class GraphableARGState(Graphable):
             for leaving_edge in loc1.leaving_edges:
                 if leaving_edge.successor == loc2:
                     return [leaving_edge.label()]
-        if loc1:
+        if loc1 and len(loc1.leaving_edges) > 0:
             return [loc1.leaving_edges[0].label()]
         return ['']
 
