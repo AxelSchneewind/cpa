@@ -41,9 +41,11 @@ builtin_identifiers = {
     '__VERIFIER_nondet_char'        : InstructionType.NONDET,
     '__VERIFIER_nondet_short'       : InstructionType.NONDET,
     '__VERIFIER_nondet_int'         : InstructionType.NONDET,
+    '__VERIFIER_nondet_long'        : InstructionType.NONDET,
+    '__VERIFIER_nondet_uchar'       : InstructionType.NONDET,
+    '__VERIFIER_nondet_ushort'      : InstructionType.NONDET,
     '__VERIFIER_nondet_uint'        : InstructionType.NONDET,
     '__VERIFIER_nondet_ulong'       : InstructionType.NONDET,
-    '__VERIFIER_nondet_long'        : InstructionType.NONDET,
     'reach_error'                   : InstructionType.REACH_ERROR,
 }
 
