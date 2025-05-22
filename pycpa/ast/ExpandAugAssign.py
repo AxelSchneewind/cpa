@@ -15,8 +15,9 @@ class ExpandAugAssign(ast.NodeTransformer):
         match node.target:
             case ast.Name() | ast.Subscript():
                 lvalue = copy.copy(node.target)
+                lvalue.ctx = ast.Store()
                 rvalue = copy.copy(node.target)
-                rvalue.ctx = ast.Store()
+                rvalue.ctx = ast.Load()
 
                 assign = ast.Assign(
                     targets =[ lvalue ], 
