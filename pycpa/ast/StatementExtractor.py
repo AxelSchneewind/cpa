@@ -7,6 +7,7 @@ class StatementExtractor(ast.NodeTransformer):
 
     def __init__(self):
         self.instruction_stack = list()
+        self.current_tmp_ctr = 0
 
     def push_instruction(self, instruction):
         assert isinstance(instruction, ast.AST)
