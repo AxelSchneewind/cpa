@@ -17,10 +17,9 @@ class StackState(WrappedAbstractState):
         self.stack = stack
         self.ret_var_stack = ret_var_stack
 
-    @staticmethod
-    def _copy(old):
-        stack = [ copy.deepcopy(s) for s in old.stack ]
-        ret_var_stack = copy.copy(old.ret_var_stack)
+    def __deepcopy__(self, memo):
+        stack = [ copy.deepcopy(s) for s in self.stack ]
+        ret_var_stack = copy.copy(self.ret_var_stack)
         return StackState(stack, ret_var_stack)
         
     def __str__(self):
@@ -72,7 +71,7 @@ class StackTransferRelation(TransferRelation):
                 predecessor.stack[-1], edge
             )
         ]
-        result = [ StackState._copy(predecessor) for w in states]
+        result = [ copy.deepcopy(predecessor) for w in states]
 
         kind = edge.instruction.kind
         if kind == InstructionType.CALL:
@@ -118,11 +117,13 @@ class StackStopOperator(StopOperator):
         self.wrapped_stop_operator = wrapped_stop_operator
 
     def stop(self, e : StackState, reached : Collection[StackState]) -> StackState:
-        if len(e.stack) == 0: return True
-        return self.wrapped_stop_operator.stop(
-            e.stack[-1], [eprime.stack[-1] for eprime in reached if len(eprime.stack) > 0]
-        )
-
+        return any( # Exists any reached state that covers e?
+                   all(# All components of e are covered by the corresponding component of eprime?
+                       self.wrapped_stop_operator.stop(e_inner, [eprime_inner])
+                       for e_inner, eprime_inner in zip(e.stack, eprime.stack)
+                   )
+                   for eprime in reached if len(e.stack) == len(eprime.stack)
+               )
 
 
 class StackMergeOperator(MergeOperator):
@@ -130,7 +131,7 @@ class StackMergeOperator(MergeOperator):
         self.wrapped_merge_operator = wrapped_merge_operator
 
     def merge(self, state1, state2):
-        if len(state1.stack) == len(state2.stack) > 0:
+        if len(state1.stack) == len(state2.stack) > 0 and all(a == b for a,b in zip(state1.stack[:-1], state2.stack[:-1])):
             frame = self.wrapped_merge_operator.merge(state1.stack[-1], state2.stack[-1])
             state2.stack[-1] = frame
             return state2
