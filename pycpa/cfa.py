@@ -105,7 +105,7 @@ class Instruction:
         return Instruction(expression, kind=InstructionType.RETURN)
 
     @staticmethod
-    def call(expression : ast.Call, declaration : ast.FunctionDef, entry_point : ast.AST, argnames : List[ast.arg], ret_variable : str ='__ret', **params):
+    def call(expression : ast.Call, declaration : ast.FunctionDef, entry_point : ast.AST, argnames : List[ast.arg], ret_variable : str = '__ret', **params):
         assert isinstance(expression, ast.Call)
         assert isinstance(declaration, ast.FunctionDef)
         assert isinstance(entry_point, CFANode)
@@ -113,7 +113,16 @@ class Instruction:
         assert all((isinstance(p.arg, ast.Name) or isinstance(p.arg, str) for p in argnames)), argnames
         param_names = [ str(p.arg.id) if isinstance(p.arg, ast.Name) else str(p.arg) for p in declaration.args.args ]
         arg_names   = [ str(p.arg.id) if isinstance(p.arg, ast.Name) else str(p.arg) for p in argnames ]
-        return Instruction(expression, kind=InstructionType.CALL, location=entry_point, declaration=declaration, param_names=param_names, arg_names=arg_names, **params)
+        return Instruction(
+            expression, 
+            kind=InstructionType.CALL, 
+            location=entry_point, 
+            declaration=declaration, 
+            param_names=param_names, 
+            arg_names=arg_names, 
+            ret_variable=ret_variable, 
+            **params
+        )
 
     @staticmethod
     def nop(expression):
@@ -318,14 +327,8 @@ class CFACreator(ast.NodeVisitor):
             self.node_stack.append(exit_node)
 
     def visit_Return(self, node : ast.Return):
-        val = node.value if node.value else ast.Constant(0)
-        store_instruction = ast.Assign(
-                    [ast.Name('__ret', ast.Store())], 
-                    val
-                )
-        store_instruction = ast.copy_location(store_instruction, node)
-        ast.fix_missing_locations(store_instruction)
-        self.visit(store_instruction)
+        assert node.value is None or isinstance(node.value, ast.Name), node.value
+        assert node.value is None or node.value.id == '__ret'
 
         entry_node = self.node_stack.pop()
         exit_node = CFANode()

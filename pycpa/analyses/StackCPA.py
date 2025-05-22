@@ -13,8 +13,15 @@ from typing import Collection
 
 
 class StackState(WrappedAbstractState):
-    def __init__(self, stack, parent=None):
+    def __init__(self, stack, ret_var_stack):
         self.stack = stack
+        self.ret_var_stack = ret_var_stack
+
+    @staticmethod
+    def _copy(old):
+        stack = [ copy.deepcopy(s) for s in old.stack ]
+        ret_var_stack = copy.copy(old.ret_var_stack)
+        return StackState(stack, ret_var_stack)
         
     def __str__(self):
         if len(self.stack) > 0:
@@ -31,14 +38,14 @@ class StackState(WrappedAbstractState):
         return hasattr(self.stack[-1], "is_target") and self.stack[-1].is_target()
     
     def wrapped(self):
-        return WrappedAbstractState.unwrap(self.stack[-1])
+        return WrappedAbstractState.unwrap(self.stack[-1]) if len(self.stack) > 0 else []
     
     def __eq__(self, other):
         if not isinstance(other, StackState):
             return False
         if len(self.stack) != len(other.stack):
             return False
-        return all(a==b for a,b in zip(self.stack, other.stack))
+        return all(a == b for a,b in zip(self.stack, other.stack))
 
     def __hash__(self):
         return tuple(
@@ -60,39 +67,40 @@ class StackTransferRelation(TransferRelation):
                 predecessor.stack[-1], edge
             )
         ]
-        result = [StackState(copy.deepcopy(predecessor.stack)) for w in states]
+        result = [ StackState._copy(predecessor) for w in states]
 
         kind = edge.instruction.kind
         if kind == InstructionType.CALL:
             for i, wrapped_successor in enumerate(states):
                 result[i].stack.append(wrapped_successor)
 
+                if hasattr(edge.instruction, 'ret_variable'):
+                    result[i].ret_var_stack.append(edge.instruction.ret_variable)
+                else:
+                    result[i].ret_var_stack.append('__ret')
+
         elif kind == InstructionType.RETURN:
             for i, wrapped_successor in enumerate(states):
-                if len(result[i].stack) < 2:
-                    continue
-
-                s = result[i].stack[-2]
+                if len(result[i].stack) < 2 and len(predecessor.stack) < 2:
+                    return []
 
                 # advance instruction pointer 
-                for w, p in zip(WrappedAbstractState.unwrap_fully(s), WrappedAbstractState.unwrap_fully(predecessor.stack[-2])):
-                    if isinstance(p, LocationState):
+                s = result[i].stack[-2]
+                for w, p in zip(WrappedAbstractState.get_substates(s, LocationState), WrappedAbstractState.get_substates(predecessor.stack[-2], LocationState)):
+                    if len(p.location.leaving_edges) > 0:
                         w.location = p.location.leaving_edges[0].successor
 
                 # write return value
-                for w, p in zip(WrappedAbstractState.unwrap_fully(s), WrappedAbstractState.unwrap_fully(predecessor.stack[-1])):
-                    if isinstance(p, ValueState):
-                        if '__ret' in p.valuation:
-                            # if target attribute is provided, directly write to that variable
-                            if hasattr(edge.instruction, 'target'):
-                                w.valuation[edge.instruction.target] = copy.copy(p.valuation['__ret'])
-                            # otherwise, set __ret
-                            else:
-                                w.valuation['__ret'] = copy.copy(p.valuation['__ret'])
+                for w, p in zip(WrappedAbstractState.get_substates(s, ValueState), WrappedAbstractState.get_substates(predecessor.stack[-1], ValueState)):
+                    if '__ret' in p.valuation:
+                        var = predecessor.ret_var_stack[-1]
+                        w.valuation[var] = p.valuation['__ret']
 
                 result[i].stack.pop()
+                result[i].ret_var_stack.pop()
             return result
 
+        # only for non-return edges: update uppermost stack frame
         for i, wrapped_successor in enumerate(states):
             result[i].stack[-1] = wrapped_successor
 
@@ -105,8 +113,9 @@ class StackStopOperator(StopOperator):
         self.wrapped_stop_operator = wrapped_stop_operator
 
     def stop(self, e : StackState, reached : Collection[StackState]) -> StackState:
+        if len(e.stack) == 0: return True
         return self.wrapped_stop_operator.stop(
-            e.stack[-1], [eprime.stack[-1] for eprime in reached]
+            e.stack[-1], [eprime.stack[-1] for eprime in reached if len(eprime.stack) > 0]
         )
 
 
@@ -129,7 +138,7 @@ class StackCPA(CPA):
         self.wrapped_cpa = wrapped_cpa
 
     def get_initial_state(self):
-        return StackState([self.wrapped_cpa.get_initial_state()])
+        return StackState([self.wrapped_cpa.get_initial_state()], [None])
 
     def get_stop_operator(self):
         return StackStopOperator(self.wrapped_cpa.get_stop_operator())
