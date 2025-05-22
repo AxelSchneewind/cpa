@@ -28,7 +28,7 @@ class PredAbsState(AbstractState):
             self.ssa_indices: Dict[str, int] = copy.deepcopy(other.ssa_indices)
         else:
             self.predicates = set()
-            self.ssa_indices = {}
+            self.ssa_indices = dict()
 
     def subsumes(self, other: PredAbsState) -> bool:
         return other.predicates.issubset(self.predicates)
@@ -41,10 +41,14 @@ class PredAbsState(AbstractState):
         )
 
     def __hash__(self) -> int:
-        return hash(frozenset(self.predicates)) ^ hash(frozenset(self.ssa_indices.items()))
+        return (frozenset(self.predicates).__hash__(), frozenset(self.ssa_indices.items()).__hash__()).__hash__()
 
     def __str__(self) -> str:
         return '{' + ', '.join(str(p) for p in self.predicates) + '}'
+    
+    def __deepcopy__(self, memo):
+        return PredAbsState(self)
+
 
 # --------------------------------------------------------------------------- #
 # Transfer Relation

@@ -18,7 +18,7 @@ class StackState(WrappedAbstractState):
         self.ret_var_stack = ret_var_stack
 
     def __deepcopy__(self, memo):
-        stack = [ copy.deepcopy(s) for s in self.stack ]
+        stack = copy.deepcopy(self.stack)
         ret_var_stack = copy.copy(self.ret_var_stack)
         return StackState(stack, ret_var_stack)
         
@@ -118,7 +118,7 @@ class StackStopOperator(StopOperator):
 
     def stop(self, e : StackState, reached : Collection[StackState]) -> StackState:
         return any( # Exists any reached state that covers e?
-                   all(# All components of e are covered by the corresponding component of eprime?
+                   all(# All frames of e are covered by the corresponding component of eprime?
                        self.wrapped_stop_operator.stop(e_inner, [eprime_inner])
                        for e_inner, eprime_inner in zip(e.stack, eprime.stack)
                    )
@@ -131,10 +131,12 @@ class StackMergeOperator(MergeOperator):
         self.wrapped_merge_operator = wrapped_merge_operator
 
     def merge(self, state1, state2):
+        # merge only if lower stack frames are equal
         if len(state1.stack) == len(state2.stack) > 0 and all(a == b for a,b in zip(state1.stack[:-1], state2.stack[:-1])):
             frame = self.wrapped_merge_operator.merge(state1.stack[-1], state2.stack[-1])
-            state2.stack[-1] = frame
-            return state2
+            if frame != state2.stack[-1]:
+                state1.stack[-1] = frame
+                return state1
 
         return state2
 
