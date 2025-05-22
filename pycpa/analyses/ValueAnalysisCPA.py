@@ -277,6 +277,9 @@ class Value:
             raise Exception("There may only be one top state!")
         else:
             self.actual = actual
+    
+    def __str__(self):
+        return (f'%s' % self.actual) if not self.is_top() else '⊤'
 
     def do_eq(self, other):
         if self.is_top():
@@ -467,8 +470,8 @@ class ValueTransferRelation(TransferRelation):
             return [newval]
         elif edge.instruction.kind == InstructionType.NONDET:
             successor = ValueState(predecessor)
-            if hasattr(edge.instruction, 'target'):
-                successor.valuation[edge.instruction.target] = Value.get_top()
+            if hasattr(edge.instruction, 'ret_variable'):
+                successor.valuation[edge.instruction.ret_variable] = Value.get_top()
             else:
                 successor.valuation['__ret'] = Value.get_top()
             return [successor]
