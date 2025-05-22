@@ -1,4 +1,4 @@
-from pycpa.analyses import PredAbsPrecisionABE, PredAbsCPA
+from pycpa.analyses import PredAbsABEPrecision, PredAbsABECPA
 from pycpa.analyses import CompositeCPA
 from pycpa.analyses import LocationCPA
 from pycpa.analyses import StackCPA
@@ -7,17 +7,22 @@ from pycpa.analyses import ValueAnalysisCPA
 
 import pprint
 
+"""
+Configuration for running Predicate Analysis with ABE and 
+abstraction at branches and calls.
+"""
+
 def get_cpas(entry_point=None, cfa_roots=None, output_dir=None, **params):
     assert entry_point
 
     if cfa_roots is None:
         cfa_roots = [entry_point]
-    precision = PredAbsPrecisionABE.from_cfa(cfa_roots, PredAbsPrecisionABE.is_block_head_bf)
+    precision = PredAbsABEPrecision.from_cfa(cfa_roots, PredAbsABEPrecision.is_block_head_bf)
 
     # dump initial precision
     if output_dir:
         with open(output_dir + 'precision_initial.txt', 'w') as f:
-            f.write(pprint.pformat(precision.predicates))
+            f.write(precision.__str__())
 
-    return [StackCPA(CompositeCPA([LocationCPA(entry_point), PredAbsCPA(precision)]))]
+    return [StackCPA(CompositeCPA([LocationCPA(entry_point), PredAbsABECPA(precision, PredAbsABEPrecision.is_block_head_bf)]))]
 

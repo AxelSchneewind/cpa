@@ -188,6 +188,7 @@ class PredAbsPrecision(Dict, Iterable):
     def __iter__(self): return iter(self.predicates)
     def __len__(self): return len(self.predicates)
 
+    def __str__(self): return '{' + ', '.join(map(str, self.predicates)) + '}'
 
     # Helper function to modify all ssa-indices in a formula
     @staticmethod
@@ -381,4 +382,3 @@ class PredAbsPrecision(Dict, Iterable):
                 todo.append(e.successor)
         return PredAbsPrecision(preds)
     
-    def __str__(self): return '{' + ', '.join(map(str, self.predicates)) + '}'
