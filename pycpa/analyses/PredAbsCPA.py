@@ -54,7 +54,7 @@ class PredAbsTransferRelation(TransferRelation):
     Cartesian abstraction:
       succ.predicates = { t ∈ π |  SP(edge, ∧preds(pre)) ⇒ t }
     """
-    def __init__(self, precision: Set[fnode.FNode]) -> None:
+    def __init__(self, precision: PredAbsPrecision | PredAbsPrecisionLBE) -> None:
         self.precision = precision
 
     @staticmethod
@@ -130,7 +130,7 @@ class PredAbsTransferRelation(TransferRelation):
         new_preds = self._implied_predicates(
             predecessor.predicates,
             trans,
-            self.precision
+            self.precision[edge.successor]
         )
         succ = PredAbsState()
         succ.ssa_indices = ssa_idx
@@ -142,11 +142,7 @@ class PredAbsTransferRelation(TransferRelation):
 # --------------------------------------------------------------------------- #
 class PredAbsCPA(CPA):
     def __init__(self, initial_precision) -> None:
-        self.precision = (
-            initial_precision.predicates
-            if hasattr(initial_precision, "predicates")
-            else set(initial_precision)
-        )
+        self.precision = initial_precision
 
     def get_initial_state(self) -> PredAbsState:
         return PredAbsState()
