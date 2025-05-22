@@ -44,16 +44,9 @@ class CPAAlgorithm:
                 if not self.cpa.get_stop_operator().stop(e_prime, reached):
                     to_add.add(e_prime)
 
-
-                property_states = WrappedAbstractState.get_substates(e, PropertyState)
-                is_safe = True
-                for state in property_states:
-                    is_safe &= state.safe
-        
-                if not is_safe:
-                    self.result.status = Status.OK
+                if any(s.safe for s in WrappedAbstractState.get_substates(e, PropertyState)):
                     self.verdict = Verdict.FALSE
-                    return
+                    break
 
                 reached -= to_remove
                 reached |= to_add
