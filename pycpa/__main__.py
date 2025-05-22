@@ -116,20 +116,16 @@ def main(args):
             raise x
         except:
             result.status = Status.ERROR
-
+        finally:
+            # output arg
+            dot = arg_to_dot(
+                    [ GraphableARGState(init) ],
+                    nodeattrs={"style": "filled", "shape": "box", "color": "white"},
+                )
+            dot.render(output_dir + '/arg')
 
         # print status
         print(':  %s' % str(result.status))
-        # if result.witness:
-        #     print('%s' % str(result.witness))
-
-        # output arg
-        dot = arg_to_dot(
-                [ GraphableARGState(init) ],
-                nodeattrs={"style": "filled", "shape": "box", "color": "white"},
-            )
-        dot.render(output_dir + '/arg')
-
 
         # compute verdict for each property
         v = Verdict.TRUE if result.status == Status.OK else Verdict.UNKNOWN
