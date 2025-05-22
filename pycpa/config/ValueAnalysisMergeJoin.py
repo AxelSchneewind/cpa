@@ -8,7 +8,6 @@ from pycpa.cpa import MergeOperator, AbstractState
 
 class ValueMergeJoinOperator(MergeOperator):
     def merge(self, e: AbstractState, eprime: AbstractState) -> AbstractState:
-        print(e,eprime)
         for k,v in e.valuation.items():
             if k in eprime.valuation and v != eprime.valuation[k]:
                 eprime.valuation.pop(k)
