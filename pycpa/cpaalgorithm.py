@@ -44,7 +44,8 @@ class CPAAlgorithm:
                 if not self.cpa.get_stop_operator().stop(e_prime, reached):
                     to_add.add(e_prime)
 
-                if any(s.safe for s in WrappedAbstractState.get_substates(e, PropertyState)):
+                if any(not s.safe for s in WrappedAbstractState.get_substates(e, PropertyState)):
+                    self.result.status = Status.OK
                     self.verdict = Verdict.FALSE
                     break
 
@@ -54,5 +55,6 @@ class CPAAlgorithm:
                 waitlist |= to_add
 
         self.result.status = Status.OK
+        self.verdict = Verdict.TRUE
         return
 
