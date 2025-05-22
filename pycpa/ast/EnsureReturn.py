@@ -4,7 +4,8 @@ from ast import AST
 
 class EnsureReturn(ast.NodeTransformer):
     """
-        AST transformer that ensures that each function ends with a return statement
+        AST transformer that ensures that each function ends with a return statement.
+        This is required to correcly compute return edges for the cfa.
     """
 
     def visit_FunctionDef(self, node) -> ast.FunctionDef:
@@ -13,12 +14,12 @@ class EnsureReturn(ast.NodeTransformer):
             case ast.Return():
                 return node
             case ast.Pass():
-                ret = ast.Return()
+                ret = ast.Return(value=ast.Constant(0))
                 ast.copy_location(ret, node)
                 node.body[-1] = ret
                 return node
             case _:
-                ret = ast.Return()
+                ret = ast.Return(value=ast.Constant(0))
                 ast.copy_location(ret, node)
                 node.body.append(ret)
                 return node
