@@ -53,8 +53,9 @@ run-benchmarks: run-benchmark-ReachSafety-Arrays/ run-benchmark-ControlFlow/ run
 
 run-benchmark-Test: 
 
-run-examples: check-venv collatz.py unsafe.py
-	python -m pycpa -p ReachSafety -c PredicateAnalysis --max-iterations 300 collatz.py unsafe.py benchmarks/Test/*.py
+run-examples: check-venv test_progs/*.py
+	python -m pycpa -p ReachSafety -c PredicateAnalysis --max-iterations 300 test_progs/*.py benchmarks/Test/*.py
+
 
 run-%: check-venv %.py
 	python -m pycpa -p ReachSafety -c PredicateAnalysis --max-iterations 300 $*.py 
