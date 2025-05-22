@@ -56,8 +56,10 @@ def main(args):
             out_prog.write(ast_program)
 
 
-        print('computing AST', end='')
-        tree = preprocess_ast(ast.parse(ast_program))
+        print('\rparsing', end='')
+        tree = ast.parse(ast_program)
+        print('\rpreprocessing', end='')
+        tree = preprocess_ast(tree)
         with open(output_dir + '/program-preprocessed.py', 'w') as out_prog:
             out_prog.write(ast.unparse(tree))
 
