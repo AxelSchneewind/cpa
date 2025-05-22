@@ -10,5 +10,5 @@ if y == 0:                      # feasible path
     reach_error()
 
 x = 10 // y                     # otherwise safe (±1)
-__VERIFIER_assume(x == 10 or x == -10)
+__VERIFIER_assert(x == 10 or x == -10)
 
