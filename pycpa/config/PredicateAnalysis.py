@@ -17,7 +17,7 @@ def get_cpas(entry_point=None, cfa_roots=None, output_dir=None, **params):
     # dump initial precision
     if output_dir:
         with open(output_dir + 'precision_initial.txt', 'w') as f:
-            f.write(pprint.pformat(precision))
+            f.write(pprint.pformat(precision.predicates))
 
     return [StackCPA(CompositeCPA([LocationCPA(entry_point), PredAbsCPA(precision)]))]
 
