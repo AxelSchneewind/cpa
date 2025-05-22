@@ -74,8 +74,7 @@ class CompositeTransferRelation(TransferRelation):
     def get_abstract_successors(self, predecessor):
         location_states = [
             state
-            for state in WrappedAbstractState.unwrap_fully(predecessor)
-            if isinstance(state, LocationState)
+            for state in WrappedAbstractState.get_substates(predecessor, LocationState)
         ]
         if len(location_states) == 0:
             return [
