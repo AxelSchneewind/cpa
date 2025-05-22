@@ -10,6 +10,18 @@ class RemoveBuiltins(ast.NodeTransformer):
     def __init__(self, builtin_identifiers):
         self.builtin = builtin_identifiers
         self.pattern = re.compile(r'^__(tmp|ret)')
+    
+    def visit_Call(self, node) -> ast.Call:
+        """
+        removes call to int() as all variables are assumed to be integers
+        """
+        assert isinstance(node.func, ast.Name)
+        name = node.func.id
+        match name:
+            case 'int':
+                return node.args[0]
+            case _:
+                return node
 
     def visit_FunctionDef(self, node) -> ast.FunctionDef:
         """
