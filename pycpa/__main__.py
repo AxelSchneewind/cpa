@@ -57,7 +57,11 @@ def main(args):
 
 
         print('\rparsing', end='')
-        tree = ast.parse(ast_program)
+        try:
+            tree = ast.parse(ast_program)
+        except:
+            print('\rinvalid program')
+            continue
         print('\rpreprocessing', end='')
         tree = preprocess_ast(tree)
         with open(output_dir + '/program-preprocessed.py', 'w') as out_prog:
