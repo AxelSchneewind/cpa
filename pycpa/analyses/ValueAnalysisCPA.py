@@ -69,37 +69,52 @@ class ValueExpressionVisitor(ast.NodeVisitor):
         self.lstack = list()
         self.rstack = list()
 
+    def _push_rvalue(self, rvalue):
+        self.rstack.append(rvalue)
+
+    def _push_lvalue(self, lvalue):
+        assert isinstance(lvalue, str)
+        self.lstack.append(lvalue)
+
+    def _pop_rvalue(self):
+        assert len(self.rstack) > 0
+        return self.rstack.pop()
+
+    def _pop_lvalue(self):
+        assert len(self.lstack) > 0
+        return self.lstack.pop()
+
     def visit_Name(self, node):
         if isinstance(node.ctx, ast.Store):
-            self.lstack.append(str(node.id))
+            self._push_lvalue(str(node.id))
         elif isinstance(node.ctx, ast.Load):
             var_name = node.id
-            self.rstack.append(self.get_value_of(var_name))
+            self._push_rvalue(self.get_value_of(var_name))
 
     def visit_Constant(self, node):
-        self.rstack.append(Value(node.n))
+        self._push_rvalue(Value(node.n))
 
     def visit_Subscript(self, node):
         result = None
         if isinstance(node.ctx, ast.Load):
             self.visit(node.slice)
-            sl  = self.rstack.pop()
+            sl  = self._pop_rvalue()
 
             self.visit(node.value)
-            val = self.rstack.pop()
+            val = self._pop_rvalue()
             if val is None or sl is None or sl.is_top() or val.is_top():
-                self.rstack.append(Value.get_top())
+                self._push_rvalue(Value.get_top())
             else:
                 varname = '%s[%s]' % (str(val.actual), str(sl.actual))
                 if varname in self.valuation:
-                    self.rstack.append(self.valuation[varname])
+                    self._push_rvalue(self.valuation[varname])
                 else:
-                    self.rstack.append(Value.get_top())
+                    self._push_rvalue(Value.get_top())
         elif isinstance(node.ctx, ast.Store):
             assert isinstance(node.value, ast.Name), ('encountered invalid subscript: %s' % node)
 
             self.visit(node.slice)
-            sl  = self.rstack.pop()
+            sl  = self._pop_rvalue()
 
             val = node.value.id
 
@@ -108,27 +123,27 @@ class ValueExpressionVisitor(ast.NodeVisitor):
                 self.valuation = {}
             else:
                 varname = '%s[%s]' % (str(val.actual if isinstance(val, Value) else val), str(sl.actual))
-                self.lstack.append(varname)
+                self._push_lvalue(varname)
 
     def visit_UnaryOp(self, node):
         self.visit(node.operand)
-        result = self.rstack.pop()
+        result = self._pop_rvalue()
         if isinstance(node.op, ast.Not):
-            self.rstack.append(result.do_not())
+            self._push_rvalue(result.do_not())
         elif isinstance(node.op, ast.USub):
-            self.rstack.append(result.do_neg())
+            self._push_rvalue(result.do_neg())
         elif isinstance(node.op, ast.UAdd):
-            self.rstack.append(result.do_pos)
+            self._push_rvalue(result.do_pos)
         elif isinstance(node.op, ast.Invert):
-            self.rstack.append(result.do_invert())
+            self._push_rvalue(result.do_invert())
         else:
             raise NotImplementedError("Operator %s is not implemented!" % node.op)
 
     def visit_BoolOp(self, node):
         self.visit(node.values[0])
-        left_result = self.rstack.pop()
+        left_result = self._pop_rvalue()
         self.visit(node.values[1])
-        right_result = self.rstack.pop()
+        right_result = self._pop_rvalue()
 
         match node.op:
             case ast.And():
@@ -137,16 +152,16 @@ class ValueExpressionVisitor(ast.NodeVisitor):
                 result = left_result.do_or(right_result)
             case _:
                 raise NotImplementedError("Operator %s is not implemented!" % op)
-        self.rstack.append(result)
+        self._push_rvalue(result)
 
 
     def visit_Compare(self, node):
         self.visit(node.left)
-        left_result = self.rstack.pop()
+        left_result = self._pop_rvalue()
         comp_results = list()
         for comparator in node.comparators:
             self.visit(comparator)
-            comp_results.append(self.rstack.pop())
+            comp_results.append(self._pop_rvalue())
         # we only support simple compares like 1<2 for now, not something like 1<2<3:
         assert len(comp_results) == 1, comp_results
         assert len(node.ops) == 1, node.ops
@@ -169,7 +184,7 @@ class ValueExpressionVisitor(ast.NodeVisitor):
                 result = left_result.do_eq(comp_results[0])
             case _:
                 raise NotImplementedError("Operator %s is not implemented!" % op)
-        self.rstack.append(result)
+        self._push_rvalue(result)
 
     def visit_Assign(self, node):
         assert len(node.targets) == 1
@@ -179,19 +194,19 @@ class ValueExpressionVisitor(ast.NodeVisitor):
             
             for i, expr in enumerate(node.value.elts):
                 self.visit(expr)
-                val = self.rstack.pop()
+                val = self._pop_rvalue()
                 if val is not None and not val.is_top():
-                    self.lstack.append('%s[%s]' % (name, i))
-                    self.rstack.append(val)
+                    self._push_lvalue('%s[%s]' % (name, i))
+                    self._push_rvalue(val)
         else:
             self.visit(node.targets[0])
             self.visit(node.value)
 
     def visit_BinOp(self, node):
         self.visit(node.left)
-        left_result = self.rstack.pop()
+        left_result = self._pop_rvalue()
         self.visit(node.right)
-        right_result = self.rstack.pop()
+        right_result = self._pop_rvalue()
 
         op = node.op
         result = None
@@ -225,7 +240,7 @@ class ValueExpressionVisitor(ast.NodeVisitor):
             case _:
                 raise NotImplementedError("Operator %s is not implemented!" % op)
 
-        self.rstack.append(result)
+        self._push_rvalue(result)
 
 
     def get_value_of(self, varname):
@@ -441,7 +456,7 @@ class ValueTransferRelation(TransferRelation):
             assert len(v.lstack) == 0, v.lstack
             # there should be one value on rstack, namely what the assumption evaluated to:
             assert len(v.rstack) == 1, v.rstack
-            result = v.rstack.pop()
+            result = v._pop_rvalue()
             if result.is_top():
                 return [copy.copy(predecessor)]
             passed = True if result.actual else False
