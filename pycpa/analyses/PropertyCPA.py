@@ -38,19 +38,6 @@ class PropertyState(AbstractState):
             return 'unsafe'
 
 
-
-class FunctionCallVisitor(ast.NodeVisitor):
-    def __init__(self, previous_state):
-        self.state = previous_state
-
-    def visit_Call(self, node):
-        # if reach_error is called, update the state to unsafe
-        if node.func.id == 'reach_error':
-            self.state = PropertyState(False)
-
-        return self.generic_visit(node)
-
-
 class PropertyTransferRelation(TransferRelation):
     def get_abstract_successors(self, predecessor : PropertyState):
         raise NotImplementedError(
@@ -58,15 +45,8 @@ class PropertyTransferRelation(TransferRelation):
         )
 
     def get_abstract_successors_for_edge(self, predecessor : PropertyState, edge : CFAEdge):
-        v = FunctionCallVisitor(predecessor)
         kind = edge.instruction.kind
-        if kind == InstructionType.STATEMENT:
-            v.visit(edge.instruction.expression)
-            return [v.state]
-        elif kind == InstructionType.ASSUMPTION:
-            v.visit(edge.instruction.expression)
-            return [v.state]
-        elif kind == InstructionType.REACH_ERROR:
+        if kind == InstructionType.REACH_ERROR:
             return [PropertyState(False)]
         else:
             return [predecessor]
