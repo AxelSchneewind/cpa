@@ -178,12 +178,16 @@ def _expr2smt(node: ast.AST, ssa: Dict[str, int]) -> FNode:
 # --------------------------------------------------------------------------- #
 #  Precision object (mapping from location to predicate set)                  #
 # --------------------------------------------------------------------------- #
-class PredAbsPrecision(Dict):
+class PredAbsPrecision(Dict, Iterable):
     def __init__(self, preds: Set[FNode] | None = None):
         self.predicates: Set[FNode] = set(preds or {TRUE(), FALSE()})
 
     def __getitem__(self, loc):        return self.predicates
     def __contains__(self, loc): return True
+
+    def __iter__(self): return iter(self.predicates)
+    def __len__(self): return len(self.predicates)
+
 
     # Helper function to modify all ssa-indices in a formula
     @staticmethod
