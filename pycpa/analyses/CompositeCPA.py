@@ -14,6 +14,7 @@ from pycpa.analyses import LocationCPA
 from pycpa.analyses import LocationState
 
 import itertools
+import copy
 
 class CompositeState(WrappedAbstractState):
     def __init__(self, wrapped_states):
@@ -47,6 +48,9 @@ class CompositeState(WrappedAbstractState):
             return " %s " % "\n".join([str(state) for state in self.wrapped_states])
         else:
             return "(%s)" % ", ".join([str(state) for state in self.wrapped_states])
+    
+    def __deepcopy__(self, memo):
+        return CompositeState(copy.deepcopy(self.wrapped_states))
     
 
 class CompositeStopOperator(AbstractState):
