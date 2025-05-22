@@ -8,13 +8,7 @@ class ExpandIfExp(StatementExtractor):
     """
 
     def __init__(self):
-        self.instruction_stack = list()
-        self.current_tmp_ctr = 0
-
-        # stores whether a visited call has to be extracted
-        # always the case if not a single expression
-        self.extract = False
-        self.extract_expr = False
+        StatementExtractor.__init__(self)
 
     def assign_result_to(self, call : ast.AST, return_var : str) -> ast.AST:
         expr = ast.Assign(

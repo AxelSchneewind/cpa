@@ -16,8 +16,7 @@ class ASTPreprocessor(StatementExtractor):
     """
 
     def __init__(self):
-        self.instruction_stack = list()
-        self.current_tmp_ctr = 0
+        StatementExtractor.__init__(self)
 
         # stores whether a visited call has to be extracted
         # always the case if not a single expression
