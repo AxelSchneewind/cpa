@@ -39,6 +39,9 @@ class LocationState(AbstractState):
 
     def __hash__(self):
         return hash(self.location)
+    
+    def __deepcopy__(self, memo):
+        return LocationState(self.location)
 
 
 class LocationTransferRelation(TransferRelation):
