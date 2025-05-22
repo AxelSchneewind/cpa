@@ -132,10 +132,8 @@ def main(args):
         print(':  %s' % str(result.status))
 
         # compute verdict for each property
-        v = result.verdict
-        result.verdicts = [v for p in specification_mods]
+        result.verdicts = [result.verdict for p in specification_mods]
         for i, p in enumerate(specification_mods):
-            result.verdicts[i] = v
             result.verdicts[i] &= p.check_arg_state(init)
             result.verdict &= result.verdicts[i]
 

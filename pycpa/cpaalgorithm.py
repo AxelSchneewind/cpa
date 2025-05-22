@@ -28,6 +28,7 @@ class CPAAlgorithm:
             self.iterations += 1
             if self.task.max_iterations and self.iterations >= self.task.max_iterations:
                 self.result.status = Status.TIMEOUT
+                self.result.verdict = Verdict.UNKNOWN  # cannot get better than unknown
                 return
 
             for e_prime in self.cpa.get_transfer_relation().get_abstract_successors(e):
@@ -46,7 +47,7 @@ class CPAAlgorithm:
 
                 if any(not s.safe for s in WrappedAbstractState.get_substates(e, PropertyState)):
                     self.result.status = Status.OK
-                    self.verdict = Verdict.FALSE
+                    self.result.verdict = Verdict.FALSE
                     break
 
                 reached -= to_remove
@@ -55,6 +56,6 @@ class CPAAlgorithm:
                 waitlist |= to_add
 
         self.result.status = Status.OK
-        self.verdict = Verdict.TRUE
+        self.result.verdict = Verdict.TRUE
         return
 
