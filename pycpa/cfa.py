@@ -48,7 +48,13 @@ builtin_identifiers = {
 }
 
 class Instruction:
-    """An instruction is either an assignment or an assumption"""
+    """
+    An instruction can have different types, the most important ones being 
+     - statements
+     - assumptions
+     - calls (to defined functions or builtins)
+     - reacherror
+    """
 
     def __init__(self, expression, kind=InstructionType.STATEMENT, **params):
         self.kind = kind
@@ -56,11 +62,6 @@ class Instruction:
         for p in params:
             if not hasattr(self, p):
                 setattr(self, p, params[p])
-
-        match self.kind:
-            case InstructionType.CALL:
-                assert hasattr(self,'location')
-                assert hasattr(self,'declaration')
     
     def __str__(self):
         identifier = str(self.kind).replace('InstructionType.', '')
@@ -88,25 +89,31 @@ class Instruction:
         return Instruction(expression)
 
     @staticmethod
-    def builtin(expression, **params):
+    def builtin(expression : ast.Call, ret_variable : str = '__ret', **params):
+        assert isinstance(expression, ast.Call)
         name = str(expression.func.id)
-        if name in builtin_identifiers: 
-            return Instruction(expression, kind=builtin_identifiers[name])
-        else:
-            return Instruction(expression, kind=InstructionType.EXTERNAL, **params)
+        assert name in builtin_identifiers
+        return Instruction(expression, kind=builtin_identifiers[name])
+
+    @staticmethod
+    def reacherror(expression, **params):
+        return Instruction(expression, kind=InstructionType.REACH_ERROR)
 
     @staticmethod
     def ret(expression : ast.Return):
+        assert isinstance(expression, ast.Return)
         return Instruction(expression, kind=InstructionType.RETURN)
 
     @staticmethod
-    def call(expression : ast.Call, declaration : ast.FunctionDef, entry_point, argnames : List[ast.arg]):
+    def call(expression : ast.Call, declaration : ast.FunctionDef, entry_point : ast.AST, argnames : List[ast.arg], ret_variable : str ='__ret', **params):
+        assert isinstance(expression, ast.Call)
+        assert isinstance(declaration, ast.FunctionDef)
+        assert isinstance(entry_point, CFANode)
         assert all((isinstance(p.arg, ast.Name) or isinstance(p.arg, str) for p in declaration.args.args)), declaration.args.args
         assert all((isinstance(p.arg, ast.Name) or isinstance(p.arg, str) for p in argnames)), argnames
         param_names = [ str(p.arg.id) if isinstance(p.arg, ast.Name) else str(p.arg) for p in declaration.args.args ]
-        # TODO
         arg_names   = [ str(p.arg.id) if isinstance(p.arg, ast.Name) else str(p.arg) for p in argnames ]
-        return Instruction(expression, kind=InstructionType.CALL, location=entry_point, declaration=declaration, param_names=param_names, arg_names=arg_names)
+        return Instruction(expression, kind=InstructionType.CALL, location=entry_point, declaration=declaration, param_names=param_names, arg_names=arg_names, **params)
 
     @staticmethod
     def nop(expression):
@@ -193,8 +200,6 @@ class CFAEdge:
 
 import ast
 
-# TODO: somehow track scopes and make variable names fully qualified
-# TODO: function for creating temporary variables
 class CFACreator(ast.NodeVisitor):
     def __init__(self):
         self.global_root = CFANode()
@@ -207,7 +212,7 @@ class CFACreator(ast.NodeVisitor):
         self.function_def = {}
         self.function_entry_point = {}
 
-    def visit_FunctionDef(self, node):
+    def visit_FunctionDef(self, node : ast.FunctionDef):
         pre = self.node_stack.pop()
 
         # for continuing after definition 
@@ -217,6 +222,7 @@ class CFACreator(ast.NodeVisitor):
 
         # ignore definitions of builtin functions
         if node.name in builtin_identifiers:
+            print('Warning: builtin', node.name, 'redefined, ignoring')
             return
 
         # 
@@ -234,7 +240,7 @@ class CFACreator(ast.NodeVisitor):
         # final return statement is guaranteed, remove its exit node
         self.node_stack.pop()
 
-    def visit_While(self, node):
+    def visit_While(self, node : ast.While):
         entry_node = self.node_stack.pop()
         inside = CFANode()
         self.continue_stack.append(entry_node)
@@ -253,7 +259,7 @@ class CFACreator(ast.NodeVisitor):
         self.continue_stack.pop()
         self.break_stack.pop()
 
-    def visit_Break(self, node):
+    def visit_Break(self, node : ast.Break):
         entry_node = self.node_stack.pop()
         next_node = CFANode()            # create node for next line after break
 
@@ -264,7 +270,7 @@ class CFACreator(ast.NodeVisitor):
 
         self.node_stack.append(next_node)
 
-    def visit_Continue(self, node):
+    def visit_Continue(self, node : ast.Continue):
         entry_node = self.node_stack.pop()
         next_node = CFANode()             # create node for next line after break
 
@@ -275,10 +281,12 @@ class CFACreator(ast.NodeVisitor):
 
         self.node_stack.append(next_node)
 
-    def visit_If(self, node):
+    def visit_If(self, node : ast.If):
         entry_node = self.node_stack.pop()
         left = CFANode()
-        edge = CFAEdge(entry_node, left, Instruction.assumption(node.test))
+        edge = CFAEdge(
+            entry_node, left, Instruction.assumption(node.test)
+        )
         right = CFANode()
         edge = CFAEdge(
             entry_node, right, Instruction.assumption(node.test, negated=True)
@@ -294,16 +302,22 @@ class CFACreator(ast.NodeVisitor):
         merged_exit = CFANode.merge(left_exit, right_exit)
         self.node_stack.append(merged_exit)
 
-    def visit_Expr(self, node):
+    def visit_Expr(self, node : ast.Expr):
         self.visit(node.value)
 
-    def visit_Assign(self, node):
-        entry_node = self.node_stack.pop()
-        exit_node = CFANode()
-        edge = CFAEdge(entry_node, exit_node, Instruction.statement(node))
-        self.node_stack.append(exit_node)
+    def visit_Assign(self, node : ast.Assign):
+        if isinstance(node.value, ast.Call):
+            assert isinstance(node.targets[0], ast.Name)
 
-    def visit_Return(self, node):
+            call = node.value
+            self._handle_Call(call, node.targets[0].id)
+        else:
+            entry_node = self.node_stack.pop()
+            exit_node = CFANode()
+            edge = CFAEdge(entry_node, exit_node, Instruction.statement(node))
+            self.node_stack.append(exit_node)
+
+    def visit_Return(self, node : ast.Return):
         val = node.value if node.value else ast.Constant(0)
         store_instruction = ast.Assign(
                     [ast.Name('__ret', ast.Store())], 
@@ -318,34 +332,54 @@ class CFACreator(ast.NodeVisitor):
         edge = CFAEdge(entry_node, exit_node, Instruction.ret(node))
         self.node_stack.append(exit_node)
 
-    def visit_Call(self, node):
-        if node.func.id in builtin_identifiers:
+    def _handle_Call(self, call_node : ast.Call, ret_variable : str ='__ret'):
+        assert isinstance(call_node, ast.Call), call_node
+        assert isinstance(call_node.func, ast.Name), call_node  # function could be attribute (e.g. member functions), not supported
+
+        # make builtin edge
+        if call_node.func.id in builtin_identifiers:
             entry_node = self.node_stack.pop()
             exit_node = CFANode()
-            edge = CFAEdge(entry_node, exit_node, Instruction.builtin(node))
+            edge = CFAEdge(entry_node, exit_node, Instruction.builtin(call_node, ret_variable=ret_variable))
             self.node_stack.append(exit_node)
             return
 
-        if node.func.id in self.function_def and node.func.id not in builtin_identifiers:
-            # add computing edge for each argument
-            arg_names = []
-            for i, val in enumerate(node.args):
-                if isinstance(val, ast.Name):
-                    argname = str(val.id)
-                elif isinstance(val, ast.Constant):
-                    argname = str(val.value)
-                else:
-                    assert False, 'encountered argument that isnt name or constant'
-
-                arg_names.append(ast.arg(argname))
-
-            pre_jump_node = self.node_stack.pop()
-            body_node = CFANode()
-            edge = CFAEdge(pre_jump_node, body_node, Instruction.call(node, self.function_def[node.func.id], self.function_entry_point[node.func.id], arg_names))
-            self.node_stack.append(body_node)
+        if call_node.func.id not in self.function_def or call_node.func.id not in self.function_entry_point:
+            print('Warning: call to undefined', ast.unparse(call_node.func))
             return
 
-        print('WARNING: call to undefined ', node.func.id, '')
+        # add computing edge for each argument
+        arg_names = []
+        for i, val in enumerate(call_node.args):
+            if isinstance(val, ast.Name):
+                argname = str(val.id)
+            elif isinstance(val, ast.Constant):
+                argname = str(val.value)
+            else:
+                assert False, 'encountered argument that isnt name or constant'
+
+            arg_names.append(ast.arg(argname))
+
+        pre_jump_node = self.node_stack.pop()
+        body_node = CFANode()
+
+        instruction = Instruction.call(call_node, self.function_def[call_node.func.id], self.function_entry_point[call_node.func.id], arg_names, ret_variable=ret_variable)
+        edge = CFAEdge(pre_jump_node, body_node, instruction)
+        self.node_stack.append(body_node)
+
+    def visit_Call(self, node : ast.Call):
+        return self._handle_Call(node)
+
+    def visit_Assert(self, node : ast.Assert):
+        raise NotImplementedError('TODO: convert to __VERIFIER_assert in preprocessing')
+
+    def visit_Raise(self, node : ast.Raise):
+        # make reacherror edge, i.e. exceptions are used like reacherror()
+        entry_node = self.node_stack.pop()
+        exit_node = CFANode()
+        edge = CFAEdge(entry_node, exit_node, Instruction.reacherror(node))
+        self.node_stack.append(exit_node)
+
 
 # You can use the code below to draw the generated CFAs for manual inspection.
 # Essentially, a `CFANode` is wrapped into `GraphableCFANode`, which implements the `Graphable` interface.
