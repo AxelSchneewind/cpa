@@ -45,11 +45,16 @@ class StackState(WrappedAbstractState):
             return False
         if len(self.stack) != len(other.stack):
             return False
-        return all(a == b for a,b in zip(self.stack, other.stack))
+        return all(a == b for a,b in zip(self.stack, other.stack)) and all(a == b for a,b in zip(self.ret_var_stack, other.ret_var_stack))
 
     def __hash__(self):
-        return tuple(
-            s.__hash__() for s in self.stack
+        return (
+            tuple(
+                s.__hash__() for s in self.stack
+            ).__hash__(),
+            tuple(
+                rv.__hash__() for rv in self.ret_var_stack
+            ).__hash__()
         ).__hash__()
     
 
