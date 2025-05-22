@@ -132,7 +132,7 @@ def main(args):
         print(':  %s' % str(result.status))
 
         # compute verdict for each property
-        v = Verdict.TRUE if result.status == Status.OK else Verdict.UNKNOWN
+        v = result.verdict
         result.verdicts = [v for p in specification_mods]
         for i, p in enumerate(specification_mods):
             result.verdicts[i] = v
