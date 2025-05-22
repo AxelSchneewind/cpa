@@ -28,11 +28,29 @@ import os
 import sys
 
 
+class LogPrinter:
+    def __init__(self, args):
+        self.print_status = not args.compact
+        self.print_task   = not args.compact
+
+    def log_status(self, *msg):
+        if self.print_status:
+            print(*msg)
+
+    def log_task(self, *msg):
+        if self.print_task:
+            print(*msg)
+
+    def log_result(self, *msg):
+        print(*msg)
+
 
 def main(args): 
     ast_program = ""
 
     aborted = False
+
+    printer = LogPrinter(args)
 
     for program in args.program:
         if aborted == True:
@@ -40,14 +58,14 @@ def main(args):
 
         program_name = os.path.splitext(os.path.basename(program))[0]
         task = Task(program, args.config, args.property, max_iterations=args.max_iterations)
-        print('verifying program', program_name, 'using', args.config, 'against', args.property)
+        printer.log_task('verifying program', program_name, 'using', args.config, 'against', args.property)
 
 
         with open(program) as file:
             ast_program = file.read()
 
 
-        output_dir = './out/' + program_name + '/'
+        output_dir = args.output_directory + '/' + program_name + '/'
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
@@ -56,13 +74,13 @@ def main(args):
             out_prog.write(ast_program)
 
 
-        print('\rparsing', end='')
+        printer.log_status('parsing')
         try:
             tree = ast.parse(ast_program)
         except:
-            print('\rinvalid program')
+            printer.log_result(program_name, ': invalid')
             continue
-        print('\rpreprocessing', end='')
+        printer.log_status('preprocessing')
         tree = preprocess_ast(tree)
         with open(output_dir + '/program-preprocessed.py', 'w') as out_prog:
             out_prog.write(ast.unparse(tree))
@@ -78,7 +96,7 @@ def main(args):
         astvisitor.graph.render(output_dir + '/ast')
     
 
-        print('\rcomputing CFA', end='')
+        printer.log_status('\rcomputing CFA')
         # For testing CFA generation
         CFANode.index = 0  # reset the CFA node indices to produce identical output on re-execution
         cfa_creator = CFACreator()
@@ -100,7 +118,7 @@ def main(args):
 
         result = Result()
 
-        print('\rrunning CPA algorithm', end='')
+        printer.log_status('\rrunning CPA algorithm')
         waitlist = set()
         reached = set()
         init = cpa.get_initial_state()
@@ -129,7 +147,7 @@ def main(args):
             dot.render(output_dir + '/arg')
 
         # print status
-        print(':  %s' % str(result.status))
+        printer.log_status(':  %s' % str(result.status))
 
         # compute verdict for each property
         result.verdicts = [result.verdict for p in specification_mods]
@@ -137,7 +155,7 @@ def main(args):
             result.verdicts[i] &= p.check_arg_state(init)
             result.verdict &= result.verdicts[i]
 
-            print('%s:  %s' % (str(task.properties[i]), str(result.verdicts[i])))
+        printer.log_result('%s:  %s' % (program_name, str(result.verdicts[i])))
 
     
 from pycpa.params import parser
