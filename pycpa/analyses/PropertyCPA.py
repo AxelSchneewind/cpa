@@ -54,7 +54,7 @@ class PropertyTransferRelation(TransferRelation):
 
 class PropertyStopOperator(StopOperator):
     def stop(self, e, reached):
-        return not e.safe
+        return e in reached
 
 
 class PropertyCPA(CPA):
