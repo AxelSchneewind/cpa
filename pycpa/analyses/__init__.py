@@ -9,3 +9,4 @@ from pycpa.analyses.CompositeCPA import *
 
 from pycpa.analyses.PredAbsCPA import * 
 from pycpa.analyses.PredAbsPrecision import * 
+from pycpa.analyses.PredAbsPrecisionABE import * 
