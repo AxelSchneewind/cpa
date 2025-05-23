@@ -43,16 +43,18 @@ def _next(var: str, ssa: Dict[str, int]) -> int:
     return ssa[var]
 
 def _ssa_get_name(symbol : FNode) -> str:
+    assert len(symbol.symbol_name().split('#')) > 1, symbol
     [name, idx] = symbol.symbol_name().split('#')
     return name
 
 def _ssa_get_idx(symbol : FNode) -> str:
+    assert len(symbol.symbol_name().split('#')) > 1, symbol
     [name, idx] = symbol.symbol_name().split('#')
     return idx
 
 
 # returns a modified symbol with incremented index
-def _ssa_increment_index(symbol : FNode, increment : int) -> FNode:
+def _ssa_inc_index(symbol : FNode, increment : int) -> FNode:
     (name, idx) = _ssa_get_name(symbol), _ssa_get_idx(symbol)
     idx = int(idx) + increment
     return _ssa(name, idx)
@@ -95,7 +97,7 @@ def _expr2smt(node: ast.AST, ssa: Dict[str, int]) -> FNode:
             if isinstance(v, int):  return BV(v, 64)
             # other constant → fresh BV64
             h = hashlib.md5(repr(v).encode()).hexdigest()[:8]
-            return Symbol(f"const_{h}", BV64)
+            return _ssa(f"const_{h}", 0)
 
         # arithmetic ----------------------------------------------------------
         case ast.BinOp(left=l, op=ast.Add(),  right=r):
@@ -190,9 +192,39 @@ class PredAbsPrecision(Dict, Iterable):
 
     def __str__(self): return '{' + ', '.join(map(str, self.predicates)) + '}'
 
+
     # Helper function to modify all ssa-indices in a formula
     @staticmethod
-    def ssa_set_indices(formula : FNode, increment : int | dict[str,int]) -> FNode:
+    def ssa_set_indices(formula : FNode, indices : int | dict[str,int]) -> FNode:
+        result = formula
+
+        substitution_targets = []
+        for sub in result.get_free_variables():
+            if sub.is_symbol():
+                if isinstance(indices, dict) and _ssa_get_name(sub) not in indices:
+                    continue
+                substitution_targets.append(sub)
+        
+        substitution = {}
+        if isinstance(indices, int):
+            substitution = {
+                target : _ssa_set_index(target, indices) 
+                for target in substitution_targets
+            }
+        else:
+            substitution = {
+                target : _ssa_set_index(target, indices[_ssa_get_name(target)]) 
+                for target in substitution_targets
+                if _ssa_get_name(target) in indices
+            }
+
+        result = result.substitute(substitution)
+        return result
+
+
+    # Helper function to modify all ssa-indices in a formula
+    @staticmethod
+    def ssa_inc_indices(formula : FNode, increment : int | dict[str,int]) -> FNode:
         result = formula
 
         substitution_targets = []
@@ -205,12 +237,12 @@ class PredAbsPrecision(Dict, Iterable):
         substitution = {}
         if isinstance(increment, int):
             substitution = {
-                target : _ssa_set_index(target, increment) 
+                target : _ssa_inc_index(target, increment) 
                 for target in substitution_targets
             }
         else:
             substitution = {
-                target : _ssa_set_index(target, increment[_ssa_get_name(target)]) 
+                target : _ssa_inc_index(target, increment[_ssa_get_name(target)]) 
                 for target in substitution_targets
                 if _ssa_get_name(target) in increment
             }
