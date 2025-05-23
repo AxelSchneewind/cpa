@@ -59,6 +59,8 @@ class LocationTransferRelation(TransferRelation):
 
     def get_abstract_successors_for_edge(self, predecessor: LocationState, edge: CFAEdge) -> Collection[LocationState]:
         kind = edge.instruction.kind
+
+        # for call, do not advance location state, this will happen on resume
         if kind == InstructionType.CALL:
             return [LocationState(edge.instruction.location)]
         return [LocationState(edge.successor)]

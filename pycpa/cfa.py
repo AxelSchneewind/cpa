@@ -25,12 +25,13 @@ class InstructionType(Enum):
     ASSUMPTION = 2,
     CALL = 3,
     RETURN = 4,
-    NONDET = 5,
-    EXIT = 5,
-    ABORT = 6,
-    REACH_ERROR = 7,
-    EXTERNAL = 8,
-    NOP = 9
+    RESUME = 5,
+    NONDET = 6,
+    EXIT = 6,
+    ABORT = 7,
+    REACH_ERROR = 8,
+    EXTERNAL = 9,
+    NOP = 10
 
 builtin_identifiers = {
     'exit'                          : InstructionType.EXIT,
@@ -100,6 +101,15 @@ class Instruction:
     @staticmethod
     def reacherror(expression, **params):
         return Instruction(expression, kind=InstructionType.REACH_ERROR)
+
+    @staticmethod
+    def resume(expression : ast.Call, stackframe, call_edge, return_edge):
+        """
+        Virtual edge for resuming execution from function call (has to be constructed in place of the call edge)
+        This is not a syntactical edge.
+        """
+        assert isinstance(expression, ast.Call)
+        return Instruction(expression, kind=InstructionType.RESUME, stackframe=stackframe, call_edge=call_edge, return_edge=return_edge)
 
     @staticmethod
     def ret(expression : ast.Return, return_variable : str = '__ret'):

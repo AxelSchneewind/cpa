@@ -468,6 +468,14 @@ class ValueTransferRelation(TransferRelation):
             newval = ValueState()
             newval.valuation = { edge.instruction.param_names[i] : predecessor.valuation[k] for i,k in enumerate(edge.instruction.arg_names) if k in predecessor.valuation }
             return [newval]
+        elif edge.instruction.kind == InstructionType.RESUME:
+            stackframe = edge.instruction.stackframe
+            targetvar  = edge.instruction.call_edge.instruction.target_variable
+            returnvar  = edge.instruction.return_edge.instruction.return_variable
+            successor  = copy.deepcopy(predecessor)
+            if returnvar in stackframe.valuation:
+                successor.valuation[targetvar] = stackframe.valuation[returnvar]
+            return [successor]
         elif edge.instruction.kind == InstructionType.NONDET:
             successor = ValueState(predecessor)
             successor.valuation.pop(edge.instruction.target_variable, 0)

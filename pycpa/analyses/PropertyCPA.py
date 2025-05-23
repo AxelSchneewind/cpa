@@ -48,6 +48,8 @@ class PropertyTransferRelation(TransferRelation):
         kind = edge.instruction.kind
         if kind == InstructionType.REACH_ERROR:
             return [PropertyState(False)]
+        elif kind == InstructionType.RESUME:
+            return [PropertyState(edge.instruction.stackframe.safe)]
         else:
             return [predecessor]
 

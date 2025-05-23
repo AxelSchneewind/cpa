@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from pycpa.cpa import CPA, AbstractState, WrappedAbstractState, TransferRelation, MergeOperator, StopOperator
-from pycpa.cfa import Graphable, CFAEdge, InstructionType
+from pycpa.cfa import Graphable, CFAEdge, InstructionType, Instruction
 from pycpa.analyses import LocationState, ValueState
 
 import ast
@@ -13,14 +13,14 @@ from typing import Collection
 
 
 class StackState(WrappedAbstractState):
-    def __init__(self, stack, ret_var_stack):
+    def __init__(self, stack, call_edge_stack):
         self.stack = stack
-        self.ret_var_stack = ret_var_stack
+        self.call_edge_stack = call_edge_stack
 
     def __deepcopy__(self, memo):
         stack = copy.deepcopy(self.stack)
-        ret_var_stack = copy.copy(self.ret_var_stack)
-        return StackState(stack, ret_var_stack)
+        call_edge_stack = copy.copy(self.call_edge_stack)
+        return StackState(stack, call_edge_stack)
         
     def __str__(self):
         if len(self.stack) > 0:
@@ -44,7 +44,7 @@ class StackState(WrappedAbstractState):
             return False
         if len(self.stack) != len(other.stack):
             return False
-        return all(a == b for a,b in zip(self.stack, other.stack)) and all(a == b for a,b in zip(self.ret_var_stack, other.ret_var_stack))
+        return all(a == b for a,b in zip(self.stack, other.stack)) and all(a == b for a,b in zip(self.call_edge_stack, other.call_edge_stack))
 
     def __hash__(self):
         return (
@@ -52,7 +52,7 @@ class StackState(WrappedAbstractState):
                 s.__hash__() for s in self.stack
             ).__hash__(),
             tuple(
-                rv.__hash__() for rv in self.ret_var_stack
+                rv.__hash__() for rv in self.call_edge_stack
             ).__hash__()
         ).__hash__()
     
@@ -64,7 +64,10 @@ class StackTransferRelation(TransferRelation):
     def get_abstract_successors(self, predecessor):
         raise NotImplementedError('successors without edge unsupported for stack')
 
-    def get_abstract_successors_for_edge(self, predecessor : StackState, edge):
+
+    def _handle_Call(self, predecessor : StackState, edge : CFAEdge):
+        assert edge.instruction.kind == InstructionType.CALL
+        
         states = [
             wrapped_successor
             for wrapped_successor in self.wrapped_transfer_relation.get_abstract_successors_for_edge(
@@ -73,43 +76,69 @@ class StackTransferRelation(TransferRelation):
         ]
         result = [ copy.deepcopy(predecessor) for w in states]
 
-        kind = edge.instruction.kind
-        if kind == InstructionType.CALL:
-            for i, wrapped_successor in enumerate(states):
-                result[i].stack.append(wrapped_successor)
-
-                if hasattr(edge.instruction, 'ret_variable'):
-                    result[i].ret_var_stack.append(edge.instruction.ret_variable)
-                else:
-                    result[i].ret_var_stack.append('__ret')
-
-        elif kind == InstructionType.RETURN:
-            for i, wrapped_successor in enumerate(states):
-                if len(result[i].stack) < 2 and len(predecessor.stack) < 2:
-                    return []
-
-                # advance instruction pointer 
-                s = result[i].stack[-2]
-                for w, p in zip(WrappedAbstractState.get_substates(s, LocationState), WrappedAbstractState.get_substates(predecessor.stack[-2], LocationState)):
-                    if len(p.location.leaving_edges) > 0:
-                        w.location = p.location.leaving_edges[0].successor
-
-                # write return value
-                for w, p in zip(WrappedAbstractState.get_substates(s, ValueState), WrappedAbstractState.get_substates(predecessor.stack[-1], ValueState)):
-                    if '__ret' in p.valuation:
-                        var = predecessor.ret_var_stack[-1]
-                        w.valuation[var] = p.valuation['__ret']
-
-                result[i].stack.pop()
-                result[i].ret_var_stack.pop()
-            return result
-
-        # only for non-return edges: update uppermost stack frame
         for i, wrapped_successor in enumerate(states):
-            result[i].stack[-1] = wrapped_successor
+            result[i].stack.append(wrapped_successor)
+            result[i].call_edge_stack.append(edge)
 
         assert isinstance(result, list)
         return result
+
+    def _handle_Return(self, predecessor : StackState, edge : CFAEdge):
+        assert edge.instruction.kind == InstructionType.RETURN
+
+        if len(predecessor.stack) < 2:
+            return []
+
+        call_edge = predecessor.call_edge_stack[-1]
+        virt_edge = copy.copy(call_edge)
+
+        virt_edge.instruction = Instruction.resume(call_edge.instruction.expression, predecessor.stack[-1], call_edge, edge)
+
+        # use virtual edge
+        states = [
+            wrapped_successor
+            for wrapped_successor in self.wrapped_transfer_relation.get_abstract_successors_for_edge(
+                predecessor.stack[-2], virt_edge
+            )
+        ]
+
+        result = [ copy.deepcopy(predecessor) for w in states]
+        for i,r in enumerate(result):
+            result[i].stack.pop()
+            result[i].call_edge_stack.pop()
+            result[i].stack[-1] = states[i]
+
+        # for i, wrapped_successor in enumerate(states):
+        #     # advance instruction pointer 
+        #     s = result[i].stack[-1]
+        #     for w in WrappedAbstractState.get_substates(s, LocationState):
+        #         assert len(w.location.leaving_edges) <= 1   # assume unique successor edge
+        #         if len(w.location.leaving_edges) > 0:
+        #             w.location = w.location.leaving_edges[0].successor
+
+        return result
+
+    def get_abstract_successors_for_edge(self, predecessor : StackState, edge : CFAEdge):
+        kind = edge.instruction.kind
+        if kind == InstructionType.CALL:
+            return self._handle_Call(predecessor, edge)
+        elif kind == InstructionType.RETURN:
+            return self._handle_Return(predecessor, edge)
+        else:
+            states = [
+                wrapped_successor
+                for wrapped_successor in self.wrapped_transfer_relation.get_abstract_successors_for_edge(
+                    predecessor.stack[-1], edge
+                )
+            ]
+            result = [ copy.deepcopy(predecessor) for w in states]
+
+            # only for non-return edges: update uppermost stack frame
+            for i, wrapped_successor in enumerate(states):
+                result[i].stack[-1] = wrapped_successor
+
+            assert isinstance(result, list)
+            return result
 
 
 class StackStopOperator(StopOperator):
