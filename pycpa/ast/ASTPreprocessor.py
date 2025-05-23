@@ -37,11 +37,11 @@ class ASTPreprocessor(StatementExtractor):
         if not self.extract_expr:
             return node
         return self.extract_expression(node)
-    def visit_Compare(self, node):
+    def visit_BoolOp(self, node):
         if not self.extract_expr:
             return node
         return self.extract_expression(node)
-    def visit_UnaryOp(self, node):
+    def visit_Compare(self, node):
         if not self.extract_expr:
             return node
         return self.extract_expression(node)
