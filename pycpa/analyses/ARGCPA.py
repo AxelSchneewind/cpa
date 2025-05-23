@@ -135,10 +135,10 @@ class ARGCPA(CPA):
 class GraphableARGState(Graphable):
     def __init__(self, arg_state):
         assert isinstance(arg_state, ARGState)
-        self.arg_state = arg_state
+        self.wrapped_state = arg_state
 
     def get_node_label(self):
-        return str("N%d\n%s" % (self.arg_state.state_id, self.arg_state.wrapped_state))
+        return str("N%d\n%s" % (self.wrapped_state.state_id, self.wrapped_state.wrapped_state))
 
     def get_edge_labels(self, other):
         loc1 = self._extract_location()
@@ -153,23 +153,23 @@ class GraphableARGState(Graphable):
 
     def _extract_location(self):
         waitlist = set()
-        waitlist.add(self.arg_state)
+        waitlist.add(self.wrapped_state)
         location = None
-        for current in WrappedAbstractState.get_substates(self.arg_state, LocationState):
+        for current in WrappedAbstractState.get_substates(self.wrapped_state, LocationState):
             location = current.location
             break
         return location
 
     def get_successors(self):
-        return [GraphableARGState(child) for child in self.arg_state.children]
+        return [GraphableARGState(child) for child in self.wrapped_state.children]
 
     def __eq__(self, other):
-        return self.arg_state == other.arg_state
+        return self.wrapped_state == other.wrapped_state
 
     def get_node_id(self):
-        return self.arg_state.state_id
+        return self.wrapped_state.state_id
 
     def __hash__(self):
-        return self.arg_state.__hash__()
+        return self.wrapped_state.__hash__()
 
 
