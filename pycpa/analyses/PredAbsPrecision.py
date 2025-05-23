@@ -366,33 +366,33 @@ class PredAbsPrecision(Dict, Iterable):
         return And(conjuncts) if conjuncts else TRUE()
 
     @staticmethod
-    def from_cfa_edge(edge: CFAEdge) -> FNode | None:
+    def from_cfa_edge(edge: CFAEdge, ssa_indices={}) -> FNode | None:
         expr = getattr(edge.instruction, 'expression', None)
         # print(f"[DEBUG PredAbsPrecision] from_cfa_edge: kind={edge.instruction.kind}, expr={expr!r}")
 
         # Python `assert` → assume
         if isinstance(expr, ast.Assert):
             # print("  → mining assert condition")
-            return PredAbsPrecision.ssa_from_assume(edge, {})
+            return PredAbsPrecision.ssa_from_assume(edge, ssa_indices)
 
         # explicit CFA assume edge
         if edge.instruction.kind == InstructionType.ASSUMPTION:
             # print("  → mining an ASSUMPTION edge")
-            return PredAbsPrecision.ssa_from_assume(edge, {})
+            return PredAbsPrecision.ssa_from_assume(edge, ssa_indices)
 
         # statements (assign or raise)
         if edge.instruction.kind == InstructionType.STATEMENT:
             if isinstance(expr, ast.Raise):
                 # print("  → mining a Raise statement")
-                return PredAbsPrecision.ssa_from_raise(edge, {})
+                return PredAbsPrecision.ssa_from_raise(edge, ssa_indices)
             else:
                 # print("  → mining a STATEMENT edge")
-                return PredAbsPrecision.ssa_from_assign(edge, {})
+                return PredAbsPrecision.ssa_from_assign(edge, ssa_indices)
 
         # function calls
         if edge.instruction.kind == InstructionType.CALL:
             # print("  → mining a CALL edge")
-            return PredAbsPrecision.ssa_from_call(edge, {})
+            return PredAbsPrecision.ssa_from_call(edge, ssa_indices)
 
         return None
 

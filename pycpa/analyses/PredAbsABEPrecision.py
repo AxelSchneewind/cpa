@@ -42,7 +42,7 @@ class PredAbsABEPrecision(Dict, Iterable):
         for edge in node.leaving_edges:
             kind = edge.instruction.kind
             match kind:
-                case InstructionType.CALL:
+                case InstructionType.CALL | InstructionType.RESUME:
                     return True
                 case _:
                     pass
@@ -55,7 +55,7 @@ class PredAbsABEPrecision(Dict, Iterable):
         for edge in node.leaving_edges:
             kind = edge.instruction.kind
             match kind:
-                case InstructionType.ASSUMPTION | InstructionType.CALL:
+                case InstructionType.ASSUMPTION | InstructionType.CALL | InstructionType.RESUME:
                     return True
                 case _:
                     pass
@@ -64,23 +64,27 @@ class PredAbsABEPrecision(Dict, Iterable):
     @staticmethod
     def from_cfa(roots: list[CFANode], is_block_head : Callable[[CFANode], bool]) -> 'PredAbsABEPrecision':
         preds: dict[CFANode, set[FNode]] = { r : set() for r in roots }
+        ssa_indices: dict[CFANode, dict[str,int]] = { r : {} for r in roots }
         todo, seen = list(roots), set()
         while todo:
             n = todo.pop()
             if n in seen: continue
-
             seen.add(n)
+
+            is_head = is_block_head(n)
+
             for e in n.leaving_edges:
                 # if not new block, copy current predicates to successor, otherwise keep empty set
-                if e not in preds:
-                    is_head = is_block_head(e.successor)
+                if e.successor not in preds:
+                    preds[e.successor] = set()
+                    ssa_indices[e.successor] = {}
+                # use predicates and ssa_indices of parent
+                if not is_head:
+                    # TODO: ssa_index equalization
+                    preds[e.successor].update(preds[n])
+                    ssa_indices[e.successor].update(ssa_indices[n])
 
-                    if not is_head:
-                        preds[e.successor] = copy.copy(preds[n])
-                    else:
-                        preds[e.successor] = set()
-
-                f = PredAbsPrecision.from_cfa_edge(e)
+                f = PredAbsPrecision.from_cfa_edge(e, ssa_indices[e.successor])
                 if f is not None and f.get_type().is_bool_type():
                     preds[e.successor].update(set(f.get_atoms()))
                 todo.append(e.successor)
