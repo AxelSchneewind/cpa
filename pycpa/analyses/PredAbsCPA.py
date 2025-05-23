@@ -62,14 +62,21 @@ class PredAbsTransferRelation(TransferRelation):
         self.precision = precision
 
     @staticmethod
-    def _implied_predicates(ctx: set[FNode],
-                            trans: FNode,
+    def _implied_predicates(current_predicates: set[FNode],
+                            transfer: FNode,
                             precision: set[FNode],
                             ssa_indices_old : dict[str,int],
                             ssa_indices_new : dict[str,int]) -> Set[FNode]:
-        phi = And(list(ctx)) if ctx else TRUE()
+        """
+            computes predicates from the given precision
+            that are implied from current predicates and (edge/path-formula) transfer.
+
+            ssa_indices_old has to be the ssa indices before transfer formula.
+            ssa_indices_new has to be the ssa indices after transfer formula.
+        """
+        phi = And(list(current_predicates)) if current_predicates else TRUE()
         PredAbsPrecision.ssa_set_indices(phi, ssa_indices_old)
-        phi = And(phi, trans)
+        phi = And(phi, transfer)
 
         implied: Set[FNode] = set()
         for p in precision:
