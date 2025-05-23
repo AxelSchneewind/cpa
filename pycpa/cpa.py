@@ -43,16 +43,23 @@ class WrappedAbstractState(AbstractState):
     def get_substates(state : AbstractState, state_type : type) -> Collection[AbstractState]:
         result = []
 
-        for s in WrappedAbstractState.unwrap(state):
-            for sub in WrappedAbstractState.unwrap(s):
-                if isinstance(sub, state_type):
-                    result.append(sub)
+        waitlist = list()
+        waitlist.append(state)
+
+        while len(waitlist) > 0:
+            s = waitlist.pop()
+
+            if isinstance(s, state_type):
+                result.append(s)
+
+            successors = WrappedAbstractState.unwrap(s)
+            for S in successors:
+                if s is not S:
+                    waitlist.append(S)
+        
         return result
 
-
  
-    
-
 
 class TransferRelation:
     def get_abstract_successors(self, predecessor: AbstractState) -> Collection[AbstractState]:
