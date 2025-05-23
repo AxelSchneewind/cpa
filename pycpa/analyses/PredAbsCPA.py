@@ -62,15 +62,19 @@ class PredAbsTransferRelation(TransferRelation):
         self.precision = precision
 
     @staticmethod
-    def _implied_predicates(ctx: Set[FNode],
+    def _implied_predicates(ctx: set[FNode],
                             trans: FNode,
-                            precision: Set[FNode]) -> Set[FNode]:
+                            precision: set[FNode],
+                            ssa_indices_old : dict[str,int],
+                            ssa_indices_new : dict[str,int]) -> Set[FNode]:
         phi = And(list(ctx)) if ctx else TRUE()
+        PredAbsPrecision.ssa_set_indices(phi, ssa_indices_old)
         phi = And(phi, trans)
 
         implied: Set[FNode] = set()
         for p in precision:
             try:
+                PredAbsPrecision.ssa_set_indices(p, ssa_indices_new)
                 sat = is_sat(And(phi, Not(p)))
             except SolverReturnedUnknownResultError:
                 sat = True
@@ -120,7 +124,9 @@ class PredAbsTransferRelation(TransferRelation):
         new_preds = self._implied_predicates(
             predecessor.predicates,
             trans,
-            self.precision[edge.successor]
+            self.precision[edge.successor],
+            predecessor.ssa_indices,
+            ssa_idx
         )
         succ = PredAbsState()
         succ.ssa_indices = ssa_idx
