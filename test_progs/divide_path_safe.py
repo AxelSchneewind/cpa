@@ -1,3 +1,11 @@
+def VERIFIER_assert(cond):
+    if not cond:
+        reach_error()
+    else:
+        pass
+    return 
+
+
 # returns nondet int in [m,M]
 def randint(m, M):
     result = __VERIFIER_nondet_int()
@@ -10,5 +18,5 @@ if y == 0:                      # feasible path
     exit()
 
 x = 10 // y                     # otherwise safe (±1)
-__VERIFIER_assert(x == 10 or x == -10)
+VERIFIER_assert(x == 10 or x == -10)
 
