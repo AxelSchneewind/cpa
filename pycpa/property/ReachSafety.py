@@ -11,7 +11,6 @@ def get_cpas(**params):
 def check_arg_state(state):
     sr = Verdict.TRUE
     for s in WrappedAbstractState.get_substates(state, PropertyState):
-        print(s)
         sr &= Verdict.TRUE if s.safe else Verdict.FALSE
     return sr
 

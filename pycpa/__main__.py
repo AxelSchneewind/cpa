@@ -57,7 +57,6 @@ def check_arg(arg, task, result, specification_mods):
             state = waitlist.pop()
             reached.add(state)
 
-            print(state.arg_state, p.check_arg_state(state))
             result.verdicts[i] &= p.check_arg_state(state)
 
             for s in state.get_successors():
