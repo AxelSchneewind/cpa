@@ -2,7 +2,6 @@
 from pycpa.cpa import WrappedAbstractState
 from pycpa.analyses import PropertyCPA, PropertyState, CompositeState
 
-from pycpa.specification import Specification, ARGVisitor
 from pycpa.verdict import Verdict
 
 def get_cpas(**params):
