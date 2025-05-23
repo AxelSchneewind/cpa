@@ -91,23 +91,23 @@ class Instruction:
         return Instruction(expression)
 
     @staticmethod
-    def builtin(expression : ast.Call, ret_variable : str = '__ret', **params):
+    def builtin(expression : ast.Call, target_variable : str = '__ret', **params):
         assert isinstance(expression, ast.Call)
         name = str(expression.func.id)
         assert name in builtin_identifiers
-        return Instruction(expression, kind=builtin_identifiers[name])
+        return Instruction(expression, kind=builtin_identifiers[name], target_variable=target_variable)
 
     @staticmethod
     def reacherror(expression, **params):
         return Instruction(expression, kind=InstructionType.REACH_ERROR)
 
     @staticmethod
-    def ret(expression : ast.Return):
+    def ret(expression : ast.Return, return_variable : str = '__ret'):
         assert isinstance(expression, ast.Return)
-        return Instruction(expression, kind=InstructionType.RETURN)
+        return Instruction(expression, kind=InstructionType.RETURN, return_variable=return_variable)
 
     @staticmethod
-    def call(expression : ast.Call, declaration : ast.FunctionDef, entry_point : ast.AST, argnames : List[ast.arg], ret_variable : str = '__ret', **params):
+    def call(expression : ast.Call, declaration : ast.FunctionDef, entry_point : ast.AST, argnames : List[ast.arg], target_variable : str = '__ret', **params):
         assert isinstance(expression, ast.Call)
         assert isinstance(declaration, ast.FunctionDef)
         assert isinstance(entry_point, CFANode)
@@ -122,7 +122,7 @@ class Instruction:
             declaration=declaration, 
             param_names=param_names, 
             arg_names=arg_names, 
-            ret_variable=ret_variable, 
+            target_variable=target_variable, 
             **params
         )
 
@@ -330,14 +330,14 @@ class CFACreator(ast.NodeVisitor):
 
     def visit_Return(self, node : ast.Return):
         assert node.value is None or isinstance(node.value, ast.Name), node.value
-        assert node.value is None or node.value.id == '__ret'
+        varname = node.value.id if isinstance(node.value, ast.Name) else '__ret' 
 
         entry_node = self.node_stack.pop()
         exit_node = CFANode()
-        edge = CFAEdge(entry_node, exit_node, Instruction.ret(node))
+        edge = CFAEdge(entry_node, exit_node, Instruction.ret(node, return_variable=varname))
         self.node_stack.append(exit_node)
 
-    def _handle_Call(self, call_node : ast.Call, ret_variable : str ='__ret'):
+    def _handle_Call(self, call_node : ast.Call, target_variable : str ='__ret'):
         assert isinstance(call_node, ast.Call), call_node
         assert isinstance(call_node.func, ast.Name), call_node  # function could be attribute (e.g. member functions), not supported
 
@@ -345,7 +345,7 @@ class CFACreator(ast.NodeVisitor):
         if call_node.func.id in builtin_identifiers:
             entry_node = self.node_stack.pop()
             exit_node = CFANode()
-            edge = CFAEdge(entry_node, exit_node, Instruction.builtin(call_node, ret_variable=ret_variable))
+            edge = CFAEdge(entry_node, exit_node, Instruction.builtin(call_node, target_variable=target_variable))
             self.node_stack.append(exit_node)
             return
 
@@ -368,7 +368,7 @@ class CFACreator(ast.NodeVisitor):
         pre_jump_node = self.node_stack.pop()
         body_node = CFANode()
 
-        instruction = Instruction.call(call_node, self.function_def[call_node.func.id], self.function_entry_point[call_node.func.id], arg_names, ret_variable=ret_variable)
+        instruction = Instruction.call(call_node, self.function_def[call_node.func.id], self.function_entry_point[call_node.func.id], arg_names, target_variable=target_variable)
         edge = CFAEdge(pre_jump_node, body_node, instruction)
         self.node_stack.append(body_node)
 

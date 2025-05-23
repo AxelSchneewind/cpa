@@ -470,10 +470,7 @@ class ValueTransferRelation(TransferRelation):
             return [newval]
         elif edge.instruction.kind == InstructionType.NONDET:
             successor = ValueState(predecessor)
-            if hasattr(edge.instruction, 'ret_variable'):
-                successor.valuation[edge.instruction.ret_variable] = Value.get_top()
-            else:
-                successor.valuation['__ret'] = Value.get_top()
+            successor.valuation.pop(edge.instruction.target_variable, 0)
             return [successor]
         else:
             return [copy.copy(predecessor)]
