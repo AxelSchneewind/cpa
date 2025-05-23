@@ -7,7 +7,7 @@
 
 from pycpa.cpa import CPA, AbstractState, WrappedAbstractState, TransferRelation, MergeOperator, StopOperator
 from pycpa.cfa import Graphable
-from pycpa.analyses import LocationCPA
+from pycpa.analyses.LocationCPA import LocationCPA, LocationState
 
 import ast
 import astpretty
@@ -141,8 +141,8 @@ class GraphableARGState(Graphable):
         return str("N%d\n%s" % (self.arg_state.state_id, self.arg_state.wrapped_state))
 
     def get_edge_labels(self, other):
-        loc1 = self._extract_location(self)
-        loc2 = self._extract_location(other)
+        loc1 = self._extract_location()
+        loc2 = other._extract_location()
         if loc1 and loc2:
             for leaving_edge in loc1.leaving_edges:
                 if leaving_edge.successor == loc2:
@@ -151,16 +151,13 @@ class GraphableARGState(Graphable):
             return [loc1.leaving_edges[0].label()]
         return ['']
 
-    def _extract_location(self, state):
+    def _extract_location(self):
         waitlist = set()
-        waitlist.add(state.arg_state)
+        waitlist.add(self.arg_state)
         location = None
-        while waitlist:
-            current = waitlist.pop()
-            waitlist.update(WrappedAbstractState.unwrap_fully(current))
-            if isinstance(current, LocationCPA.LocationState):
-                location = current.location
-                break
+        for current in WrappedAbstractState.get_substates(self.arg_state, LocationState):
+            location = current.location
+            break
         return location
 
     def get_successors(self):
