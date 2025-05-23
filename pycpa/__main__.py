@@ -45,6 +45,28 @@ class LogPrinter:
         print(*msg)
 
 
+
+def check_arg(arg, task, result, specification_mods):
+    ''' compute verdict for each property: traverse the ARG '''
+    result.verdicts = [result.verdict for p in specification_mods]
+    for i, p in enumerate(specification_mods):
+        waitlist = set()
+        reached  = set()
+        waitlist.add(arg)
+        while len(waitlist) > 0:
+            state = waitlist.pop()
+            reached.add(state)
+
+            print(state.arg_state, p.check_arg_state(state))
+            result.verdicts[i] &= p.check_arg_state(state)
+
+            for s in state.get_successors():
+                if s not in reached:
+                    waitlist.add(s)
+
+        result.verdict &= result.verdicts[i]
+
+
 def main(args): 
     ast_program = ""
 
@@ -113,7 +135,6 @@ def main(args):
             cpas.extend(m.get_cpas(entry_point=entry_point, cfa_roots=cfa_creator.roots,output_dir=output_dir))
         for p in specification_mods:
             cpas.extend(p.get_cpas(entry_point=entry_point, cfa_roots=cfa_creator.roots,output_dir=output_dir))
-        # 
         cpa = ARGCPA(CompositeCPA(cpas))
 
         result = Result()
@@ -125,6 +146,9 @@ def main(args):
         waitlist.add(init)
         reached.add(init)
         algo = CPAAlgorithm(cpa, task, result)
+
+        # root of ARG
+        arg = None
 
         # run algorithm
         try:
@@ -140,8 +164,9 @@ def main(args):
             result.status = Status.ERROR
         finally:
             # output arg
+            arg = GraphableARGState(init)
             dot = arg_to_dot(
-                    [ GraphableARGState(init) ],
+                    [ arg ],
                     nodeattrs={"style": "filled", "shape": "box", "color": "white"},
                 )
             dot.render(output_dir + '/arg')
@@ -149,13 +174,9 @@ def main(args):
         # print status
         printer.log_status(':  %s' % str(result.status))
 
-        # compute verdict for each property
-        result.verdicts = [result.verdict for p in specification_mods]
-        for i, p in enumerate(specification_mods):
-            result.verdicts[i] &= p.check_arg_state(init)
-            result.verdict &= result.verdicts[i]
+        check_arg(arg, task, result, specification_mods)
 
-        printer.log_result('%s:  %s' % (program_name, str(result.verdicts[i])))
+        printer.log_result('%s:  %s' % (program_name, str(result.verdict)))
 
     
 from pycpa.params import parser
