@@ -81,7 +81,7 @@ class PredAbsTransferRelation(TransferRelation):
         implied: Set[FNode] = set()
         for p in precision:
             try:
-                PredAbsPrecision.ssa_set_indices(p, ssa_indices_new)
+                p = PredAbsPrecision.ssa_set_indices(p, ssa_indices_new)
                 sat = is_sat(And(phi, Not(p)))
             except SolverReturnedUnknownResultError:
                 sat = True
