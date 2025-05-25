@@ -63,6 +63,8 @@ class LocationTransferRelation(TransferRelation):
         # for call, do not advance location state, this will happen on resume
         if kind == InstructionType.CALL:
             return [LocationState(edge.instruction.location)]
+        if kind in { InstructionType.EXIT, InstructionType.ABORT }:
+            return [LocationState(predecessor.location)]
         return [LocationState(edge.successor)]
 
 
