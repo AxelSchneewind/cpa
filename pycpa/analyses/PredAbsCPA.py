@@ -112,16 +112,8 @@ class PredAbsTransferRelation(TransferRelation):
                 return []
 
             trans = expr
-        elif kind == InstructionType.CALL:
+        elif kind == InstructionType.CALL or kind == InstructionType.NONDET:
             trans = PredAbsPrecision.ssa_from_call(edge, ssa_indices=ssa_idx)
-        elif kind == InstructionType.RESUME:
-            # special case: incorporate formulas from function call
-            # ssa_idx.update(edge.instruction.stackframe.ssa_indices)
-            # predicates |= edge.instruction.stackframe.predicates
-            trans = TRUE() # TODO, extract subformula about return variable (single assignment)
-        elif kind == InstructionType.REACH_ERROR:
-            # **special case**: hitting an error-edge → FALSE
-            trans = FALSE()
         else:
             trans = TRUE()
 

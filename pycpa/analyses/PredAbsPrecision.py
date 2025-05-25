@@ -275,12 +275,12 @@ class PredAbsPrecision(Dict, Iterable):
 
         # 1. map each parameter
         for formal, actual in zip(instr.param_names, instr.arg_names):
-            lhs = _ssa(formal, _next(formal, ssa))
             rhs = _expr2smt(ast.Name(id=actual, ctx=ast.Load()), ssa)
+            lhs = _ssa(formal, _next(formal, ssa))
             conjuncts.append(Equals(lhs, rhs))
 
         # 2. optional return-value assignment  x = f(...)
-        if hasattr(instr, "ret_var") and instr.ret_var:
+        if hasattr(instr, "target_variable") and instr.target_variable:
             ret_sym = Symbol(f"ret_{instr.declaration.name}", BV64)
             lhs = _ssa(instr.ret_var, _next(instr.ret_var, ssa))
             conjuncts.append(Equals(lhs, ret_sym))
@@ -359,7 +359,7 @@ class PredAbsPrecision(Dict, Iterable):
             rhs = _expr2smt(ast.Name(id=actual, ctx=ast.Load()), ssa_map)
             lhs = _ssa(formal, _next(formal, ssa_map))
             conjuncts.append(Equals(lhs, rhs))
-        if hasattr(instr, "ret_var") and instr.ret_var:
+        if hasattr(instr, "target_variable") and instr.target_variable:
             ret_sym = Symbol(f"ret_{instr.declaration.name}", BV64)
             lhs = _ssa(instr.ret_var, _next(instr.ret_var, ssa_map))
             conjuncts.append(Equals(lhs, ret_sym))
@@ -390,7 +390,7 @@ class PredAbsPrecision(Dict, Iterable):
                 return PredAbsPrecision.ssa_from_assign(edge, ssa_indices)
 
         # function calls
-        if edge.instruction.kind == InstructionType.CALL:
+        if edge.instruction.kind == InstructionType.CALL or edge.instruction.kind == InstructionType.NONDET:
             # print("  → mining a CALL edge")
             return PredAbsPrecision.ssa_from_call(edge, ssa_indices)
 
