@@ -8,8 +8,7 @@ from pycpa.analyses import ValueAnalysisCPA
 import pprint
 
 """
-Configuration for running Predicate Analysis with ABE and 
-abstraction only at calls.
+Configuration for running Predicate Analysis with ABE and no block heads, therefore only keeping path formulas
 """
 
 def get_cpas(entry_point=None, cfa_roots=None, output_dir=None, **params):
@@ -17,12 +16,12 @@ def get_cpas(entry_point=None, cfa_roots=None, output_dir=None, **params):
 
     if cfa_roots is None:
         cfa_roots = [entry_point]
-    precision = PredAbsABEPrecision.from_cfa(cfa_roots, PredAbsABEPrecision.is_block_head_f)
+    precision = PredAbsABEPrecision.from_cfa(cfa_roots, lambda x : False)
 
     # dump initial precision
     if output_dir:
         with open(output_dir + 'precision_initial.txt', 'w') as f:
             f.write(precision.__str__())
 
-    return [StackCPA(CompositeCPA([LocationCPA(entry_point), PredAbsABECPA(precision, PredAbsABEPrecision.is_block_head_f)]))]
+    return [StackCPA(CompositeCPA([LocationCPA(entry_point), PredAbsABECPA(precision, lambda x : False)]))]
 
