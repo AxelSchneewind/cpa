@@ -3,7 +3,7 @@ import re
 
 class RemoveBuiltins(ast.NodeTransformer):
     """
-        AST transformer that remove function definitions corresponding to builtin functions
+        AST transformer that removes function definitions corresponding to builtin functions
     """
 
 
