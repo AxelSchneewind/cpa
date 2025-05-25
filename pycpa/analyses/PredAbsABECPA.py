@@ -87,6 +87,7 @@ class PredAbsABETransferRelation(TransferRelation):
                                         ) -> List[PredAbsABEState]:
         # 1) Copy SSA indices locally, these will be advanced by the current edge formula
         ssa_idx = copy.deepcopy(predecessor.path_ssa_indices)
+        predicates = None
 
         # check if successor node is head
         is_block_head = self.is_block_head(edge.successor)
@@ -104,13 +105,14 @@ class PredAbsABETransferRelation(TransferRelation):
             trans = expr
         elif kind == InstructionType.CALL:
             trans = PredAbsPrecision.ssa_from_call(edge, ssa_indices=ssa_idx)
-        elif kind == InstructionType.REACH_ERROR:
-            # **special case**: hitting an error-edge → FALSE
-            trans = FALSE()
+        elif kind == InstructionType.RESUME:
+            # special case: incorporate formulas from function call
+            # predicates = edge.instruction.stackframe.predicates
+            trans = edge.instruction.stackframe.path_formula
+            ssa_idx.update(edge.instruction.stackframe.ssa_indices)
         else:
             trans = TRUE()
 
-        predicates = None
         if is_block_head:
             # 3) If this is truly unsatisfiable (i.e. error-edge), preserve it
             if trans.is_false():
