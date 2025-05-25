@@ -351,15 +351,7 @@ class CFACreator(ast.NodeVisitor):
         assert isinstance(call_node, ast.Call), call_node
         assert isinstance(call_node.func, ast.Name), call_node  # function could be attribute (e.g. member functions), not supported
 
-        # make builtin edge
-        if call_node.func.id in builtin_identifiers:
-            entry_node = self.node_stack.pop()
-            exit_node = CFANode()
-            edge = CFAEdge(entry_node, exit_node, Instruction.builtin(call_node, target_variable=target_variable))
-            self.node_stack.append(exit_node)
-            return
-
-        if call_node.func.id not in self.function_def or call_node.func.id not in self.function_entry_point:
+        if call_node.func.id not in builtin_identifiers and call_node.func.id not in self.function_def and call_node.func.id not in self.function_entry_point:
             print('Warning: call to undefined', ast.unparse(call_node.func))
             return
 
@@ -375,12 +367,19 @@ class CFACreator(ast.NodeVisitor):
 
             arg_names.append(ast.arg(argname))
 
-        pre_jump_node = self.node_stack.pop()
-        body_node = CFANode()
+        # make builtin edge
+        if call_node.func.id in builtin_identifiers:
+            entry_node = self.node_stack.pop()
+            exit_node = CFANode()
+            edge = CFAEdge(entry_node, exit_node, Instruction.builtin(call_node, target_variable=target_variable))
+            self.node_stack.append(exit_node)
+        else:
+            entry_node = self.node_stack.pop()
+            exit_node = CFANode()
 
-        instruction = Instruction.call(call_node, self.function_def[call_node.func.id], self.function_entry_point[call_node.func.id], arg_names, target_variable=target_variable)
-        edge = CFAEdge(pre_jump_node, body_node, instruction)
-        self.node_stack.append(body_node)
+            instruction = Instruction.call(call_node, self.function_def[call_node.func.id], self.function_entry_point[call_node.func.id], arg_names, target_variable=target_variable)
+            edge = CFAEdge(entry_node, exit_node, instruction)
+            self.node_stack.append(exit_node)
 
     def visit_Call(self, node : ast.Call):
         return self._handle_Call(node)
