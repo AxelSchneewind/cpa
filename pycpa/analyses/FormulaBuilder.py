@@ -6,7 +6,6 @@ from pycpa.cfa import Instruction, InstructionType, CFANode
 
 import ast
 import astpretty
-import astunparse
 
 import re
 
