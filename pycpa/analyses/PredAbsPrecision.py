@@ -23,13 +23,7 @@ from pysmt.shortcuts import (
 from pysmt.typing  import BV64, BOOL
 from pysmt.fnode   import FNode
 
-# --------------------------------------------------------------------------- #
-#  imports that work in- and outside the package                              #
-# --------------------------------------------------------------------------- #
-try:
-    from pycpa.cfa import InstructionType, CFAEdge, CFANode
-except ImportError:
-    from cfa import InstructionType, CFAEdge, CFANode
+from pycpa.cfa import InstructionType, CFAEdge, CFANode
 
 # --------------------------------------------------------------------------- #
 #  SSA helpers                                                                #
@@ -43,12 +37,12 @@ def _next(var: str, ssa: Dict[str, int]) -> int:
     return ssa[var]
 
 def _ssa_get_name(symbol : FNode) -> str:
-    assert len(symbol.symbol_name().split('#')) > 1, symbol
+    assert len(symbol.symbol_name().split('#')) == 2, symbol
     [name, idx] = symbol.symbol_name().split('#')
     return name
 
 def _ssa_get_idx(symbol : FNode) -> str:
-    assert len(symbol.symbol_name().split('#')) > 1, symbol
+    assert len(symbol.symbol_name().split('#')) == 2, symbol
     [name, idx] = symbol.symbol_name().split('#')
     return idx
 
@@ -218,8 +212,7 @@ class PredAbsPrecision(Dict, Iterable):
                 if _ssa_get_name(target) in indices
             }
 
-        result = result.substitute(substitution)
-        return result
+        return result.substitute(substitution)
 
 
     # Helper function to modify all ssa-indices in a formula
@@ -264,8 +257,8 @@ class PredAbsPrecision(Dict, Iterable):
               lhs_var#k+1  =  ret_sym
           (ret_sym is fresh, unconstrained BV64)
         """
-        ssa = ssa_indices if ssa_indices is not None else {}
         instr = edge.instruction
+        ssa_idx = ssa_indices if ssa_indices is not None else {}
 
         # safeguard: if we lack meta-data, over-approximate with TRUE
         if not hasattr(instr, "param_names") or not hasattr(instr, "arg_names"):
@@ -275,15 +268,16 @@ class PredAbsPrecision(Dict, Iterable):
 
         # 1. map each parameter
         for formal, actual in zip(instr.param_names, instr.arg_names):
-            rhs = _expr2smt(ast.Name(id=actual, ctx=ast.Load()), ssa)
-            lhs = _ssa(formal, _next(formal, ssa))
+            rhs = _expr2smt(ast.Name(id=actual, ctx=ast.Load()), ssa_idx)
+            lhs = _ssa(formal, _next(formal, ssa_idx))
             conjuncts.append(Equals(lhs, rhs))
 
+        # TODO: find corresponding return variable
         # 2. optional return-value assignment  x = f(...)
-        if hasattr(instr, "target_variable") and instr.target_variable:
-            ret_sym = Symbol(f"ret_{instr.declaration.name}", BV64)
-            lhs = _ssa(instr.ret_var, _next(instr.ret_var, ssa))
-            conjuncts.append(Equals(lhs, ret_sym))
+        # if hasattr(instr, "target_variable") and instr.target_variable:
+        #     ret_sym = Symbol(f"ret_{instr.declaration.name}", BV64)
+        #     lhs = _ssa(instr.ret_var, _next(instr.ret_var, ssa_idx))
+        #     conjuncts.append(Equals(lhs, ret_sym))
 
         return And(conjuncts) if conjuncts else TRUE()
 
@@ -294,105 +288,90 @@ class PredAbsPrecision(Dict, Iterable):
         Handle Python 'assert' statements by extracting the test expression
         and translating it into an SMT predicate for refinement.
         """
+        ssa_idx = ssa_indices if ssa_indices is not None else {}
         # Retrieve the AST Assert node and its test
         assert_node = edge.instruction.expression
         test_expr   = assert_node.test
 
-        # Build/update SSA indices map if not provided
-        ssa_map = ssa if ssa is not None else (ssa_indices or {})
         # Convert the test expression to an SMT formula
-        return _bool(_expr2smt(test_expr, ssa_map))
+        return _bool(_expr2smt(test_expr, ssa_idx))
 
     @staticmethod
-    def ssa_from_raise(edge: CFAEdge, ssa_indices=None) -> FNode:
+    def ssa_from_raise(edge: CFAEdge, ssa_indices={}) -> FNode:
+        ssa_idx = ssa_indices if ssa_indices is not None else {}
         # print(f"[DEBUG PredAbsPrecision] ssa_from_raise: kind={edge.instruction.kind}, expr={edge.instruction.expression!r}")
         return FALSE()
 
     @staticmethod
-    def ssa_from_assign(edge: CFAEdge, ssa_indices=None) -> FNode:
+    def ssa_from_assign(edge: CFAEdge, ssa_indices={}) -> FNode:
+        ssa_idx = ssa_indices if ssa_indices is not None else {}
         expr = getattr(edge.instruction, 'expression', None)
         # print(f"[DEBUG PredAbsPrecision] ssa_from_assign: kind={edge.instruction.kind}, expr={expr!r}")
 
-        # 1) if this is a `raise`, mark as infeasible continuation
-        if isinstance(expr, ast.Raise):
-            # print("  → Detected Raise; returning FALSE()")
-            return FALSE()
-
         # 2) standard assignment
         if isinstance(expr, ast.Assign):
-            ssa_map = ssa_indices if ssa_indices is not None else {}
             var     = expr.targets[0].id
-            rhs     = _cast(_expr2smt(expr.value, ssa_map), BV64)
-            lhs     = _ssa(var, _next(var, ssa_map))
-            # print(f"  → Assign {var}#{ssa_map[var]} = {rhs}")
+            rhs     = _cast(_expr2smt(expr.value, ssa_idx), BV64)
+            lhs     = _ssa(var, _next(var, ssa_idx))
+            # print(f"  → Assign {var}#{ssa_idx[var]} = {rhs}")
             return Equals(lhs, rhs)
 
         # 3) everything else is a no-op
         return TRUE()
 
     @staticmethod
-    def ssa_from_assume(edge: CFAEdge, ssa_indices=None) -> FNode:
+    def ssa_from_assume(edge: CFAEdge, ssa_indices={}) -> FNode:
+        ssa_idx = ssa_indices if ssa_indices is not None else {}
         # Handles both 'assert' and 'if' conditions
         expr = edge.instruction.expression
-        ssa_map = ssa_indices if ssa_indices is not None else {}
-        phi = _expr2smt(expr, ssa_map)
+        phi = _expr2smt(expr, ssa_idx)
         return _bool(phi)
     
     @staticmethod
-    def ssa_from_raise(edge: CFAEdge, ssa_indices=None) -> FNode:
+    def ssa_from_raise(edge: CFAEdge, ssa_indices={}) -> FNode:
         """
         Handle Python 'raise' by mapping it to FALSE(), marking an error path.
         """
+        ssa_idx = ssa_indices if ssa_indices is not None else {}
         # print(f"[DEBUG PredAbsPrecision] ssa_from_raise on edge {edge}")
         return FALSE()
 
 
     @staticmethod
-    def ssa_from_call(edge: CFAEdge, ssa_indices=None) -> FNode:
+    def ssa_from_call(edge: CFAEdge, ssa_indices={}) -> FNode:
+        ssa_idx = ssa_indices if ssa_indices is not None else {}
         # Inline the original call handler logic
-        ssa_map = ssa_indices if ssa_indices is not None else {}
         instr = edge.instruction
         if not hasattr(instr, "param_names") or not hasattr(instr, "arg_names"):
             return TRUE()
         conjuncts = []
         for formal, actual in zip(instr.param_names, instr.arg_names):
-            rhs = _expr2smt(ast.Name(id=actual, ctx=ast.Load()), ssa_map)
-            lhs = _ssa(formal, _next(formal, ssa_map))
+            rhs = _expr2smt(ast.Name(id=actual, ctx=ast.Load()), ssa_idx)
+            lhs = _ssa(formal, _next(formal, ssa_idx))
             conjuncts.append(Equals(lhs, rhs))
-        if hasattr(instr, "target_variable") and instr.target_variable:
-            ret_sym = Symbol(f"ret_{instr.declaration.name}", BV64)
-            lhs = _ssa(instr.ret_var, _next(instr.ret_var, ssa_map))
-            conjuncts.append(Equals(lhs, ret_sym))
+        # TODO: find corresponding return variable
+        # if hasattr(instr, "target_variable") and instr.target_variable:
+        #     ret_sym = Symbol(f"ret_{instr.declaration.name}", BV64)
+        #     lhs = _ssa(instr.target_variable, _next(instr.target_variable, ssa_idx))
+        #     conjuncts.append(Equals(lhs, ret_sym))
         return And(conjuncts) if conjuncts else TRUE()
 
     @staticmethod
     def from_cfa_edge(edge: CFAEdge, ssa_indices={}) -> FNode | None:
         expr = getattr(edge.instruction, 'expression', None)
-        # print(f"[DEBUG PredAbsPrecision] from_cfa_edge: kind={edge.instruction.kind}, expr={expr!r}")
-
-        # Python `assert` → assume
-        if isinstance(expr, ast.Assert):
-            # print("  → mining assert condition")
-            return PredAbsPrecision.ssa_from_assume(edge, ssa_indices)
+        ssa_idx = ssa_indices if ssa_indices is not None else {}
 
         # explicit CFA assume edge
         if edge.instruction.kind == InstructionType.ASSUMPTION:
-            # print("  → mining an ASSUMPTION edge")
-            return PredAbsPrecision.ssa_from_assume(edge, ssa_indices)
+            return PredAbsPrecision.ssa_from_assume(edge, ssa_idx)
 
         # statements (assign or raise)
         if edge.instruction.kind == InstructionType.STATEMENT:
-            if isinstance(expr, ast.Raise):
-                # print("  → mining a Raise statement")
-                return PredAbsPrecision.ssa_from_raise(edge, ssa_indices)
-            else:
-                # print("  → mining a STATEMENT edge")
-                return PredAbsPrecision.ssa_from_assign(edge, ssa_indices)
+            return PredAbsPrecision.ssa_from_assign(edge, ssa_idx)
 
         # function calls
         if edge.instruction.kind == InstructionType.CALL or edge.instruction.kind == InstructionType.NONDET:
-            # print("  → mining a CALL edge")
-            return PredAbsPrecision.ssa_from_call(edge, ssa_indices)
+            return PredAbsPrecision.ssa_from_call(edge, ssa_idx)
 
         return None
 
@@ -408,9 +387,12 @@ class PredAbsPrecision(Dict, Iterable):
             if n in seen: continue
             seen.add(n)
             for e in n.leaving_edges:
-                f = PredAbsPrecision.from_cfa_edge(e)
+                if e.successor in seen: continue
+
+                f = PredAbsPrecision.from_cfa_edge(e, {})
                 if f is not None and f.get_type().is_bool_type():
                     preds.update(f.get_atoms())
                 todo.append(e.successor)
+
         return PredAbsPrecision(preds)
     
