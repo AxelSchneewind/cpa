@@ -35,35 +35,37 @@ class LogPrinter:
 
     def log_status(self, *msg):
         if self.print_status:
-            print(*msg)
+            print('\r',  *msg, end='')
 
     def log_task(self, *msg):
         if self.print_task:
             print(*msg)
 
     def log_result(self, *msg):
-        print(*msg)
+        if self.print_status: 
+            print('\n', *msg)
+        else:
+            print(*msg)
 
 
 
 def check_arg(arg, task, result, specification_mods):
     ''' compute verdict for each property: traverse the ARG '''
     result.verdicts = [result.verdict for p in specification_mods]
-    for i, p in enumerate(specification_mods):
-        waitlist = set()
-        reached  = set()
-        waitlist.add(arg)
-        while len(waitlist) > 0:
-            state = waitlist.pop()
-            reached.add(state)
+    waitlist = set()
+    reached  = set()
+    waitlist.add(arg)
+    while len(waitlist) > 0:
+        state = waitlist.pop()
+        reached.add(state)
 
+        for s in state.get_successors():
+            if s not in reached:
+                waitlist.add(s)
+
+        for i, p in enumerate(specification_mods):
             result.verdicts[i] &= p.check_arg_state(state)
-
-            for s in state.get_successors():
-                if s not in reached:
-                    waitlist.add(s)
-
-        result.verdict &= result.verdicts[i]
+            result.verdict &= result.verdicts[i]
 
 
 def main(args): 
@@ -80,7 +82,6 @@ def main(args):
         program_name = os.path.splitext(os.path.basename(program))[0]
         task = Task(program, args.config, args.property, max_iterations=args.max_iterations)
         printer.log_task('verifying program', program_name, 'using', args.config, 'against', args.property)
-
 
         with open(program) as file:
             ast_program = file.read()
@@ -117,7 +118,7 @@ def main(args):
         astvisitor.graph.render(output_dir + '/ast')
     
 
-        printer.log_status('\rcomputing CFA')
+        printer.log_status('computing CFA')
         # For testing CFA generation
         CFANode.index = 0  # reset the CFA node indices to produce identical output on re-execution
         cfa_creator = CFACreator()
@@ -138,7 +139,7 @@ def main(args):
 
         result = Result()
 
-        printer.log_status('\rrunning CPA algorithm')
+        printer.log_status('running CPA algorithm')
         waitlist = set()
         reached = set()
         init = cpa.get_initial_state()
