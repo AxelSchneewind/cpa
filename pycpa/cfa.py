@@ -27,11 +27,11 @@ class InstructionType(Enum):
     RETURN = 4,
     RESUME = 5,
     NONDET = 6,
-    EXIT = 6,
-    ABORT = 7,
-    REACH_ERROR = 8,
-    EXTERNAL = 9,
-    NOP = 10
+    EXIT = 7,
+    ABORT = 8,
+    REACH_ERROR = 9,
+    EXTERNAL = 10,
+    NOP = 11
 
 builtin_identifiers = {
     'exit'                          : InstructionType.EXIT,
