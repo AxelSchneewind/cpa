@@ -162,8 +162,8 @@ class GraphableARGState(Graphable):
         return str("N%d\n%s" % (self.wrapped_state.state_id, self.wrapped_state.wrapped_state))
 
     def get_edge_labels(self, other):
-        loc1 = self._extract_location()
-        loc2 = other._extract_location()
+        loc1 = self.get_location()
+        loc2 = other.get_location()
         if loc1 and loc2:
             for leaving_edge in loc1.leaving_edges:
                 if leaving_edge.successor == loc2:
@@ -172,14 +172,8 @@ class GraphableARGState(Graphable):
             return [loc1.leaving_edges[0].label()]
         return ['']
 
-    def _extract_location(self):
-        waitlist = set()
-        waitlist.add(self.wrapped_state)
-        location = None
-        for current in WrappedAbstractState.get_substates(self.wrapped_state, LocationState):
-            location = current.location
-            break
-        return location
+    def get_location(self):
+        return WrappedAbstractState.get_substate(self.wrapped_state, LocationState).location
 
     def get_successors(self):
         return [GraphableARGState(child) for child in self.wrapped_state.children]
