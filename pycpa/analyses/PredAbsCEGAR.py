@@ -351,24 +351,16 @@ from pycpa.verdict                   import Verdict
 # ──────────────────────────────────────────────────────────
 # helper – run one analysis under a fixed predicate set π
 # ──────────────────────────────────────────────────────────
-def _analyse_once(entry: CFANode,
-                  π: Set[FNode],
+def _analyse_once(cpa, 
                   task,
-                  specs,
+                  result,
                   arg_cap: int
                   ) -> Tuple[Status, CPAAlgorithm]:
 
-    cpa      = ARGCPA(CompositeCPA([LocationCPA(entry), PredAbsCPA(π)]))
     init     = cpa.get_initial_state()
-    reached  = {init}
-    waitlist = {init}
 
-    algo = CPAAlgorithm(cpa, task, type("Res", (), {})(), specs)
-    algo.run(reached, waitlist)
-
-    # oversize ARG → timeout ⇒ UNKNOWN
-    if len(reached) >= arg_cap:
-        algo.result.status = Status.TIMEOUT
+    algo = CPAAlgorithm(cpa, specification, task, result)
+    algo.run(init)
 
     return algo.result.status, algo
 
