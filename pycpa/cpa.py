@@ -88,6 +88,49 @@ class TransferRelation:
     def get_abstract_successors_for_edge(self, predecessor: AbstractState, edge: CFAEdge) -> Collection[AbstractState]:
         raise NotImplementedError("get_abstract_successors_for_edge not implemented!")
 
+class WrappedTransferRelation(TransferRelation):
+    @staticmethod
+    def unwrap_fully(rel) -> Collection[TransferRelation]:
+        result = []
+
+        for s in WrappedTransferRelation.unwrap(rel):
+            for sub in WrappedTransferRelation.unwrap(s):
+                result.append(sub)
+        return result
+
+    @staticmethod
+    def unwrap(rel) -> Collection[TransferRelation]:
+        if hasattr(rel, 'wrapped_transfer_relations'):
+            return rel.wrapped_transfer_relations
+        elif hasattr(rel, 'wrapped_transfer_relation'):
+            return [ rel.wrapped_transfer_relation ]
+        elif hasattr(rel, 'wrapped'):
+            return rel.wrapped()
+        else:
+            return [rel]
+
+    @staticmethod
+    def get_subrelations(rel : TransferRelation, rel_type : type) -> Collection[TransferRelation]:
+        result = []
+
+        waitlist = list()
+        waitlist.append(rel)
+
+        while len(waitlist) > 0:
+            s = waitlist.pop()
+
+            if isinstance(s, rel_type):
+                result.append(s)
+
+            successors = WrappedTransferRelation.unwrap(s)
+            for S in successors:
+                if s is not S:
+                    waitlist.append(S)
+        
+        return result
+
+ 
+
 
 class StopOperator:
     def stop(self, state: AbstractState, reached: Collection[AbstractState]) -> bool:
