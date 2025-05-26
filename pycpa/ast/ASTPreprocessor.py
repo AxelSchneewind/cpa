@@ -23,15 +23,6 @@ class ASTPreprocessor(StatementExtractor):
         self.extract = False
         self.extract_expr = False
 
-    def assign_result_to(self, call : ast.AST, return_var : str) -> ast.AST:
-        expr = ast.Assign(
-            targets = [ast.Name(return_var, ctx=ast.Store())],
-            value = call
-        )
-        ast.copy_location(call, expr)
-        ast.fix_missing_locations(expr)
-        return expr
-
 
     def visit_BinOp(self, node):
         if not self.extract_expr:

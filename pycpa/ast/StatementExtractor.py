@@ -9,6 +9,16 @@ class StatementExtractor(ast.NodeTransformer):
         self.instruction_stack = list()
         self.current_tmp_ctr = 0
 
+    def assign_result_to(self, call : ast.AST, return_var : str) -> ast.AST:
+        expr = ast.Assign(
+            targets = [ast.Name(return_var, ctx=ast.Store())],
+            value = call
+        )
+        ast.copy_location(call, expr)
+        ast.fix_missing_locations(expr)
+        return expr
+
+
     def push_instruction(self, instruction):
         assert isinstance(instruction, ast.AST)
         self.instruction_stack.append(instruction)
@@ -20,12 +30,12 @@ class StatementExtractor(ast.NodeTransformer):
     def push_instructions(self, instructions):
         assert isinstance(instructions, list)
         assert all(not isinstance(i, list) for i in instructions)
-        self.instruction_stack.extend(instructions)
+        self.instruction_stack.extend(instructions.reverse())
 
     def push_instructions_below(self, instructions):
         assert isinstance(instructions, list)
         assert all(not isinstance(i, list) for i in instructions)
-        self.instruction_stack.insert(0, instructions)
+        self.instruction_stack[0:0] = instructions.reverse()
     
     def pop_instructions(self):
         current = list(reversed(self.instruction_stack))
