@@ -32,3 +32,4 @@ class Result:
         self.arg_complete = False
         self.verdict = verdict
         self.witness = witness
+        self.status = Status.OK
