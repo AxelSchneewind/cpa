@@ -20,6 +20,7 @@ from pycpa.utils.visual import cfa_to_dot, arg_to_dot
 
 import ast
 import astpretty
+import pprint
 
 import graphviz
 from graphviz import Digraph
@@ -163,10 +164,21 @@ def main(args):
                     init = copy.deepcopy(cpa.get_initial_state())   # make sure to create new arg
                     algo.run(init)
 
+                    arg = GraphableARGState(init)
+                    dot = arg_to_dot(
+                            [ arg ],
+                            nodeattrs={"style": "filled", "shape": "box", "color": "white"},
+                        )
+                    dot.render(output_dir + '/arg_' + str(k))
+
                     cex = algo.make_counterexample(init, algo.result.witness)
 
                     if cex is not None and not algo.counter_example_feasible(cex):
                         algo.cpa = algo.refine(cpa, cex)
+
+                        with open(output_dir + '/precision_' + str(k), 'w') as f:
+                            f.write(pprint.pformat(algo.precision))
+
                         if algo.cpa is None: break
                     else:
                         break
