@@ -12,6 +12,14 @@ venv:
 check-venv:
 	@[ ! -z "$(VIRTUAL_ENV)" ] || (echo 'activate the virtual environment first using source venv/bin/activate' && exit 1)
 
+# exports for msat
+export PYTHONPATH=$(shell pwd)/venv/lib/python3.13/site-packages/mathsat/python/build/:$PYTHONPATH
+export LD_LIBRARY_PATH=$(shell pwd)/venv/lib/python3.13/site-packages/mathsat/lib:$LD_LIBRARY_PATH
+
+check-msat: venv
+	pysmt-install --check
+
+
 # the cpp2py required for benchmark generation seems to be abandoned and has bugs
 # use this target to use a (partially) fixed version supplied here
 # Note: this still does not support e.g. goto
