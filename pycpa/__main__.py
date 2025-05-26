@@ -165,7 +165,7 @@ def main(args):
 
                     cex = algo.make_counterexample(init, algo.result.witness)
 
-                    if cex is not None or not algo.counter_example_feasible(cex):
+                    if cex is not None and not algo.counter_example_feasible(cex):
                         algo.cpa = algo.refine(cpa, cex)
                         if algo.cpa is None: break
                     else:

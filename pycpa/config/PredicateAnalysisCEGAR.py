@@ -63,7 +63,7 @@ class CEGARCPAAlgorithm(CPAAlgorithm):
         return result
 
     def counter_example_feasible(self, counter):
-        return cegar_helper.is_path_feasible(result)
+        return cegar_helper.is_path_feasible(counter)
 
     def refine(self, cpa, counter_example) -> CPA:
         for relation in WrappedTransferRelation.get_subrelations(cpa.get_transfer_relation(), PredAbsTransferRelation):
