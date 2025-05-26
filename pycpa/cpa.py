@@ -40,6 +40,26 @@ class WrappedAbstractState(AbstractState):
             return [state]
 
     @staticmethod
+    def get_substate(state : AbstractState, state_type : type) -> AbstractState:
+        result = []
+
+        waitlist = list()
+        waitlist.append(state)
+
+        while len(waitlist) > 0:
+            s = waitlist.pop()
+
+            if isinstance(s, state_type):
+                return s
+
+            successors = WrappedAbstractState.unwrap(s)
+            for S in successors:
+                if s is not S:
+                    waitlist.append(S)
+        
+        assert False, (state, state_type)
+
+    @staticmethod
     def get_substates(state : AbstractState, state_type : type) -> Collection[AbstractState]:
         result = []
 
