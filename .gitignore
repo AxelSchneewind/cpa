@@ -3,3 +3,4 @@ out/
 benchmarks/*/
 benchmarks/*.set
 benchmarks/tmp_*
+mathsat-*/
