@@ -92,4 +92,7 @@ def refine_precision(path_edges: List[CFAEdge],
             if atom.get_type().is_bool_type():
                 new_preds.add(atom)
 
+    if len(old_precision) == len(new_preds):
+        return None
+
     return new_preds
