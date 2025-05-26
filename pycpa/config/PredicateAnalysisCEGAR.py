@@ -60,15 +60,16 @@ class CEGARCPAAlgorithm(CPAAlgorithm):
             current = parent
 
         result.reverse()
-        if cegar_helper.is_path_feasible(result): return result
-        
-        return None
+        return result
+
+    def counter_example_feasible(self, counter):
+        return cegar_helper.is_path_feasible(result)
 
     def refine(self, cpa, counter_example) -> CPA:
         for relation in WrappedTransferRelation.get_subrelations(cpa.get_transfer_relation(), PredAbsTransferRelation):
             self.precision = cegar_helper.refine_precision(counter_example, precision)
             relation.precision = precision
-        # print('precision ', self.precision)
+        if self.precision is None: return None
         return cpa
 
 

@@ -13,7 +13,7 @@ cannot clash, and they use pysmt for SAT + interpolation.
 from __future__ import annotations
 from typing import List, Set, Dict
 
-from pysmt.shortcuts import And, is_sat, TRUE
+from pysmt.shortcuts import And, is_sat, TRUE, sequence_interpolant
 from pysmt.solvers.interpolation import Interpolator
 from pysmt.fnode import FNode
 
@@ -81,12 +81,10 @@ def refine_precision(path_edges: List[CFAEdge],
         formulas.append(TRUE())
 
     interp = Interpolator()
-    try:
-        itps = interp.sequence_interpolant(formulas)
-    except Exception as exc:
-        # Solver without interpolation support; keep old precision.
-        print("[WARN] interpolation failed:", exc)
-        return set(old_precision)
+    itps = sequence_interpolant(formulas)
+
+    if itps is None:
+        return None
 
     new_preds: Set[FNode] = set(old_precision)
     for I in itps:

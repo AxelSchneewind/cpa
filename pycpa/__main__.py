@@ -24,6 +24,8 @@ import astpretty
 import graphviz
 from graphviz import Digraph
 
+import copy
+
 import os
 import sys
 
@@ -157,13 +159,15 @@ def main(args):
         # run algorithm
         try:
             if use_cegar:
-                for k in range(10):
-                    init = cpa.get_initial_state()
+                for k in range(20):
+                    init = copy.deepcopy(cpa.get_initial_state())   # make sure to create new arg
                     algo.run(init)
 
                     cex = algo.make_counterexample(init, algo.result.witness)
-                    if cex is not None:
+
+                    if cex is not None or not algo.counter_example_feasible(cex):
                         algo.cpa = algo.refine(cpa, cex)
+                        if algo.cpa is None: break
                     else:
                         break
             else:
