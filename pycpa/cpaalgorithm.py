@@ -15,13 +15,18 @@ from pycpa.verdict import Verdict
 
 
 class CPAAlgorithm:
-    def __init__(self, cpa, task : Task, result : Result):
+    def __init__(self, cpa, specifications, task : Task, result : Result):
         self.cpa = cpa
         self.iterations = 0
         self.task = task
         self.result = result
 
-    def run(self, reached, waitlist):
+    def run(self, entry):
+        waitlist = set()
+        reached = set()
+        waitlist.add(entry)
+        reached.add(entry)
+
         while len(waitlist) > 0:
             e = waitlist.pop()
 
@@ -48,6 +53,7 @@ class CPAAlgorithm:
                 if any(not s.safe for s in WrappedAbstractState.get_substates(e, PropertyState)):
                     self.result.status = Status.OK
                     self.result.verdict = Verdict.FALSE
+                    self.result.witness = e
                     break
 
                 reached -= to_remove

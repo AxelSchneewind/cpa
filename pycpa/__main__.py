@@ -140,19 +140,34 @@ def main(args):
         result = Result()
 
         printer.log_status('running CPA algorithm')
-        waitlist = set()
-        reached = set()
         init = cpa.get_initial_state()
-        waitlist.add(init)
-        reached.add(init)
-        algo = CPAAlgorithm(cpa, task, result)
+        algo = None
+
+        if hasattr(analysis_mods[0], 'get_algorithm'):
+            algo = analysis_mods[0].get_algorithm(cpa, specification_mods, task, result)
+        else:
+            algo = CPAAlgorithm(cpa, specification_mods, task, result)
 
         # root of ARG
         arg = None
 
+        # 
+        use_cegar = any('CEGAR' in m.__name__ for m in analysis_mods)
+
         # run algorithm
         try:
-            algo.run(reached, waitlist)
+            if use_cegar:
+                for k in range(10):
+                    init = cpa.get_initial_state()
+                    algo.run(init)
+
+                    cex = algo.make_counterexample(init, algo.result.witness)
+                    if cex is not None:
+                        algo.cpa = algo.refine(cpa, cex)
+                    else:
+                        break
+            else:
+                algo.run(init)
         except KeyboardInterrupt as x:
             result.status = Status.ABORTED_BY_USER
             result.witness = str(x)
@@ -176,7 +191,7 @@ def main(args):
 
         check_arg(arg, task, result, specification_mods)
 
-        printer.log_result('%s:  %s' % (program_name, str(result.verdict)))
+        printer.log_result(program_name, '%s' % str(result.verdict))
 
     
 from pycpa.params import parser
