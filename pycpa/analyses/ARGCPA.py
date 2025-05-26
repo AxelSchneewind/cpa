@@ -41,6 +41,27 @@ class ARGState(AbstractState):
     def __hash__(self):
         return self.wrapped_state.__hash__()
 
+    def get_edge(self, other):
+        loc1 = self.get_location()
+        loc2 = other.get_location()
+        assert loc1 and loc2
+
+        for leaving_edge in loc1.leaving_edges:
+            if leaving_edge.successor == loc2:
+                return leaving_edge
+        if len(loc1.leaving_edges) > 0:
+            return loc1.leaving_edges[0] 
+        assert False, 'edge missing'
+
+    def get_location(self):
+        return WrappedAbstractState.get_substate(self.wrapped_state, LocationState).location
+
+    def get_parents(self):
+        return self.parents
+
+    def get_successors(self):
+        return self.children
+
 
 class ARGTransferRelation(TransferRelation):
     def __init__(self, wrapped_transfer_relation, arg_cpa):
