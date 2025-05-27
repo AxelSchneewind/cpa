@@ -14,18 +14,25 @@ venv:
 check-venv:
 	@[ ! -z "$(VIRTUAL_ENV)" ] || (echo 'activate the virtual environment first using source venv/bin/activate' && exit 1)
 
+
+##################################### MSAT ####################################
+MSAT-SRC-DIR=mathsat-*/
+MSAT-PREFIX=$(shell pwd)/venv/lib/python3.13/site-packages
+
 # exports for msat
-export PYTHONPATH+=:${BASE-PATH}/venv/lib/python3.13/site-packages/mathsat/python/build/
-export LD_LIBRARY_PATH+=:${BASE-PATH}/venv/lib/python3.13/site-packages/mathsat/lib
+export PYTHONPATH::=$(MSAT-PREFIX)/mathsat/python/:$(PYTHONPATH) 
+export LD_LIBRARY_PATH::=$(MSAT-PREFIX)/mathsat/lib:$(LD_LIBRARY_PATH)
 
 check-msat: venv
-	pysmt-install --check
+	PYTHONPATH=$(MSAT-PREFIX)/mathsat/python/:$(PYTHONPATH) LD_LIBRARY_PATH=$(MSAT-PREFIX)/mathsat/lib:$(LD_LIBRARY_PATH) pysmt-install --check
+
 
 install-msat:
 	@echo 'installing mathsat' 
-	@cd mathsat-*/python/ && python -m pip install . && cd -
-	@cp mathsat-*/python/mathsat.py venv/lib/python3.13/site-packages/
-	@cp mathsat-*/python/build/lib.*/_mathsat.* venv/lib/python3.13/site-packages/mathsat.so
+	cd ${MSAT-SRC-DIR}/python && python setup.py build && cd -
+	rm -rf ${MSAT-PREFIX}/msat ${MSAT-PREFIX}/mathsat* ${MSAT-PREFIX}/lib
+	cp -r ${MSAT-SRC-DIR}/ ${MSAT-PREFIX}/mathsat
+	PYTHONPATH=$(MSAT-PREFIX)/mathsat/python/:$(PYTHONPATH) LD_LIBRARY_PATH=$(MSAT-PREFIX)/mathsat/lib:$(LD_LIBRARY_PATH) pysmt-install --check
 
 
 # the cpp2py required for benchmark generation seems to be abandoned and has bugs
@@ -79,9 +86,10 @@ run-benchmark-%: venv check-venv benchmarks/% cpp2py.py
 
 run-examples-%:
 	@echo 'testing $* on example programs'
+	@echo ${PYTHONPATH}
 	@python -m pycpa -p ReachSafety -c $* --compact --max-iterations 600 test_progs/*.py -o out/$* 
 
-run-examples: check-venv test_progs/*.py run-examples-PredicateAnalysisCEGAR run-examples-PredicateAnalysis run-examples-PredicateAnalysisABEf run-examples-PredicateAnalysisABEbf run-examples-ReachabilityAnalysis run-examples-ValueAnalysis run-examples-ValueAnalysisMergeJoin run-examples-FormulaAnalysis 
+run-examples: check-venv test_progs/*.py run-examples-PredicateAnalysis run-examples-PredicateAnalysisABEf run-examples-PredicateAnalysisABEbf run-examples-ReachabilityAnalysis run-examples-ValueAnalysis run-examples-ValueAnalysisMergeJoin run-examples-FormulaAnalysis 
 
 run-%: check-venv %.py
 	python -m pycpa -p ReachSafety -c PredicateAnalysis --max-iterations 300 $*.py 
@@ -107,9 +115,9 @@ benchexec-call-prefix=
 benchexec=benchexec
 
 timelimit = 300s
-memlimit = 2500MB
+memlimit = 1500MB
 cpulimit = 2
-benchexec-args =
+benchexec-args = --numOfThreads=4
 BENCHEXEC-RESOURCES = -T ${timelimit} -M ${memlimit} -c ${cpulimit}
 BENCHEXECBASE-DIRS = --read-only-dir / --hidden-dir /home/ --overlay-dir "${BASE-PATH}/" --tool-directory "${CPA-PATH}/" 
 BENCHEXEC-DIRS = ${BENCHEXECBASE-DIRS} -o "${ABS-OUTPUT-PATH}"/
@@ -161,6 +169,9 @@ benchexec-test-tooldef: ${TOOLDEF-FILE}
 # Run experiments
 run-demo-exp: check-output-exist ${TOOLDEF-FILE}
 	${BENCHEXEC-CALL} "${BENCHDEFS-PATH}/pycpa-demo.xml"
+
+run-medium-exp: check-output-exist ${TOOLDEF-FILE}
+	${BENCHEXEC-CALL} "${BENCHDEFS-PATH}/pycpa-medium.xml"
 
 # Generate tables from the experiments
 gen-demo-table:
