@@ -43,8 +43,8 @@ class LogPrinter:
             print('Verifying ', programname, 'against', prop, 'using', conf)
 
     def log_result(self, programname, *msg):
-        if not self.compact:        # overwrite status update
-            print('\r', *msg)
+        if not self.compact:
+            print('\n', programname, ':', *msg)
         else:
             print(programname, ':', *msg)
 
