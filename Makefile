@@ -98,12 +98,9 @@ output-path = ./results
 ABS-OUTPUT-PATH = $(abspath ${output-path})
 
 # CPAchecker variables
-# c-prog = ${BASE-PATH}/sv-benchmarks/c/loop-invariants/const.c
 CPA-PATH = ${BASE-PATH}/pycpa/
 CPA-EXE = ${CPA-PATH}/scripts/cpa.sh
-CPA-DEFAULT-ARGS = --spec sv-comp-reachability \
-	--option cpa.predicate.memoryAllocationsAlwaysSucceed=true
-cpa-args = --32
+CPA-DEFAULT-ARGS = --property ReachSafety
 
 # BenchExec variables
 benchexec-call-prefix=
@@ -114,8 +111,8 @@ memlimit = 2500MB
 cpulimit = 2
 benchexec-args =
 BENCHEXEC-RESOURCES = -T ${timelimit} -M ${memlimit} -c ${cpulimit}
-BENCHEXECBASE-DIRS = --read-only-dir / --hidden-dir /home/ --overlay-dir "${BASE-PATH}/"
-BENCHEXEC-DIRS = ${BENCHEXECBASE-DIRS} --tool-directory "${CPA-PATH}/" -o "${ABS-OUTPUT-PATH}"/
+BENCHEXECBASE-DIRS = --read-only-dir / --hidden-dir /home/ --overlay-dir "${BASE-PATH}/" --tool-directory "${CPA-PATH}/" 
+BENCHEXEC-DIRS = ${BENCHEXECBASE-DIRS} -o "${ABS-OUTPUT-PATH}"/
 BENCHEXEC-CALL = ${benchexec-call-prefix} ${benchexec} ${benchexec-args} ${BENCHEXEC-RESOURCES} ${BENCHEXEC-DIRS}
 BENCHDEFS-PATH = bench-defs
 ABS-BENCHDEFS-PATH = "${BASE-PATH}/bench-defs"
@@ -140,20 +137,6 @@ prepare-benchexec:
 test-cgroups:
 	@${benchexec-call-prefix} ${PYTHON} -m benchexec.check_cgroups && echo "Check passed"
 
-# Run experiments
-run-demo-exp: check-output-exist
-	${BENCHEXEC-CALL} "${BENCHDEFS-PATH}/cpachecker-demo.xml"
-
-run-full-exp: check-output-exist
-	${BENCHEXEC-CALL} "${BENCHDEFS-PATH}/cpachecker.xml"
-
-# Generate tables from the experiments
-gen-full-table:
-	${TABLE-GENERATOR-CALL} -x ${ABS-BENCHDEFS-PATH}/stats.overall.xml -o ${ABS-OUTPUT-PATH}
-
-gen-demo-table:
-	${TABLE-GENERATOR-CALL} -x ${ABS-BENCHDEFS-PATH}/stats.demo.xml -o ${ABS-OUTPUT-PATH}
-
 
 # Cleaning up files
 check-output-exist:
@@ -166,21 +149,22 @@ check-output-exist:
 clean-results:
 	@rm -rf ${ABS-OUTPUT-PATH}
 
-# Root path of the artifact
-BASE-PATH = $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
-
-# Output path of the tool(s)
-output-path = ./results
-ABS-OUTPUT-PATH = $(abspath ${output-path})
-
 TOOLDEF-FILE=benchexec/benchexec/tools/pycpa.py
 ${TOOLDEF-FILE}:
-	cp pycpa-tooldef.py R{TOOLDEF-FILE}
+	cp pycpa-tooldef.py ${TOOLDEF-FILE}
 
 # test tool definition
 benchexec-test-tooldef: ${TOOLDEF-FILE}
 	${benchexec-call-prefix} ${PYTHON} -m benchexec.test_tool_info pycpa ${BENCHEXECBASE-DIRS}
 
+
+# Run experiments
+run-demo-exp: check-output-exist ${TOOLDEF-FILE}
+	${BENCHEXEC-CALL} "${BENCHDEFS-PATH}/pycpa-demo.xml"
+
+# Generate tables from the experiments
+gen-demo-table:
+	${TABLE-GENERATOR-CALL} -x ${ABS-BENCHDEFS-PATH}/stats.demo.xml -o ${ABS-OUTPUT-PATH}
 
 
 
