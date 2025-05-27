@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE benchmark PUBLIC "+//IDN sosy-lab.org//DTD BenchExec benchmark 1.0//EN" "http://www.sosy-lab.org/benchexec/benchmark-1.0.dtd">
+<benchmark tool="pycpa">
+
+  <propertyfile>pycpa/property/ReachSafety.py</propertyfile>
+
+  <rundefinition name="Value Analysis">
+    <option name="--config">ValueAnalysis</option>
+  </rundefinition>
+
+  <rundefinition name="Predicate Analysis">
+    <option name="--config">PredicateAnalysis</option>
+  </rundefinition>
+
+  <rundefinition name="Predicate Analysis CEGAR">
+    <option name="--config">PredicateAnalysisCEGAR</option>
+  </rundefinition>
+
+  <rundefinition name="Predicate Analysis LBE">
+    <option name="--config">PredicateAnalysisABEfb</option>
+  </rundefinition>
+
+  <tasks name="demo">
+    <includesfile>sets/demo.set</includesfile>
+  </tasks>
+
+</benchmark>
