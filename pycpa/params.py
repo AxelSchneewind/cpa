@@ -16,6 +16,8 @@ parser.add_argument('--max-iterations', help='maximum number of CPA loop iterati
 parser.add_argument('--compact', help='print less output (only program and verdict)', action='store_true')
 parser.add_argument('--verbose', help='print more output', action='store_true')
 
+parser.add_argument('-v', '--version', help='show version', action='version', version='pycpa version 0.3')
+
 # TODO add parameters
 
 
