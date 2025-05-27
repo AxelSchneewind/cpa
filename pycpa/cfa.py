@@ -233,6 +233,8 @@ class CFACreator(ast.NodeVisitor):
         self.function_def = {}
         self.function_entry_point = {}
 
+        self.inline = False
+
     def visit_FunctionDef(self, node : ast.FunctionDef):
         pre = self.node_stack.pop()
 
@@ -347,6 +349,58 @@ class CFACreator(ast.NodeVisitor):
         edge = CFAEdge(entry_node, exit_node, Instruction.ret(node, return_variable=varname))
         self.node_stack.append(exit_node)
 
+    def _handle_Call_inline(self, call_node : ast.Call, target_variable : str ='__ret'):
+        assert isinstance(call_node, ast.Call), call_node
+        assert isinstance(call_node.func, ast.Name), call_node  # function could be attribute (e.g. member functions), not supported
+
+        if call_node.func.id not in builtin_identifiers and call_node.func.id not in self.function_def and call_node.func.id not in self.function_entry_point:
+            print('Warning: call to undefined', ast.unparse(call_node.func))
+            return
+
+        # add computing edge for each argument
+        arg_names = []
+        for i, val in enumerate(call_node.args):
+            if isinstance(val, ast.Name):
+                argname = str(val.id)
+            elif isinstance(val, ast.Constant):
+                argname = str(val.value)
+            else:
+                assert False, 'encountered argument that isnt name or constant'
+
+            arg_names.append(ast.arg(argname))
+
+        # make builtin edge
+        if call_node.func.id in builtin_identifiers:
+            entry_node = self.node_stack.pop()
+            exit_node = CFANode()
+            edge = CFAEdge(entry_node, exit_node, Instruction.builtin(call_node, target_variable=target_variable))
+            self.node_stack.append(exit_node)
+        else:
+            for formal, arg in zip(self.function_def[call_node.func.id].args.args, arg_names):
+                if formal != arg:
+                    assign = ast.Assign(
+                        targets=[ast.Name( formal.arg, ctx=ast.Store() )],
+                        value= ast.Name( arg.arg, ctx=ast.Load() )
+                    )
+                    ast.copy_location(assign, call_node)
+                    ast.fix_missing_locations(assign)
+                    self.visit(assign)
+            for b in self.function_def[call_node.func.id].body:
+                if isinstance(b, ast.Return):
+                    if b.value and (not isinstance(b.value, ast.Name) or b.value.id != target_variable):
+                        assign = ast.Assign(
+                            targets=[ast.Name(target_variable, ctx=ast.Store() )],
+                            value=b.value
+                        )
+                        ast.copy_location(assign, call_node)
+                        ast.fix_missing_locations(assign)
+                        self.visit(assign)
+                else:
+                    self.visit(b)
+
+
+
+
     def _handle_Call(self, call_node : ast.Call, target_variable : str ='__ret'):
         assert isinstance(call_node, ast.Call), call_node
         assert isinstance(call_node.func, ast.Name), call_node  # function could be attribute (e.g. member functions), not supported
@@ -382,7 +436,10 @@ class CFACreator(ast.NodeVisitor):
             self.node_stack.append(exit_node)
 
     def visit_Call(self, node : ast.Call):
-        return self._handle_Call(node)
+        if self.inline:
+            return self._handle_Call_inline(node)
+        else:
+            return self._handle_Call(node)
 
     def visit_Assert(self, node : ast.Assert):
         raise NotImplementedError('TODO: convert to __VERIFIER_assert in preprocessing')
