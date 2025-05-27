@@ -173,8 +173,12 @@ BASE-PATH = $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 output-path = ./results
 ABS-OUTPUT-PATH = $(abspath ${output-path})
 
+TOOLDEF-FILE=benchexec/benchexec/tools/pycpa.py
+${TOOLDEF-FILE}:
+	cp pycpa-tooldef.py R{TOOLDEF-FILE}
+
 # test tool definition
-benchexec-test-tooldef:
+benchexec-test-tooldef: ${TOOLDEF-FILE}
 	${benchexec-call-prefix} ${PYTHON} -m benchexec.test_tool_info pycpa ${BENCHEXECBASE-DIRS}
 
 
