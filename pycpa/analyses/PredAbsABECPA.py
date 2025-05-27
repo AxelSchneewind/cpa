@@ -105,11 +105,8 @@ class PredAbsABETransferRelation(TransferRelation):
             trans = expr
         elif kind == InstructionType.CALL:
             trans = PredAbsPrecision.ssa_from_call(edge, ssa_indices=ssa_idx)
-        elif kind == InstructionType.RESUME:
-            # special case: incorporate formulas from function call
-            # predicates = edge.instruction.stackframe.predicates
-            trans = edge.instruction.stackframe.path_formula
-            ssa_idx.update(edge.instruction.stackframe.ssa_indices)
+        elif kind == InstructionType.RETURN:
+            trans = PredAbsPrecision.ssa_from_return(edge, ssa_indices=ssa_idx)
         else:
             trans = TRUE()
 

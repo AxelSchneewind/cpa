@@ -36,6 +36,21 @@ class PredAbsABEPrecision(Dict, Iterable):
         return str({ str(n) : str(p) for n,p in self.predicates.items()})
 
     @staticmethod
+    def is_block_head_fl(node: CFANode) -> bool:
+        """branches and calls are block heads
+        """
+        for edge in node.leaving_edges:
+            kind = edge.instruction.kind
+            match kind:
+                case InstructionType.CALL | InstructionType.RESUME:
+                    return True
+
+                case _:
+                    # TODO: check for loop
+                    pass
+        return False
+
+    @staticmethod
     def is_block_head_f(node: CFANode) -> bool:
         """branches and calls are block heads
         """

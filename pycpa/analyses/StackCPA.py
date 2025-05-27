@@ -5,9 +5,8 @@ from pycpa.cfa import Graphable, CFAEdge, InstructionType, Instruction
 from pycpa.analyses import LocationState, ValueState
 
 import ast
-import astpretty
+import astpretty 
 from graphviz import Digraph
-
 import copy
 from typing import Collection
 
@@ -77,7 +76,8 @@ class StackTransferRelation(TransferRelation):
         result = [ copy.deepcopy(predecessor) for w in states]
 
         for i, wrapped_successor in enumerate(states):
-            result[i].stack.append(wrapped_successor)
+            # result[i].stack.append(wrapped_successor)
+            result[i].stack[-1] = wrapped_successor
             result[i].call_edge_stack.append(edge)
 
         assert isinstance(result, list)
@@ -86,25 +86,31 @@ class StackTransferRelation(TransferRelation):
     def _handle_Return(self, predecessor : StackState, edge : CFAEdge):
         assert edge.instruction.kind == InstructionType.RETURN
 
-        if len(predecessor.stack) < 2:
+        # exit program
+        if len(predecessor.call_edge_stack) < 2:
             return []
 
         call_edge = predecessor.call_edge_stack[-1]
-        virt_edge = copy.copy(call_edge)
+        # virt_edge = copy.copy(call_edge)
 
-        virt_edge.instruction = Instruction.resume(call_edge.instruction.expression, predecessor.stack[-1], call_edge, edge)
+        # virt_edge.instruction = Instruction.resume(call_edge.instruction.expression, predecessor.stack[-1], call_edge, edge)
+        edge.instruction.target_variable = predecessor.call_edge_stack[-1].instruction.target_variable
 
         # use virtual edge
         states = [
             wrapped_successor
             for wrapped_successor in self.wrapped_transfer_relation.get_abstract_successors_for_edge(
-                predecessor.stack[-2], virt_edge
+                # predecessor.stack[-2], virt_edge
+                predecessor.stack[-1], edge
             )
         ]
 
         result = [ copy.deepcopy(predecessor) for w in states]
         for i,r in enumerate(result):
-            result[i].stack.pop()
+            loc = WrappedAbstractState.get_substate(states[i], LocationState)
+            loc.location = result[i].call_edge_stack[-1].successor
+
+            # result[i].stack.pop()
             result[i].call_edge_stack.pop()
             result[i].stack[-1] = states[i]
 

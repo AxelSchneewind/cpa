@@ -297,13 +297,28 @@ class PredAbsPrecision(Dict, Iterable):
         return _bool(_expr2smt(test_expr, ssa_idx))
 
     @staticmethod
-    def ssa_from_raise(edge: CFAEdge, ssa_indices={}) -> FNode:
+    def ssa_from_raise(edge: CFAEdge, ssa_indices=None) -> FNode:
         ssa_idx = ssa_indices if ssa_indices is not None else {}
         # print(f"[DEBUG PredAbsPrecision] ssa_from_raise: kind={edge.instruction.kind}, expr={edge.instruction.expression!r}")
         return FALSE()
 
     @staticmethod
-    def ssa_from_assign(edge: CFAEdge, ssa_indices={}) -> FNode:
+    def ssa_from_return(edge: CFAEdge, ssa_indices=None) -> FNode:
+        ssa_idx = ssa_indices if ssa_indices is not None else {}
+        expr = edge.instruction.expression
+        targetvariable = getattr(edge.instruction, 'target_variable', None)
+
+        if targetvariable and len(targetvariable) > 0 and expr.value:
+            assert isinstance(expr.value, ast.Name), expr.value
+            var     = targetvariable
+            rhs     = _cast(_expr2smt(expr.value, ssa_idx), BV64)
+            lhs     = _ssa(var, _next(var, ssa_idx))
+            return Equals(lhs, rhs)
+
+        return TRUE()
+
+    @staticmethod
+    def ssa_from_assign(edge: CFAEdge, ssa_indices=None) -> FNode:
         ssa_idx = ssa_indices if ssa_indices is not None else {}
         expr = getattr(edge.instruction, 'expression', None)
         # print(f"[DEBUG PredAbsPrecision] ssa_from_assign: kind={edge.instruction.kind}, expr={expr!r}")
@@ -320,7 +335,7 @@ class PredAbsPrecision(Dict, Iterable):
         return TRUE()
 
     @staticmethod
-    def ssa_from_assume(edge: CFAEdge, ssa_indices={}) -> FNode:
+    def ssa_from_assume(edge: CFAEdge, ssa_indices=None) -> FNode:
         ssa_idx = ssa_indices if ssa_indices is not None else {}
         # Handles both 'assert' and 'if' conditions
         expr = edge.instruction.expression
@@ -328,7 +343,7 @@ class PredAbsPrecision(Dict, Iterable):
         return _bool(phi)
     
     @staticmethod
-    def ssa_from_raise(edge: CFAEdge, ssa_indices={}) -> FNode:
+    def ssa_from_raise(edge: CFAEdge, ssa_indices=None) -> FNode:
         """
         Handle Python 'raise' by mapping it to FALSE(), marking an error path.
         """
@@ -338,7 +353,7 @@ class PredAbsPrecision(Dict, Iterable):
 
 
     @staticmethod
-    def ssa_from_call(edge: CFAEdge, ssa_indices={}) -> FNode:
+    def ssa_from_call(edge: CFAEdge, ssa_indices=None) -> FNode:
         ssa_idx = ssa_indices if ssa_indices is not None else {}
         # Inline the original call handler logic
         instr = edge.instruction
@@ -357,7 +372,7 @@ class PredAbsPrecision(Dict, Iterable):
         return And(conjuncts) if conjuncts else TRUE()
 
     @staticmethod
-    def from_cfa_edge(edge: CFAEdge, ssa_indices={}) -> FNode | None:
+    def from_cfa_edge(edge: CFAEdge, ssa_indices=None) -> FNode | None:
         expr = getattr(edge.instruction, 'expression', None)
         ssa_idx = ssa_indices if ssa_indices is not None else {}
 
