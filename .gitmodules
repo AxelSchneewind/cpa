@@ -1,3 +1,6 @@
 [submodule "benchmarks/sv-benchmarks"]
 	path = benchmarks/sv-benchmarks
 	url = https://gitlab.com/sosy-lab/benchmarking/sv-benchmarks
+[submodule "benchexec"]
+	path = benchexec
+	url = https://github.com/sosy-lab/benchexec/

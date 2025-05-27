@@ -6,3 +6,4 @@ pycparser
 wheel
 pysmt
 setuptools
+pyyaml
