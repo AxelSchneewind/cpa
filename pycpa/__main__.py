@@ -30,22 +30,23 @@ import sys
 
 class LogPrinter:
     def __init__(self, args):
-        self.print_status = not args.compact
-        self.print_task   = not args.compact
+        self.compact = args.compact
 
     def log_status(self, *msg):
-        if self.print_status:
+        if not self.compact:
             print('\r',  *msg, end='')
 
-    def log_task(self, *msg):
-        if self.print_task:
-            print(*msg)
+    def log_task(self, programname, configs, properties):
+        if not self.compact:
+            prop = str(properties[0]) if len(properties) == 1 else properties
+            conf = str(configs[0]) if len(configs) == 1 else configs
+            print('Verifying ', programname, 'against', prop, 'using', conf)
 
-    def log_result(self, *msg):
-        if self.print_status: 
-            print('\n', *msg)
+    def log_result(self, programname, *msg):
+        if not self.compact:        # overwrite status update
+            print('\r', *msg)
         else:
-            print(*msg)
+            print(programname, ':', *msg)
 
 
 
@@ -81,7 +82,7 @@ def main(args):
 
         program_name = os.path.splitext(os.path.basename(program))[0]
         task = Task(program, args.config, args.property, max_iterations=args.max_iterations)
-        printer.log_task('verifying program', program_name, 'using', args.config, 'against', args.property)
+        printer.log_task(program_name, args.config, args.property)
 
         with open(program) as file:
             ast_program = file.read()
