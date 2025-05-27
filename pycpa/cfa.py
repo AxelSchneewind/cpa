@@ -333,7 +333,10 @@ class CFACreator(ast.NodeVisitor):
             assert isinstance(node.targets[0], ast.Name)
 
             call = node.value
-            self._handle_Call(call, node.targets[0].id)
+            if self.inline:
+                self._handle_Call_inline(call, node.targets[0].id)
+            else:
+                self._handle_Call(call, node.targets[0].id)
         else:
             entry_node = self.node_stack.pop()
             exit_node = CFANode()
@@ -349,7 +352,7 @@ class CFACreator(ast.NodeVisitor):
         edge = CFAEdge(entry_node, exit_node, Instruction.ret(node, return_variable=varname))
         self.node_stack.append(exit_node)
 
-    def _handle_Call_inline(self, call_node : ast.Call, target_variable : str ='__ret'):
+    def _handle_Call_inline(self, call_node : ast.Call, target_variable : str =None):
         assert isinstance(call_node, ast.Call), call_node
         assert isinstance(call_node.func, ast.Name), call_node  # function could be attribute (e.g. member functions), not supported
 
@@ -387,7 +390,7 @@ class CFACreator(ast.NodeVisitor):
                     self.visit(assign)
             for b in self.function_def[call_node.func.id].body:
                 if isinstance(b, ast.Return):
-                    if b.value and (not isinstance(b.value, ast.Name) or b.value.id != target_variable):
+                    if target_variable and b.value and (not isinstance(b.value, ast.Name) or b.value.id != target_variable):
                         assign = ast.Assign(
                             targets=[ast.Name(target_variable, ctx=ast.Store() )],
                             value=b.value
