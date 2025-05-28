@@ -74,3 +74,5 @@ class Tool(benchexec.tools.template.BaseTool2):
                 return result.RESULT_TRUE_PROP
             if "UNKNOWN" in line:
                 return result.RESULT_UNKNOWN
+        return result.RESULT_UNKNOWN
+
