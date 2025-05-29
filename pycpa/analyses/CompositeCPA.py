@@ -97,36 +97,17 @@ class CompositeTransferRelation(TransferRelation):
             return result
 
     def get_abstract_successors_for_edge(self, predecessor, edge):
-        if edge.instruction.kind == InstructionType.RESUME:
-            edges = [ copy.copy(edge) for _ in predecessor.wrapped_states ]
-
-            for i, s in enumerate(predecessor.wrapped_states):
-                edges[i].instruction = Instruction.resume(edge.instruction.expression, edge.instruction.stackframe.wrapped_states[i], edge.instruction.call_edge, edge.instruction.return_edge)
-            
-            assert len(edges) == len(self.wrapped_transfer_relations) == len(predecessor.wrapped_states)
-            return [
-                CompositeState(product)
-                for product in itertools.product(
-                    *[
-                        transfer.get_abstract_successors_for_edge(state, virt_edge)
-                        for (transfer, state, virt_edge) in zip(
-                            self.wrapped_transfer_relations, predecessor.wrapped_states, edges
-                        )
-                    ]
-                )
-            ]
-        else:
-            return [
-                CompositeState(product)
-                for product in itertools.product(
-                    *[
-                        transfer.get_abstract_successors_for_edge(state, edge)
-                        for (transfer, state) in zip(
-                            self.wrapped_transfer_relations, predecessor.wrapped_states
-                        )
-                    ]
-                )
-            ]
+        return [
+            CompositeState(product)
+            for product in itertools.product(
+                *[
+                    transfer.get_abstract_successors_for_edge(state, edge)
+                    for (transfer, state) in zip(
+                        self.wrapped_transfer_relations, predecessor.wrapped_states
+                    )
+                ]
+            )
+        ]
 
 
 class CompositeMergeOperator(MergeOperator):

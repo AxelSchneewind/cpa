@@ -42,7 +42,7 @@ class PredAbsABEPrecision(Dict, Iterable):
         for edge in node.leaving_edges:
             kind = edge.instruction.kind
             match kind:
-                case InstructionType.CALL | InstructionType.RESUME:
+                case InstructionType.CALL:
                     return True
 
                 case _:
@@ -57,7 +57,7 @@ class PredAbsABEPrecision(Dict, Iterable):
         for edge in node.leaving_edges:
             kind = edge.instruction.kind
             match kind:
-                case InstructionType.CALL | InstructionType.RESUME:
+                case InstructionType.CALL:
                     return True
                 case _:
                     pass
@@ -70,7 +70,7 @@ class PredAbsABEPrecision(Dict, Iterable):
         for edge in node.leaving_edges:
             kind = edge.instruction.kind
             match kind:
-                case InstructionType.ASSUMPTION | InstructionType.CALL | InstructionType.RESUME:
+                case InstructionType.ASSUMPTION | InstructionType.CALL:
                     return True
                 case _:
                     pass
