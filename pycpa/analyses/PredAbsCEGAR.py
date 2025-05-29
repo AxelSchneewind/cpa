@@ -1,423 +1,195 @@
-# #!/usr/bin/env python3
-# """
-# Predicate-Abstraction CEGAR driver for pycpa
-# ===========================================
-
-# This module builds  LocationCPA × PredAbsCPA, runs the standard
-# work-list algorithm, and refines the global predicate precision π
-# until it
-
-#     • proves SAFE          → returns "TRUE"
-#     • finds a real bug     → returns "FALSE"
-#     • exhausts its budget  → returns "UNKNOWN"
-
-# No other files need to change.
-# """
-
-# from __future__ import annotations
-# from typing import List, Set, Tuple
-
-# import sys
-# from pysmt.fnode import FNode
-# from pysmt.shortcuts import TRUE
-
-# from pycpa.cfa import CFANode
-# from pycpa.analyses.LocationCPA      import LocationCPA
-# from pycpa.analyses.PredAbsCPA       import PredAbsCPA
-# from pycpa.analyses.PredAbsPrecision import PredAbsPrecision
-# from pycpa.analyses.CompositeCPA     import CompositeCPA
-# from pycpa.analyses.ARGCPA           import ARGCPA
-# from pycpa.cpaalgorithm              import CPAAlgorithm, Status
-
-# from pycpa.refinement import cegar_helper  # is_path_feasible / refine_precision
-
-# # --------------------------------------------------------------------------- #
-# # INTERNAL – one run under a *fixed* precision                                #
-# # --------------------------------------------------------------------------- #
-# def _analyse(entry: CFANode,
-#              precision: Set[FNode],
-#              task, specs,
-#              arg_cap: int
-#             ) -> Tuple[Status, CPAAlgorithm]:
-#     """
-#     Run work-list algorithm once and return (Status, algo_instance).
-#     If ARG exceeds arg_cap nodes → return Status.TIMEOUT.
-#     """
-#     cpa   = ARGCPA(CompositeCPA([LocationCPA(entry),
-#                                  PredAbsCPA(precision)]))
-
-#     init = cpa.get_initial_state()
-#     reached, wl = {init}, {init}
-
-#     algo = CPAAlgorithm(cpa, task, type("R", (), {})(), specs)
-#     algo.run(reached, wl)          # ← only the two mandatory args
-
-#     # manual budget check
-#     if len(reached) >= arg_cap:
-#         algo.result.status = Status.TIMEOUT
-
-#     return algo.result.status, algo
-
-# # --------------------------------------------------------------------------- #
-# # PUBLIC – CEGAR loop                                                         #
-# # --------------------------------------------------------------------------- #
-# def run_cegar(entry: CFANode,
-#               cfa_roots: List[CFANode],
-#               task, specification,
-#               *, max_refinements: int = 12,
-#                  arg_node_cap:   int = 50_000,
-#                  verbose: bool      = False) -> str:
-
-#     π = PredAbsPrecision.from_cfa(cfa_roots).predicates
-
-#     for k in range(max_refinements):
-#         if verbose:
-#             print(f"\n[CEGAR {k:02d}]  |π| = {len(π)}")
-
-#         status, algo = _analyse(entry, π, task, specification, arg_node_cap)
-
-#         # 0) proof succeeded
-#         if status == Status.OK:
-#             return "TRUE"
-#         # 1) only TIMEOUT is treated as UNKNOWN
-#         if status == Status.TIMEOUT:
-#             return "UNKNOWN"
-#         # (we deliberately do NOT bail out on Status.ERROR here,
-#         #  so that we can extract the abstract counterexample)
-
-#         # 2) extract abstract counterexample
-#         # print("[DEBUG PredAbsCEGAR] retrieving abstract_cex_edges from CPAAlgorithm")
-#         if not hasattr(algo, "abstract_cex_edges"):
-#             raise AttributeError("run_cegar: CPAAlgorithm has no `abstract_cex_edges`")
-#         cex_edges = algo.abstract_cex_edges
-#         # print(f"[DEBUG PredAbsCEGAR] abstract cex path = {cex_edges}")
-
-#         # 3) check feasibility
-#         if cegar_helper.is_path_feasible(cex_edges):
-#             return "FALSE"
-
-#         # 4) not feasible → refine π and loop
-#         π = cegar_helper.refine_precision(π, cex_edges)
-#     # refinements exhausted
-#     return "UNKNOWN"
-
-# # PredAbsCEGAR.py
-
-# from typing import List, Set
-# from pycpa.cfa import CFANode
-# from pycpa.analyses.PredAbsPrecision import PredAbsPrecision
-# from pycpa.refinement import cegar_helper
-# from pycpa.analyses.LocationCPA import LocationCPA
-# from pycpa.analyses.PredAbsCPA     import PredAbsCPA
-# from pycpa.analyses.CompositeCPA    import CompositeCPA
-# from pycpa.analyses.ARGCPA          import ARGCPA
-# from pycpa.cpaalgorithm             import CPAAlgorithm, Status
-
-# def run_cegar(entry: CFANode,
-#               cfa_roots: List[CFANode],
-#               task, specification,
-#               *, max_refinements: int = 12,
-#                  arg_node_cap:   int = 50_000,
-#                  verbose: bool      = False) -> str:
-
-#     # 0) initialize precision π from all boolean atoms in the CFA
-#     π = PredAbsPrecision.from_cfa(cfa_roots).predicates
-
-#     # 1) perform up to max_refinements CEGAR iterations
-#     for k in range(max_refinements):
-#         if verbose:
-#             print(f"\n[CEGAR {k:02d}]  |π| = {len(π)}")
-
-#         # run one ARGCPA pass under the current π
-#         status, algo = _analyse(entry, π, task, specification, arg_node_cap)
-
-#         # 2) if SAFE, we’re done
-#         if status == Status.OK:
-#             return "TRUE"
-
-#         # 3) if an abstract error was detected, bail out immediately
-#         if status == Status.ERROR:
-#             return "FALSE"
-
-#         # 4) only TIMEOUT is treated as UNKNOWN
-#         if status == Status.TIMEOUT:
-#             return "UNKNOWN"
-
-#         # 5) extract the abstract counterexample path
-#         # print("[DEBUG PredAbsCEGAR] retrieving abstract_cex_edges from CPAAlgorithm")
-#         if not hasattr(algo, "abstract_cex_edges"):
-#             raise AttributeError("run_cegar: CPAAlgorithm lacks `abstract_cex_edges`")
-#         cex_edges = algo.abstract_cex_edges
-#         # print(f"[DEBUG PredAbsCEGAR] abstract cex path = {cex_edges}")
-
-#         # 6) check concrete feasibility; if real bug, return FALSE
-#         if cegar_helper.is_path_feasible(cex_edges):
-#             return "FALSE"
-
-#         # 7) spurious → refine precision π and continue
-#         π = cegar_helper.refine_precision(π, cex_edges)
-
-#     # refinement budget exhausted
-#     return "UNKNOWN"
-
-
-# #!/usr/bin/env python3
-# """
-# PredAbsCEGAR.py
-# ===============
-
-# Predicate-abstraction **C**ounter-**E**xample-**G**uided **A**bstraction
-# **R**efinement driver for *pyCPA*.
-
-# The module is self-contained: import it, call ``run_cegar`` with the CFA
-# entry node, the list of CFA roots, the verification *task* object and the
-# chosen *specification* CPA(s); it returns the usual verdict string
-# ``"TRUE"``, ``"FALSE"`` or ``"UNKNOWN"``.
-
-# Key design decisions
-# --------------------
-# * **ARGCPA** wraps a product of
-#   ``LocationCPA × PredAbsCPA(π)`` – the precision π is refined across
-#   iterations.
-# * On every iteration we run the normal work-list algorithm
-#   (``CPAAlgorithm``).  The algorithm records an *abstract* error path
-#   (list of ``CFAEdge`` objects); the driver asks the SMT-based helper
-#   ``cegar_helper.is_path_feasible`` whether the path is *concrete*.
-# * Only a *concrete* error path terminates the loop with the verdict
-#   ``"FALSE"`` – otherwise we refine π and try again.
-# * The loop stops when:  
-#   ─ the program is proven safe   → ``"TRUE"``  
-#   ─ the refinement budget is used up or the ARG grows too large   → ``"UNKNOWN"``
-
-
-# ------------------------------------------------------------------------
-# """
-
-# from __future__ import annotations
-
-# from typing import List, Set, Tuple
-
-# from pysmt.fnode import FNode
-# from pysmt.shortcuts import TRUE  # convenience constant
-
-# from pycpa.cfa                       import CFANode
-# from pycpa.analyses.LocationCPA      import LocationCPA
-# from pycpa.analyses.PredAbsCPA       import PredAbsCPA
-# from pycpa.analyses.PredAbsPrecision import PredAbsPrecision
-# from pycpa.analyses.CompositeCPA     import CompositeCPA
-# from pycpa.analyses.ARGCPA           import ARGCPA
-# from pycpa.cpaalgorithm              import CPAAlgorithm, Status
-
-# # refinement helpers (SMT-based feasibility + predicate generation)
-# from pycpa.refinement import cegar_helper
-
-
-# # --------------------------------------------------------------------------- #
-# # internal: run **one** analysis under a *fixed* predicate precision π        #
-# # --------------------------------------------------------------------------- #
-# def _analyse_once(entry        : CFANode,
-#                   π            : Set[FNode],
-#                   task,
-#                   specs,
-#                   arg_cap      : int
-#                   ) -> Tuple[Status, CPAAlgorithm]:
-#     """
-#     Build LocationCPA × PredAbsCPA(π), execute the work-list algorithm,
-#     return the resulting *status* and the *CPAAlgorithm* instance (for the
-#     stored abstract counter-example, reached set size, …).
-
-#     If the ARG grows beyond *arg_cap* nodes we treat it as a timeout so
-#     the caller can translate that to the verdict “UNKNOWN”.
-#     """
-#     composite_cpa  = CompositeCPA([LocationCPA(entry), PredAbsCPA(π)])
-#     cpa            = ARGCPA(composite_cpa)
-
-#     init     = cpa.get_initial_state()
-#     reached  = {init}
-#     waitlist = {init}
-
-#     algo = CPAAlgorithm(cpa, task, type("Res", (), {})(), specs)
-#     algo.run(reached, waitlist)
-
-#     if len(reached) >= arg_cap:
-#         algo.result.status = Status.TIMEOUT
-
-#     return algo.result.status, algo
-
-
-# # --------------------------------------------------------------------------- #
-# # public: full CEGAR loop                                                     #
-# # --------------------------------------------------------------------------- #
-# def run_cegar(entry              : CFANode,
-#               cfa_roots          : List[CFANode],
-#               task,
-#               specification,
-#               *,
-#               max_refinements    : int  = 12,
-#               arg_node_cap       : int  = 50_000,
-#               verbose            : bool = False
-#               ) -> str:
-#     """
-#     Execute the standard CEGAR loop.
-
-#     Parameters
-#     ----------
-#     entry
-#         CFA entry node of the *main* procedure.
-#     cfa_roots
-#         All CFA roots (one per Python function) – used to mine predicates.
-#     task
-#         The *Task* object created by the CLI front-end (iteration limits).
-#     specification
-#         List of specification CPA names (e.g. ``["ReachSafety"]``).
-#     max_refinements, arg_node_cap, verbose
-#         Tuning parameters; defaults suffice for the benchmark suite.
-
-#     Returns
-#     -------
-#     str
-#         ``"TRUE"``, ``"FALSE"`` or ``"UNKNOWN"`` (SV-COMP conventions).
-#     """
-#     # 0)  initial predicate precision  π₀  =  all Boolean atoms in the CFA
-#     π = PredAbsPrecision.from_cfa(cfa_roots).predicates
-#     if not π:
-#         π = {TRUE()}            # guarantee π ≠ ∅ to placate SMT encodings
-
-#     # --- main refinement loop ---------------------------------------------
-#     for k in range(max_refinements):
-#         if verbose:
-#             print(f"\n[CEGAR {k:02d}]  |π| = {len(π)}")
-
-#         status, algo = _analyse_once(entry, π, task,
-#                                      specification, arg_node_cap)
-
-#         # 1)  SUCCESS – proven safe
-#         if status is Status.OK:
-#             return "TRUE"
-
-#         # 2)  gave up (ARG too large or user timeout)
-#         if status is Status.TIMEOUT:
-#             return "UNKNOWN"
-
-#         # 3)  all other statuses should come with an abstract cex
-#         cex_edges = getattr(algo, "abstract_cex_edges", None)
-#         if not cex_edges:
-#             # defensive: unexpected state => declare UNKNOWN
-#             if verbose:
-#                 print("[WARN]   no abstract counter-example returned")
-#             return "UNKNOWN"
-
-#         # optional pretty print
-#         if verbose:
-#             print("  abstract counter-example:",
-#                   " ➔ ".join(f"{e.instruction}" for e in cex_edges))
-
-#         # 4)  FEASIBILITY CHECK
-#         if cegar_helper.is_path_feasible(cex_edges):
-#             return "FALSE"      # real bug – stop!
-
-#         # 5)  spurious – REFINE  π  and iterate
-#         π = cegar_helper.refine_precision(π, cex_edges)
-
-#     # 6)  refinement budget exhausted
-#     return "UNKNOWN"
-
 #!/usr/bin/env python3
-# pycpa/analyses/PredAbsCEGAR.py
 """
-CEGAR driver that returns **TRUE**, **FALSE** *or* **UNKNOWN**.
-
-Works with the rest of your current repository (LocationCPA, PredAbsCPA,
-ARGCPA, cegar_helper, …) and raises no import errors.
+Predicate Abstraction with Counter-Example Guided Abstraction Refinement (CEGAR).
 """
 
-from __future__ import annotations
-from typing import List, Set, Tuple
+from typing import List, Optional
 
-from pysmt.fnode     import FNode
-from pysmt.shortcuts import TRUE
+from pycpa.cfa import CFANode, CFAEdge
+from pycpa.cpa import CPA, WrappedAbstractState # For type hinting and utility
+from pycpa.task import Task, Result, Status # Assuming these are defined in your project
+from pycpa.verdict import Verdict
 
-from pycpa.cfa                       import CFANode
-from pycpa.analyses.LocationCPA      import LocationCPA
-from pycpa.analyses.PredAbsCPA       import PredAbsCPA
+# CPAs
+from pycpa.analyses import (
+    LocationCPA,
+    PredAbsCPA,
+    CompositeCPA,
+    ARGCPA
+)
+# Precision
 from pycpa.analyses.PredAbsPrecision import PredAbsPrecision
-from pycpa.analyses.CompositeCPA     import CompositeCPA
-from pycpa.analyses.ARGCPA           import ARGCPA
-from pycpa.cpaalgorithm              import CPAAlgorithm, Status
-from pycpa.refinement                import cegar_helper
+# Algorithm
+from pycpa.cpaalgorithm import CPAAlgorithm
+# Helper for SMT an Interpolation
+import cegar_helper # Assuming this is in the same directory or python path
 
-from pycpa.verdict                   import Verdict
+# For constructing the initial CPA stack
+from pycpa.analyses.ARGCPA import ARGState # For initial state type
 
-# ──────────────────────────────────────────────────────────
-# helper – run one analysis under a fixed predicate set π
-# ──────────────────────────────────────────────────────────
-def _analyse_once(entry: CFANode,
-                  π: Set[FNode],
-                  task,
-                  specs,
-                  arg_cap: int
-                  ) -> Tuple[Status, CPAAlgorithm]:
+class PredAbsCEGARDriver:
+    def __init__(self,
+                 program_name: str, # For logging
+                 entry_node: CFANode,
+                 cfa_roots: List[CFANode], # For initial precision
+                 cpa_task: Task,
+                 cpa_result: Result, # To store final result
+                 log_printer, # From __main__.py
+                 max_refinements: int = 10,
+                 initial_precision: Optional[PredAbsPrecision] = None):
 
-    cpa      = ARGCPA(CompositeCPA([LocationCPA(entry), PredAbsCPA(π)]))
-    init     = cpa.get_initial_state()
-    reached  = {init}
-    waitlist = {init}
+        print(f"\n[CEGAR Driver INFO] Initializing PredAbsCEGARDriver for '{program_name}'.")
+        self.program_name = program_name
+        self.entry_node: CFANode = entry_node
+        self.cfa_roots: List[CFANode] = cfa_roots # Used for PredAbsPrecision.from_cfa
+        self.task: Task = cpa_task
+        self.result: Result = cpa_result # This will be updated by the algorithm
+        self.log_printer = log_printer
 
-    algo = CPAAlgorithm(cpa, task, type("Res", (), {})(), specs)
-    algo.run(reached, waitlist)
+        self.max_refinements: int = max_refinements
+        
+        if initial_precision:
+            self.current_precision: PredAbsPrecision = initial_precision
+            print("[CEGAR Driver INFO] Using provided initial precision.")
+        else:
+            print("[CEGAR Driver INFO] Creating initial precision from CFA roots...")
+            # Create an initial, possibly empty or globally-derived, precision
+            self.current_precision = PredAbsPrecision.from_cfa(self.cfa_roots)
+        print(f"[CEGAR Driver INFO] Initial precision state: {self.current_precision}")
 
-    # oversize ARG → timeout ⇒ UNKNOWN
-    if len(reached) >= arg_cap:
-        algo.result.status = Status.TIMEOUT
+        # The core CPA that will be refined (specifically, its PredAbsCPA component's precision)
+        # This needs to be recreated or updated in each iteration if precision changes.
+        self.pred_abs_cpa: Optional[PredAbsCPA] = None # Will be set in _build_cpa_stack
+        self.analysis_cpa: Optional[ARGCPA] = None # The top-level ARGCPA
 
-    return algo.result.status, algo
+    def _build_cpa_stack(self) -> ARGCPA:
+        """Builds the CPA stack with the current precision."""
+        print("[CEGAR Driver DEBUG] Building CPA stack...")
+        
+        # Ensure PredAbsCPA uses the most up-to-date precision
+        self.pred_abs_cpa = PredAbsCPA(initial_precision=self.current_precision)
+        print(f"[CEGAR Driver DEBUG]   PredAbsCPA created with precision: {self.current_precision}")
 
+        location_cpa = LocationCPA(cfa_root=self.entry_node)
+        # Specifications (like PropertyCPA) would be passed from the main script
+        # For now, assuming PropertyCPA is handled by the main script's `cpas` list
+        # and composed there. Here, we focus on Location x Predicate.
+        # If PropertyCPA needs to be part of this CEGAR-specific stack, add it here.
+        
+        # Simplified: assuming specifications are handled by the `CPAAlgorithm` constructor
+        # The `CompositeCPA` here should include all CPAs needed for the abstraction part.
+        # The `specifications` passed to `CPAAlgorithm` will handle property checking.
+        composite_cpa = CompositeCPA(cpas=[location_cpa, self.pred_abs_cpa])
+        print(f"[CEGAR Driver DEBUG]   CompositeCPA created with: LocationCPA, PredAbsCPA")
+        
+        arg_cpa = ARGCPA(wrapped_cpa=composite_cpa)
+        print(f"[CEGAR Driver DEBUG]   ARGCPA created, wrapping CompositeCPA.")
+        self.analysis_cpa = arg_cpa
+        return arg_cpa
 
-# ──────────────────────────────────────────────────────────
-# public – main CEGAR loop
-# ──────────────────────────────────────────────────────────
-def run_cegar(entry             : CFANode,
-              cfa_roots         : List[CFANode],
-              task,
-              specification,
-              *,
-              max_refinements   : int  = 12,
-              arg_node_cap      : int  = 50_000,
-              verbose           : bool = False
-              ) -> Verdict:
-    """
-    Returns "TRUE", "FALSE", or "UNKNOWN" (SV-COMP convention).
-    """
+    def run_cegar(self, specifications_cpas: List[CPA]):
+        """
+        Executes the CEGAR loop.
+        specifications_cpas: CPAs like PropertyCPA for checking the safety property.
+        """
+        print(f"\n[CEGAR Driver INFO] Starting CEGAR loop for '{self.program_name}'. Max refinements: {self.max_refinements}")
 
-    # initial precision = Boolean atoms mined from the CFA
-    π = PredAbsPrecision.from_cfa(cfa_roots).predicates or {TRUE()}
+        for i in range(self.max_refinements):
+            print(f"\n----------- CEGAR Iteration {i + 1} -----------")
+            self.log_printer.log_status(f"CEGAR Iteration {i + 1}/{self.max_refinements}")
 
-    for k in range(max_refinements):
-        if verbose:
-            print(f"[CEGAR {k:02d}]  |π| = {len(π)}")
+            # 1. Build CPA stack with current precision
+            # The analysis_cpa (ARGCPA) will wrap a CompositeCPA containing LocationCPA and PredAbsCPA(self.current_precision)
+            # It's important that PredAbsCPA uses the *updated* self.current_precision.
+            current_arg_cpa_config = self._build_cpa_stack()
+            
+            # The specifications_cpas (e.g., PropertyCPA) are added to the CompositeCPA by the main runner usually.
+            # Here, we need to ensure the CPAAlgorithm gets a CPA that includes both the abstraction
+            # CPAs (Location, Predicate) and the specification CPAs.
+            # Let's assume the main script will create a final CompositeCPA that includes
+            # current_arg_cpa_config's *wrapped* CPA and the specification_cpas.
+            # Or, more simply, CPAAlgorithm takes the ARGCPA and a separate list of spec CPAs.
+            # The provided CPAAlgorithm takes `cpa` (the ARGCPA) and `specifications` (list of spec CPAs).
+            # The ARGCPA should internally wrap the (LocationCPA+PredAbsCPA).
+            # The PropertyCPA is handled by the CPAAlgorithm by checking substates.
 
-        status, algo = _analyse_once(entry, π, task,
-                                     specification, arg_node_cap)
+            # Create a fresh result object for this iteration's algorithm run
+            # The main `self.result` will be updated with the final outcome.
+            iteration_result = Result() 
+            algo = CPAAlgorithm(cpa=current_arg_cpa_config,
+                                specifications=specifications_cpas, # e.g. [PropertyCPA_instance]
+                                task=self.task, # Use the main task
+                                result=iteration_result) # Algo updates this iteration_result
 
-        # safe program proven
-        if status is Status.OK:
-            return Verdict.TRUE
+            # 2. Run the CPAAlgorithm
+            # ARGCPA.get_initial_state() creates the root ARGState
+            initial_arg_state: ARGState = current_arg_cpa_config.get_initial_state()
+            print(f"[CEGAR Driver INFO] Running CPAAlgorithm for iteration {i + 1}...")
+            algo.run(initial_arg_state) # Algorithm updates iteration_result
 
-        # resource limit hit
-        if status is Status.TIMEOUT:
-            return Verdict.UNKNOWN
+            # 3. Check Algorithm's Result for this iteration
+            print(f"[CEGAR Driver INFO] CPAAlgorithm finished. Iteration Verdict: {iteration_result.verdict}, Status: {iteration_result.status}")
 
-        # must have an abstract counter-example now
-        cex_edges = getattr(algo, "abstract_cex_edges", None)
-        if not cex_edges:
-            return Verdict.UNKNOWN
+            if iteration_result.verdict == Verdict.TRUE:
+                self.log_printer.log_result(self.program_name, "TRUE (Safe)")
+                self.result.verdict = Verdict.TRUE # Update main result
+                self.result.status = Status.OK
+                return # Program is safe
 
-        # feasibility check
-        if cegar_helper.is_path_feasible(cex_edges):
-            return Verdict.FALSE
+            if iteration_result.status == Status.TIMEOUT:
+                self.log_printer.log_result(self.program_name, "UNKNOWN (Timeout)")
+                self.result.verdict = Verdict.UNKNOWN
+                self.result.status = Status.TIMEOUT
+                return # Timeout
 
-        # spurious → refine predicate set
-        π = cegar_helper.refine_precision(π, cex_edges)
+            if iteration_result.verdict == Verdict.FALSE:
+                # Abstract counterexample found by the algorithm
+                abstract_cex: Optional[List[CFAEdge]] = algo.abstract_cex_edges
+                if not abstract_cex:
+                    print("[CEGAR Driver ERROR] Algorithm reported FALSE but no CEX path found. Treating as UNKNOWN.")
+                    self.log_printer.log_result(self.program_name, "UNKNOWN (Error in CEX generation)")
+                    self.result.verdict = Verdict.UNKNOWN
+                    return
 
-    # refinement budget exhausted
-    return Verdict.UNKNOWN
+                print(f"[CEGAR Driver INFO] Abstract counterexample found with {len(abstract_cex)} edges.")
+                
+                # 4. Check Feasibility of the Abstract CEX
+                is_feasible, path_formula_conjuncts = cegar_helper.is_path_feasible(abstract_cex)
+
+                if is_feasible:
+                    self.log_printer.log_result(self.program_name, "FALSE (Unsafe)")
+                    self.result.verdict = Verdict.FALSE # Update main result
+                    self.result.status = Status.OK
+                    # TODO: Store concrete CEX if model was extracted by is_path_feasible
+                    return # Real counterexample
+
+                # 5. Spurious CEX: Refine Precision
+                print("[CEGAR Driver INFO] Abstract counterexample is SPURIOUS. Refining precision...")
+                if path_formula_conjuncts is None:
+                    print("[CEGAR Driver ERROR] Path was spurious but no path formula conjuncts for interpolation. Cannot refine.")
+                    self.log_printer.log_result(self.program_name, "UNKNOWN (Error in SMT for interpolation)")
+                    self.result.verdict = Verdict.UNKNOWN
+                    return
+                
+                # The self.current_precision object is updated in-place by refine_precision
+                # if it modifies its internal dicts. Or it returns a new object.
+                # PredAbsPrecision.add_local_predicates_map modifies in-place.
+                self.current_precision = cegar_helper.refine_precision(
+                    current_precision=self.current_precision, # Pass the PredAbsPrecision object
+                    abstract_cex_edges=abstract_cex,
+                    path_formula_conjuncts=path_formula_conjuncts
+                )
+                print(f"[CEGAR Driver INFO] Precision updated. New state: {self.current_precision}")
+                # The loop will continue, and _build_cpa_stack will use the updated self.current_precision
+
+            else: # Should be TRUE or TIMEOUT, already handled. Or UNKNOWN from CPAAlgorithm.
+                print(f"[CEGAR Driver WARN] CPAAlgorithm returned unexpected status/verdict: {iteration_result.status}/{iteration_result.verdict}. Treating as UNKNOWN.")
+                self.log_printer.log_result(self.program_name, "UNKNOWN (CPA Error)")
+                self.result.verdict = Verdict.UNKNOWN
+                return
+
+        # Max refinements reached
+        print(f"[CEGAR Driver WARN] Maximum number of refinements ({self.max_refinements}) reached.")
+        self.log_printer.log_result(self.program_name, "UNKNOWN (Max refinements reached)")
+        self.result.verdict = Verdict.UNKNOWN
+        self.result.status = Status.TIMEOUT # Or a specific status for max refinements
