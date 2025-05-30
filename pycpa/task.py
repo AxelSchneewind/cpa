@@ -22,7 +22,7 @@ class Status(Enum):
     ERROR = 4
 
     def __str__(self):
-        return Enum.__str__(self).replace('Verdict.', '')
+        return Enum.__str__(self).replace('Status.', '')
 
 
 from pycpa.verdict import Verdict
