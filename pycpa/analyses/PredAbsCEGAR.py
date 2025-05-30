@@ -14,6 +14,7 @@ from pycpa.verdict import Verdict
 from pycpa.analyses import (
     LocationCPA,
     PredAbsCPA,
+    PropertyCPA,
     CompositeCPA,
     ARGCPA
 )
@@ -82,7 +83,7 @@ class PredAbsCEGARDriver:
         # Simplified: assuming specifications are handled by the `CPAAlgorithm` constructor
         # The `CompositeCPA` here should include all CPAs needed for the abstraction part.
         # The `specifications` passed to `CPAAlgorithm` will handle property checking.
-        composite_cpa = CompositeCPA([location_cpa, self.pred_abs_cpa])
+        composite_cpa = CompositeCPA([location_cpa, self.pred_abs_cpa, PropertyCPA()])
         log.printer.log_debug(1, f"[CEGAR Driver DEBUG]   CompositeCPA created with: LocationCPA, PredAbsCPA")
         
         arg_cpa = ARGCPA(wrapped_cpa=composite_cpa)
