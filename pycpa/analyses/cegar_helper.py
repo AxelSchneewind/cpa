@@ -18,6 +18,8 @@ from pysmt.exceptions import SolverReturnedUnknownResultError, NoSolverAvailable
 from pycpa.cfa import CFAEdge, CFANode
 from pycpa.analyses.PredAbsPrecision import PredAbsPrecision, unindex_predicate
 
+from pycpa import log
+
 def is_path_feasible(abstract_cex_edges: List[CFAEdge]) -> Tuple[bool, Optional[List[FNode]]]:
     """
     Checks if the abstract counterexample path is feasible.
@@ -32,9 +34,9 @@ def is_path_feasible(abstract_cex_edges: List[CFAEdge]) -> Tuple[bool, Optional[
                                  representing the path if it's UNSAT (spurious).
                                  None if the path is SAT (feasible) or on error.
     """
-    print("\n[CEGAR Helper INFO] Checking path feasibility...")
+    log.printer.log_debug(1, "\n[CEGAR Helper INFO] Checking path feasibility...")
     if not abstract_cex_edges:
-        print("[CEGAR Helper WARN] Path is empty, considering it trivially feasible (or an issue).")
+        log.printer.log_debug(1, "[CEGAR Helper WARN] Path is empty, considering it trivially feasible (or an issue).")
         return True, None # Or handle as an error/spurious based on semantics
 
     path_formula_conjuncts: List[FNode] = []
@@ -42,23 +44,23 @@ def is_path_feasible(abstract_cex_edges: List[CFAEdge]) -> Tuple[bool, Optional[
     # This is independent of the SSA maps used during ARG construction for abstraction states
     current_ssa_indices: Dict[str, int] = {}
 
-    print(f"[CEGAR Helper DEBUG] Abstract CEX Path Edges ({len(abstract_cex_edges)}):")
+    log.printer.log_debug(1, f"[CEGAR Helper DEBUG] Abstract CEX Path Edges ({len(abstract_cex_edges)}):")
     for i, edge in enumerate(abstract_cex_edges):
-        print(f"[CEGAR Helper DEBUG]   Edge {i}: {edge.label()} (from {edge.predecessor.node_id} to {edge.successor.node_id})")
+        log.printer.log_debug(1, f"[CEGAR Helper DEBUG]   Edge {i}: {edge.label()} (from {edge.predecessor.node_id} to {edge.successor.node_id})")
         
         # PredAbsPrecision.from_cfa_edge generates the SMT formula for the edge
         # and updates current_ssa_indices internally.
         edge_formula = PredAbsPrecision.from_cfa_edge(edge, current_ssa_indices)
         
         if edge_formula is None:
-            print(f"[CEGAR Helper WARN] Could not get SMT formula for edge: {edge.label()}. Skipping.")
+            log.printer.log_debug(1, f"[CEGAR Helper WARN] Could not get SMT formula for edge: {edge.label()}. Skipping.")
             # Or treat as TRUE, or error, depending on desired strictness
             edge_formula = TRUE() # Default to TRUE if no formula, to not break path conjunction
 
         if not edge_formula.is_true(): # Avoid adding TRUE() to the list if it's just a NOP or similar
             path_formula_conjuncts.append(edge_formula)
-        print(f"[CEGAR Helper DEBUG]     Edge SMT: {edge_formula.serialize() if edge_formula else 'None'}")
-        print(f"[CEGAR Helper DEBUG]     SSA after edge: {current_ssa_indices}")
+        log.printer.log_debug(1, f"[CEGAR Helper DEBUG]     Edge SMT: {edge_formula.serialize() if edge_formula else 'None'}")
+        log.printer.log_debug(1, f"[CEGAR Helper DEBUG]     SSA after edge: {current_ssa_indices}")
 
 
     if not path_formula_conjuncts:
@@ -66,7 +68,7 @@ def is_path_feasible(abstract_cex_edges: List[CFAEdge]) -> Tuple[bool, Optional[
     else:
         full_path_formula = And(path_formula_conjuncts)
 
-    print(f"[CEGAR Helper DEBUG] Full path formula (Φ) for feasibility check: {full_path_formula.serialize()}")
+    log.printer.log_debug(1, f"[CEGAR Helper DEBUG] Full path formula (Φ) for feasibility check: {full_path_formula.serialize()}")
 
     try:
         # Using MathSAT (msat) as the solver, ensure it's installed and pySMT can find it.
@@ -74,7 +76,7 @@ def is_path_feasible(abstract_cex_edges: List[CFAEdge]) -> Tuple[bool, Optional[
         with Solver(name="msat", logic="QF_LIA") as solver:
             solver.add_assertion(full_path_formula)
             is_sat_result = solver.solve()
-            print(f"[CEGAR Helper INFO] Path formula SMT check result: {'SAT' if is_sat_result else 'UNSAT'}")
+            log.printer.log_debug(1, f"[CEGAR Helper INFO] Path formula SMT check result: {'SAT' if is_sat_result else 'UNSAT'}")
 
             if is_sat_result:
                 # Path is feasible (concrete counterexample)
@@ -85,14 +87,14 @@ def is_path_feasible(abstract_cex_edges: List[CFAEdge]) -> Tuple[bool, Optional[
                 return False, path_formula_conjuncts # Return the conjuncts for interpolation
 
     except NoSolverAvailableError:
-        print("[CEGAR Helper ERROR] MathSAT solver not found or not configured for pySMT.")
-        print("[CEGAR Helper ERROR] Please ensure MathSAT is installed and accessible.")
+        log.printer.log_debug(1, "[CEGAR Helper ERROR] MathSAT solver not found or not configured for pySMT.")
+        log.printer.log_debug(1, "[CEGAR Helper ERROR] Please ensure MathSAT is installed and accessible.")
         return False, None # Treat as error/spurious, cannot proceed
     except SolverReturnedUnknownResultError:
-        print("[CEGAR Helper WARN] SMT solver returned UNKNOWN for path feasibility.")
+        log.printer.log_debug(1, "[CEGAR Helper WARN] SMT solver returned UNKNOWN for path feasibility.")
         return False, None # Treat as spurious or handle as error
     except Exception as e:
-        print(f"[CEGAR Helper ERROR] Error during SMT check for path feasibility: {e}")
+        log.printer.log_debug(1, f"[CEGAR Helper ERROR] Error during SMT check for path feasibility: {e}")
         return False, None
 
 
@@ -113,9 +115,9 @@ def refine_precision(
     Returns:
         The updated PredAbsPrecision object.
     """
-    print("\n[CEGAR Helper INFO] Refining precision using interpolants...")
+    log.printer.log_debug(1, "\n[CEGAR Helper INFO] Refining precision using interpolants...")
     if not path_formula_conjuncts:
-        print("[CEGAR Helper WARN] No path formula conjuncts provided for interpolation. Precision not refined.")
+        log.printer.log_debug(1, "[CEGAR Helper WARN] No path formula conjuncts provided for interpolation. Precision not refined.")
         return current_precision
 
     interpolants: Optional[List[FNode]] = None
@@ -132,11 +134,11 @@ def refine_precision(
             # Let's assume interpolator.sequence_interpolant([A1..An]) returns [Itp1, ..., Itp_{n-1}]
             # where Itp_k is for (A1..Ak) and (A_{k+1}..An)
             # We need to align this with the locations.
-            print(f"[CEGAR Helper DEBUG] Requesting sequence interpolants for {len(path_formula_conjuncts)} conjuncts.")
+            log.printer.log_debug(1, f"[CEGAR Helper DEBUG] Requesting sequence interpolants for {len(path_formula_conjuncts)} conjuncts.")
             raw_interpolants = interpolator.sequence_interpolant(path_formula_conjuncts)
             
             if raw_interpolants is None:
-                print("[CEGAR Helper WARN] Interpolator returned None. Cannot refine precision.")
+                log.printer.log_debug(1, "[CEGAR Helper WARN] Interpolator returned None. Cannot refine precision.")
                 return current_precision
 
             # Construct the sequence τ_0, ..., τ_n as per typical CEGAR algorithm
@@ -144,18 +146,18 @@ def refine_precision(
             # τ_i for i=1..n-1 is raw_interpolants[i-1]
             # τ_n = False
             interpolants = [TRUE()] + raw_interpolants + [FALSE()]
-            print(f"[CEGAR Helper INFO] Generated {len(interpolants)} interpolants (τ_0 to τ_n).")
+            log.printer.log_debug(1, f"[CEGAR Helper INFO] Generated {len(interpolants)} interpolants (τ_0 to τ_n).")
             for i, itp in enumerate(interpolants):
-                print(f"[CEGAR Helper DEBUG]   τ_{i}: {itp.serialize()}")
+                log.printer.log_debug(1, f"[CEGAR Helper DEBUG]   τ_{i}: {itp.serialize()}")
 
     except NoSolverAvailableError:
-        print("[CEGAR Helper ERROR] MathSAT solver (for interpolation) not found.")
+        log.printer.log_debug(1, "[CEGAR Helper ERROR] MathSAT solver (for interpolation) not found.")
         return current_precision
     except SolverReturnedUnknownResultError:
-        print("[CEGAR Helper WARN] Interpolator returned UNKNOWN.")
+        log.printer.log_debug(1, "[CEGAR Helper WARN] Interpolator returned UNKNOWN.")
         return current_precision
     except Exception as e:
-        print(f"[CEGAR Helper ERROR] Error during interpolation: {e}")
+        log.printer.log_debug(1, f"[CEGAR Helper ERROR] Error during interpolation: {e}")
         return current_precision
 
     if not interpolants:
@@ -182,7 +184,7 @@ def refine_precision(
 
     num_edges = len(abstract_cex_edges)
     if len(interpolants) != num_edges + 1:
-        print(f"[CEGAR Helper WARN] Mismatch in interpolant count ({len(interpolants)}) and edge count ({num_edges}). Cannot reliably map interpolants to locations.")
+        log.printer.log_debug(1, f"[CEGAR Helper WARN] Mismatch in interpolant count ({len(interpolants)}) and edge count ({num_edges}). Cannot reliably map interpolants to locations.")
         # Fallback: add all new predicates globally if mapping is unclear
         all_new_preds_globally = set()
         for itp in interpolants:
@@ -191,7 +193,7 @@ def refine_precision(
                     if not atom.is_true() and not atom.is_false():
                          all_new_preds_globally.add(unindex_predicate(atom))
         if all_new_preds_globally:
-            print(f"[CEGAR Helper INFO] Adding {len(all_new_preds_globally)} new predicates globally due to interpolant mapping uncertainty.")
+            log.printer.log_debug(1, f"[CEGAR Helper INFO] Adding {len(all_new_preds_globally)} new predicates globally due to interpolant mapping uncertainty.")
             current_precision.add_global_predicates(all_new_preds_globally)
         return current_precision
 
@@ -204,7 +206,7 @@ def refine_precision(
         for atom in interpolants[0].get_atoms():
             if not atom.is_true() and not atom.is_false():
                 new_local_predicates_map[loc_for_tau0].add(unindex_predicate(atom))
-        print(f"[CEGAR Helper DEBUG] Extracted from τ_0 for loc {loc_for_tau0.node_id}: {new_local_predicates_map[loc_for_tau0]}")
+        log.printer.log_debug(1, f"[CEGAR Helper DEBUG] Extracted from τ_0 for loc {loc_for_tau0.node_id}: {new_local_predicates_map[loc_for_tau0]}")
 
 
     # Add predicates from τ_i (1 <= i <= n-1) to π(l_i) where l_i is abstract_cex_edges[i-1].successor
@@ -228,7 +230,7 @@ def refine_precision(
                 new_local_predicates_map[location_node].add(unindexed)
                 current_atoms.add(unindexed)
         if current_atoms:
-            print(f"[CEGAR Helper DEBUG] Extracted from τ_{i} for loc {location_node.node_id}: {current_atoms}")
+            log.printer.log_debug(1, f"[CEGAR Helper DEBUG] Extracted from τ_{i} for loc {location_node.node_id}: {current_atoms}")
 
 
     # Add predicates from τ_n to π(l_n) where l_n is abstract_cex_edges[n-1].successor (error location)
@@ -239,14 +241,14 @@ def refine_precision(
         for atom in interpolants[num_edges].get_atoms():
             if not atom.is_true() and not atom.is_false():
                 new_local_predicates_map[loc_for_taun].add(unindex_predicate(atom))
-        print(f"[CEGAR Helper DEBUG] Extracted from τ_{num_edges} for loc {loc_for_taun.node_id}: {new_local_predicates_map[loc_for_taun]}")
+        log.printer.log_debug(1, f"[CEGAR Helper DEBUG] Extracted from τ_{num_edges} for loc {loc_for_taun.node_id}: {new_local_predicates_map[loc_for_taun]}")
 
 
     if new_local_predicates_map:
-        print(f"[CEGAR Helper INFO] Adding new local predicates to precision: { {loc.node_id: preds for loc, preds in new_local_predicates_map.items()} }")
+        log.printer.log_debug(1, f"[CEGAR Helper INFO] Adding new local predicates to precision: { {loc.node_id: preds for loc, preds in new_local_predicates_map.items()} }")
         current_precision.add_local_predicates_map(new_local_predicates_map)
     else:
-        print("[CEGAR Helper INFO] No new non-trivial predicates extracted from interpolants.")
+        log.printer.log_debug(1, "[CEGAR Helper INFO] No new non-trivial predicates extracted from interpolants.")
         
     return current_precision
 

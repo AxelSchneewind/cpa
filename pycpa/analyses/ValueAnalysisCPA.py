@@ -4,6 +4,8 @@ from pycpa.cfa import InstructionType
 
 from pycpa.cpa import CPA, AbstractState, TransferRelation, StopSepOperator, MergeSepOperator
 
+from pycpa import log
+
 import ast
 import copy
 
@@ -119,7 +121,7 @@ class ValueExpressionVisitor(ast.NodeVisitor):
             val = node.value.id
 
             if sl is None or sl.is_top():
-                print('write to unknown memory location encountered, nuking value state')
+                log.printer.log_debug(1, 'write to unknown memory location encountered, nuking value state')
                 self.valuation = {}
             else:
                 varname = '%s[%s]' % (str(val.actual if isinstance(val, Value) else val), str(sl.actual))

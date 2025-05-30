@@ -7,6 +7,9 @@ from typing import List, Optional # Added Optional
 from enum import Enum
 
 
+from pycpa import log
+
+
 class InstructionType(Enum):
     STATEMENT = 1,
     ASSUMPTION = 2,
@@ -104,7 +107,7 @@ class Instruction:
         else:
             # Handle cases where func is not a simple name (e.g., attribute access)
             # For simplicity, we might raise an error or return a generic instruction
-            print(f"[Instruction WARN] Builtin call to non-Name func: {ast.dump(expression.func)}. Treating as EXTERNAL.")
+            log.printer.log_debug(1, f"[Instruction WARN] Builtin call to non-Name func: {ast.dump(expression.func)}. Treating as EXTERNAL.")
             return Instruction(expression, kind=InstructionType.EXTERNAL, target_variable=target_variable, **params)
 
         assert name in builtin_identifiers, f"Builtin '{name}' not recognized."
@@ -186,7 +189,7 @@ class CFANode:
     def merge(a: 'CFANode', b: 'CFANode') -> 'CFANode': # MODIFIED
         if a.function_name != b.function_name and b.function_name is not None:
             if a.function_name is not None:
-                 print(f"[CFANode WARN] Merging nodes from different functions: {a.function_name} and {b.function_name}. Keeping {a.function_name}.")
+                log.printer.log_debug(1, f"[CFANode WARN] Merging nodes from different functions: {a.function_name} and {b.function_name}. Keeping {a.function_name}.")
             # a.function_name remains as is. If b had one and a didn't, a would get it if we assigned.
             # Default: 'a's properties are primary.
 
@@ -262,7 +265,7 @@ class CFACreator(ast.NodeVisitor):
         return CFANode(function_name=self.current_function_name)
 
     def visit_FunctionDef(self, node : ast.FunctionDef):
-        print(f"[CFACreator INFO] Visiting FunctionDef: {node.name}")
+        log.printer.log_debug(1, f"[CFACreator INFO] Visiting FunctionDef: {node.name}")
         outer_scope_function_name = self.current_function_name # Save outer scope
         self.current_function_name = node.name # Set current scope
 
@@ -273,7 +276,7 @@ class CFACreator(ast.NodeVisitor):
         self.node_stack.append(post)
 
         if node.name in builtin_identifiers:
-            print(f'[CFACreator WARN] Builtin function {node.name} redefined, ignoring definition.')
+            log.printer.log_debug(1, f'[CFACreator WARN] Builtin function {node.name} redefined, ignoring definition.')
             self.current_function_name = outer_scope_function_name # Restore outer scope
             return
 
@@ -283,7 +286,7 @@ class CFACreator(ast.NodeVisitor):
 
         if node.name == 'main': # Or your designated entry function
             self.entry_point = root
-            print(f"[CFACreator INFO] Set entry point to function: {node.name}")
+            log.printer.log_debug(1, f"[CFACreator INFO] Set entry point to function: {node.name}")
 
 
         self.node_stack.append(root)
@@ -295,7 +298,7 @@ class CFACreator(ast.NodeVisitor):
 
 
         self.current_function_name = outer_scope_function_name # MODIFIED: Restore outer scope
-        print(f"[CFACreator INFO] Finished visiting FunctionDef: {node.name}")
+        log.printer.log_debug(1, f"[CFACreator INFO] Finished visiting FunctionDef: {node.name}")
 
 
     def visit_While(self, node : ast.While):
@@ -329,7 +332,7 @@ class CFACreator(ast.NodeVisitor):
         entry_node = self.node_stack.pop()
         # Break goes to the node designated by the innermost loop's break_stack
         if not self.break_stack:
-            print("[CFACreator ERROR] Break statement outside of loop.")
+            log.printer.log_debug(1, "[CFACreator ERROR] Break statement outside of loop.")
             # Create a dummy next node to allow parsing to continue, though this is an error
             next_node_after_break = self._new_cfa_node()
             self.node_stack.append(next_node_after_break)
@@ -347,7 +350,7 @@ class CFACreator(ast.NodeVisitor):
     def visit_Continue(self, node : ast.Continue):
         entry_node = self.node_stack.pop()
         if not self.continue_stack:
-            print("[CFACreator ERROR] Continue statement outside of loop.")
+            log.printer.log_debug(1, "[CFACreator ERROR] Continue statement outside of loop.")
             next_node_after_continue = self._new_cfa_node()
             self.node_stack.append(next_node_after_continue)
             return
@@ -429,7 +432,7 @@ class CFACreator(ast.NodeVisitor):
             else:
                 # This case should ideally be handled by ExpandReturn preprocessor
                 # which makes the return value always a simple Name (like __ret).
-                print(f"[CFACreator WARN] Return statement value is not a simple Name: {ast.dump(node.value)}. This might not be handled correctly by SSA.")
+                log.printer.log_debug(1, f"[CFACreator WARN] Return statement value is not a simple Name: {ast.dump(node.value)}. This might not be handled correctly by SSA.")
                 # As a fallback, try to unparse it, but this is not ideal for SSA.
                 return_value_name = ast.unparse(node.value).strip()
 
@@ -442,7 +445,7 @@ class CFACreator(ast.NodeVisitor):
 
 
     def _handle_Call_inline(self, call_node : ast.Call, target_variable_name : Optional[str] = None):
-        print(f"[CFACreator WARN] Inlining for call {ast.dump(call_node.func)} not fully implemented, treating as standard call.")
+        log.printer.log_debug(1, f"[CFACreator WARN] Inlining for call {ast.dump(call_node.func)} not fully implemented, treating as standard call.")
         self._handle_Call(call_node, target_variable_name)
 
 
@@ -485,7 +488,7 @@ class CFACreator(ast.NodeVisitor):
             )
             edge = CFAEdge(entry_node, node_after_call, instr) # Edge from pre-call to post-call node in caller
         else:
-            print(f"[CFACreator WARN] Call to undefined function '{func_name_to_call}'. Treating as external/NOP.")
+            log.printer.log_debug(1, f"[CFACreator WARN] Call to undefined function '{func_name_to_call}'. Treating as external/NOP.")
             # Create a NOP edge or an "external call" edge.
             instr = Instruction.nop(call_node) # Or a specific EXTERNAL instruction
             edge = CFAEdge(entry_node, node_after_call, instr)
@@ -502,7 +505,7 @@ class CFACreator(ast.NodeVisitor):
             return self._handle_Call(node, target_variable_name=None)
 
     def visit_Assert(self, node : ast.Assert):
-        print(f"[CFACreator INFO] Visiting Assert: {ast.unparse(node.test).strip()}")
+        log.printer.log_debug(1, f"[CFACreator INFO] Visiting Assert: {ast.unparse(node.test).strip()}")
         entry_node = self.node_stack.pop()
         node_after_assert_passes = self._new_cfa_node()
         
@@ -512,7 +515,7 @@ class CFACreator(ast.NodeVisitor):
 
 
     def visit_Raise(self, node : ast.Raise):
-        print(f"[CFACreator INFO] Visiting Raise statement. Treating as reach_error.")
+        log.printer.log_debug(1, f"[CFACreator INFO] Visiting Raise statement. Treating as reach_error.")
         entry_node = self.node_stack.pop()
         error_node = self._new_cfa_node() # Node representing the error state
         edge = CFAEdge(entry_node, error_node, Instruction.reacherror(node))

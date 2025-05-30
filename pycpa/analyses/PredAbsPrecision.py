@@ -21,6 +21,8 @@ from pysmt.fnode import FNode
 
 from pycpa.cfa import InstructionType, CFAEdge, CFANode # Assuming CFANode is hashable
 
+from pycpa import log
+
 # ------------------ #
 #  SSA helpers       #
 # ------------------ #
@@ -98,7 +100,7 @@ def _cast(formula : FNode, target_type):
         return Ite(formula, BV(1, 64), BV(0, 64))
     if target_type.is_bool_type() and actual_type.is_bv_type():
         return NotEquals(formula, BV(0, 64))
-    print(f"[PredAbsPrecision DEBUG] _cast: Cannot cast from {actual_type} to {target_type} for formula {formula}")
+    log.printer.log_debug(1, f"[PredAbsPrecision DEBUG] _cast: Cannot cast from {actual_type} to {target_type} for formula {formula}")
     return formula
 
 
@@ -110,7 +112,7 @@ def _bv(t: FNode) -> FNode:
 
 
 def _expr2smt(node: ast.AST, ssa: Dict[str, int]) -> FNode:
-    print(f"[PredAbsPrecision DEBUG] _expr2smt visiting: {ast.dump(node)} with ssa {ssa}")
+    log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] _expr2smt visiting: {ast.dump(node)} with ssa {ssa}")
     match node:
         case ast.Name(id=v):
             return _ssa(v, ssa.get(v, 0))
@@ -119,7 +121,7 @@ def _expr2smt(node: ast.AST, ssa: Dict[str, int]) -> FNode:
             if isinstance(v, bool): return TRUE() if v else FALSE()
             if isinstance(v, int):  return BV(v, 64)
             h = hashlib.md5(repr(v).encode()).hexdigest()[:8]
-            print(f"[PredAbsPrecision WARN] _expr2smt: Unknown constant type {type(v)}, creating symbolic const_{h}")
+            log.printer.log_debug(1, f"[PredAbsPrecision WARN] _expr2smt: Unknown constant type {type(v)}, creating symbolic const_{h}")
             return _ssa(f"const_{h}", 0) # Fallback for other const types
 
         case ast.BinOp(left=l, op=op_type, right=r): # Consolidate BinOp
@@ -140,7 +142,7 @@ def _expr2smt(node: ast.AST, ssa: Dict[str, int]) -> FNode:
             if isinstance(op_type, ast.Mod):  return BVURem(left_smt, right_smt)
             # Pow not directly supported by SMT-LIB standard for BVs easily, placeholder
             if isinstance(op_type, ast.Pow):  
-                print(f"[PredAbsPrecision WARN] _expr2smt: Operator ast.Pow not directly supported, returning TRUE.")
+                log.printer.log_debug(1, f"[PredAbsPrecision WARN] _expr2smt: Operator ast.Pow not directly supported, returning TRUE.")
                 return TRUE()
 
 
@@ -165,7 +167,7 @@ def _expr2smt(node: ast.AST, ssa: Dict[str, int]) -> FNode:
                     elif right_smt.get_type() == BOOL: left_smt = _bool(left_smt)
                 return NotEquals(left_smt, right_smt)
             
-            print(f"[PredAbsPrecision WARN] _expr2smt: Unhandled BinOp operator {type(op_type)}, returning TRUE.")
+            log.printer.log_debug(1, f"[PredAbsPrecision WARN] _expr2smt: Unhandled BinOp operator {type(op_type)}, returning TRUE.")
             return TRUE()
 
 
@@ -173,7 +175,7 @@ def _expr2smt(node: ast.AST, ssa: Dict[str, int]) -> FNode:
             smt_values = [_bool(_expr2smt(v, ssa)) for v in vs]
             if isinstance(op_type, ast.And): return And(smt_values)
             if isinstance(op_type, ast.Or):  return Or(smt_values)
-            print(f"[PredAbsPrecision WARN] _expr2smt: Unhandled BoolOp operator {type(op_type)}, returning TRUE.")
+            log.printer.log_debug(1, f"[PredAbsPrecision WARN] _expr2smt: Unhandled BoolOp operator {type(op_type)}, returning TRUE.")
             return TRUE()
 
         case ast.UnaryOp(op=op_type, operand=o):
@@ -182,7 +184,7 @@ def _expr2smt(node: ast.AST, ssa: Dict[str, int]) -> FNode:
             if isinstance(op_type, ast.USub): return BVNeg(_bv(smt_operand))
             if isinstance(op_type, ast.UAdd): return _bv(smt_operand) # UAdd is identity
             if isinstance(op_type, ast.Invert): return BVNot(_bv(smt_operand)) # Bitwise NOT
-            print(f"[PredAbsPrecision WARN] _expr2smt: Unhandled UnaryOp operator {type(op_type)}, returning TRUE.")
+            log.printer.log_debug(1, f"[PredAbsPrecision WARN] _expr2smt: Unhandled UnaryOp operator {type(op_type)}, returning TRUE.")
             return TRUE()
 
         case ast.Compare(left=l, ops=ops, comparators=comps):
@@ -206,7 +208,7 @@ def _expr2smt(node: ast.AST, ssa: Dict[str, int]) -> FNode:
                 if isinstance(op_type, ast.NotEq): return NotEquals(lhs, rhs)
                 # Python's 'is', 'is not', 'in', 'not in' are not directly mapped here.
                 # For this tool, we assume comparisons are arithmetic/equality.
-                print(f"[PredAbsPrecision WARN] _expr2smt: Unhandled Compare operator {type(op_type)}, returning TRUE.")
+                log.printer.log_debug(1, f"[PredAbsPrecision WARN] _expr2smt: Unhandled Compare operator {type(op_type)}, returning TRUE.")
                 return TRUE()
             else: # Chained comparison: x < y < z  => (x < y) & (y < z)
                 conjuncts = []
@@ -228,7 +230,7 @@ def _expr2smt(node: ast.AST, ssa: Dict[str, int]) -> FNode:
                     elif isinstance(op_type, ast.Eq):  conjuncts.append(Equals(lhs, rhs))
                     elif isinstance(op_type, ast.NotEq): conjuncts.append(NotEquals(lhs, rhs))
                     else:
-                        print(f"[PredAbsPrecision WARN] _expr2smt: Unhandled chained Compare operator {type(op_type)}, adding TRUE.")
+                        log.printer.log_debug(1, f"[PredAbsPrecision WARN] _expr2smt: Unhandled chained Compare operator {type(op_type)}, adding TRUE.")
                         conjuncts.append(TRUE())
                     current_lhs_ast = current_rhs_ast # For next comparison in chain
                 return And(conjuncts)
@@ -240,7 +242,7 @@ def _expr2smt(node: ast.AST, ssa: Dict[str, int]) -> FNode:
 
 
         case _:
-            print(f"[PredAbsPrecision ERROR] _expr2smt: Unsupported AST node type {type(node)}: {ast.dump(node)}. Returning TRUE as fallback.")
+            log.printer.log_debug(5, f"[PredAbsPrecision ERROR] _expr2smt: Unsupported AST node type {type(node)}: {ast.dump(node)}. Returning TRUE as fallback.")
             return TRUE()
 
 
@@ -256,31 +258,31 @@ class PredAbsPrecision:
         self.global_predicates: Set[FNode] = global_preds if global_preds is not None else set()
         self.function_predicates: Dict[str, Set[FNode]] = function_preds if function_preds is not None else {}
         self.local_predicates: Dict[CFANode, Set[FNode]] = local_preds if local_preds is not None else {}
-        print(f"[PredAbsPrecision INFO] Initialized precision: Global={len(self.global_predicates)}, Function={len(self.function_predicates)}, Local={len(self.local_predicates)}")
+        log.printer.log_debug(5, f"[PredAbsPrecision INFO] Initialized precision: Global={len(self.global_predicates)}, Function={len(self.function_predicates)}, Local={len(self.local_predicates)}")
 
     def get_predicates_for_location(self, loc_node: CFANode) -> Set[FNode]:
         """
         Retrieves all applicable predicates for a given CFA node,
         combining global, function-specific, and location-specific predicates.
         """
-        print(f"[PredAbsPrecision DEBUG] Getting predicates for location: {loc_node.node_id if loc_node else 'None'}")
+        log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] Getting predicates for location: {loc_node.node_id if loc_node else 'None'}")
         if loc_node is None: # Should not happen if loc_node is always a CFANode
             return self.global_predicates.copy()
 
         preds = self.global_predicates.copy()
-        print(f"[PredAbsPrecision DEBUG] Global preds: {preds}")
+        log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] Global preds: {preds}")
 
         func_name = loc_node.get_function_name() # Assuming CFANode has this method
         if func_name and func_name in self.function_predicates:
             preds.update(self.function_predicates[func_name])
-            print(f"[PredAbsPrecision DEBUG] Added function '{func_name}' preds: {self.function_predicates[func_name]}")
+            log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] Added function '{func_name}' preds: {self.function_predicates[func_name]}")
 
 
         if loc_node in self.local_predicates:
             preds.update(self.local_predicates[loc_node])
-            print(f"[PredAbsPrecision DEBUG] Added local (node {loc_node.node_id}) preds: {self.local_predicates[loc_node]}")
+            log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] Added local (node {loc_node.node_id}) preds: {self.local_predicates[loc_node]}")
         
-        print(f"[PredAbsPrecision DEBUG] Total preds for node {loc_node.node_id}: {preds}")
+        log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] Total preds for node {loc_node.node_id}: {preds}")
         return preds
 
     def __getitem__(self, loc_node: CFANode) -> Set[FNode]:
@@ -292,7 +294,7 @@ class PredAbsPrecision:
         count_before = len(self.global_predicates)
         for p in new_preds:
             self.global_predicates.add(unindex_predicate(p))
-        print(f"[PredAbsPrecision INFO] Added {len(self.global_predicates) - count_before} new global predicates. Total global: {len(self.global_predicates)}")
+        log.printer.log_debug(5, f"[PredAbsPrecision INFO] Added {len(self.global_predicates) - count_before} new global predicates. Total global: {len(self.global_predicates)}")
 
     def add_function_predicates(self, func_name: str, new_preds: Iterable[FNode]):
         """Adds new function-specific predicates. Predicates are unindexed."""
@@ -302,7 +304,7 @@ class PredAbsPrecision:
         count_before = len(self.function_predicates[func_name])
         for p in new_preds:
             self.function_predicates[func_name].add(unindex_predicate(p))
-        print(f"[PredAbsPrecision INFO] Added {len(self.function_predicates[func_name]) - count_before} new preds for function '{func_name}'. Total for func: {len(self.function_predicates[func_name])}")
+        log.printer.log_debug(5, f"[PredAbsPrecision INFO] Added {len(self.function_predicates[func_name]) - count_before} new preds for function '{func_name}'. Total for func: {len(self.function_predicates[func_name])}")
 
 
     def add_local_predicates_map(self, new_local_preds_map: Dict[CFANode, Iterable[FNode]]):
@@ -316,7 +318,7 @@ class PredAbsPrecision:
                 self.local_predicates[loc_node].add(unindex_predicate(p))
             added_count = len(self.local_predicates[loc_node]) - count_before
             if added_count > 0:
-                 print(f"[PredAbsPrecision INFO] Added {added_count} new local preds for node {loc_node.node_id}. Total for node: {len(self.local_predicates[loc_node])}")
+                 log.printer.log_debug(5, f"[PredAbsPrecision INFO] Added {added_count} new local preds for node {loc_node.node_id}. Total for node: {len(self.local_predicates[loc_node])}")
 
 
     def __str__(self) -> str:
@@ -324,10 +326,37 @@ class PredAbsPrecision:
                 f"Function-specific: {sum(len(p) for p in self.function_predicates.values())} across {len(self.function_predicates)} funcs, "
                 f"Local: {sum(len(p) for p in self.local_predicates.values())} across {len(self.local_predicates)} locs)")
 
-    # --- SSA and Formula Generation Methods (adapted from user's PredAbsPrecision.py) ---
+    @staticmethod
+    def ssa_inc_indices(formula : FNode, indices : int | dict[str,int]) -> FNode:
+        # log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] ssa_inc_indices: formula={formula}, indices={indices}")
+        result = formula
+        substitution_targets = []
+        for sub in result.get_free_variables():
+            if sub.is_symbol():
+                if isinstance(indices, dict) and _ssa_get_name(sub) not in indices:
+                    continue
+                substitution_targets.append(sub)
+        
+        substitution = {}
+        if isinstance(indices, int):
+            substitution = {
+                target : _ssa_inc_index(target, indices)
+                for target in substitution_targets
+            }
+        else: # isinstance(indices, dict)
+            substitution = {
+                target : _ssa_set_index(target, indices[_ssa_get_name(target)]) 
+                for target in substitution_targets
+                if _ssa_get_name(target) in indices # Ensure key exists
+            }
+        
+        if not substitution: return result
+        return result.substitute(substitution)
+
+
     @staticmethod
     def ssa_set_indices(formula : FNode, indices : int | dict[str,int]) -> FNode:
-        print(f"[PredAbsPrecision DEBUG] ssa_set_indices: formula={formula}, indices={indices}")
+        # log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] ssa_set_indices: formula={formula}, indices={indices}")
         result = formula
         substitution_targets = []
         for sub in result.get_free_variables():
@@ -355,17 +384,17 @@ class PredAbsPrecision:
     @staticmethod
     def ssa_from_call(edge: CFAEdge, ssa_indices: Dict[str, int]) -> FNode:
         instr = edge.instruction
-        print(f"[PredAbsPrecision DEBUG] ssa_from_call: edge='{edge.label()}', ssa_indices={ssa_indices}")
+        log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] ssa_from_call: edge='{edge.label()}', ssa_indices={ssa_indices}")
 
         if hasattr(instr, 'target_variable') and instr.target_variable:
             target_var = instr.target_variable
 
-            print(f"[PredAbsPrecision DEBUG] ssa_from_call: Nondet/Builtin call, advancing SSA for target '{target_var}'")
+            log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] ssa_from_call: Nondet/Builtin call, advancing SSA for target '{target_var}'")
             _next(target_var, ssa_indices) # Advance SSA for the target variable
 
         # Handle regular function calls with parameter passing
         if not hasattr(instr, "param_names") or not hasattr(instr, "arg_names"):
-            print("[PredAbsPrecision DEBUG] ssa_from_call: No param_names or arg_names, returning TRUE.")
+            log.printer.log_debug(5, "[PredAbsPrecision DEBUG] ssa_from_call: No param_names or arg_names, returning TRUE.")
             return TRUE()
 
         conjuncts = []
@@ -385,9 +414,9 @@ class PredAbsPrecision:
             rhs = _expr2smt(actual_ast_node, ssa_indices) # Use current SSA for actual
             lhs = _ssa(formal, _next(formal, ssa_indices))   # Use next SSA for formal
             conjuncts.append(Equals(lhs, rhs))
-            print(f"[PredAbsPrecision DEBUG] ssa_from_call: Param assignment {lhs} = {rhs}")
+            log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] ssa_from_call: Param assignment {lhs} = {rhs}")
 
-        print(f"[PredAbsPrecision DEBUG] ssa_from_call: conjuncts={conjuncts}")
+        log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] ssa_from_call: conjuncts={conjuncts}")
         return And(conjuncts) if conjuncts else TRUE()
 
 
@@ -395,7 +424,7 @@ class PredAbsPrecision:
     def ssa_from_return(edge: CFAEdge, ssa_indices: Dict[str, int]) -> FNode:
         instr = edge.instruction
         expr = instr.expression # This is an ast.Return
-        print(f"[PredAbsPrecision DEBUG] ssa_from_return: edge='{edge.label()}', ssa_indices={ssa_indices}, expr={ast.dump(expr) if expr else 'None'}")
+        log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] ssa_from_return: edge='{edge.label()}', ssa_indices={ssa_indices}, expr={ast.dump(expr) if expr else 'None'}")
         
         if hasattr(instr, 'return_variable') and expr.value: # expr.value is the AST node being returned
             # The value being returned (e.g., variable 'r' in 'return r')
@@ -406,26 +435,26 @@ class PredAbsPrecision:
                  ret_storage_name = f"__retval_{edge.predecessor.get_function_name()}"
 
             lhs_return_storage = _ssa(ret_storage_name, _next(ret_storage_name, ssa_indices))
-            print(f"[PredAbsPrecision DEBUG] ssa_from_return: {lhs_return_storage} = {returned_value_smt}")
+            log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] ssa_from_return: {lhs_return_storage} = {returned_value_smt}")
             return Equals(lhs_return_storage, returned_value_smt)
 
-        print("[PredAbsPrecision DEBUG] ssa_from_return: No value returned or no target variable, returning TRUE.")
+        log.printer.log_debug(5, "[PredAbsPrecision DEBUG] ssa_from_return: No value returned or no target variable, returning TRUE.")
         return TRUE() # Return with no value
 
     @staticmethod
     def ssa_from_assign(edge: CFAEdge, ssa_indices: Dict[str, int]) -> FNode:
         instr = edge.instruction
         expr = instr.expression # This is an ast.Assign
-        print(f"[PredAbsPrecision DEBUG] ssa_from_assign: edge='{edge.label()}', ssa_indices={ssa_indices}, expr={ast.dump(expr)}")
+        log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] ssa_from_assign: edge='{edge.label()}', ssa_indices={ssa_indices}, expr={ast.dump(expr)}")
 
         if not isinstance(expr, ast.Assign) or not expr.targets:
-            print("[PredAbsPrecision WARN] ssa_from_assign: Expression is not a valid assignment, returning TRUE.")
+            log.printer.log_debug(5, "[PredAbsPrecision WARN] ssa_from_assign: Expression is not a valid assignment, returning TRUE.")
             return TRUE()
 
         target_ast = expr.targets[0]
         
         if not isinstance(target_ast, ast.Name): # Simple assignment: x = ...
-            print(f"[PredAbsPrecision WARN] ssa_from_assign: Assignment target '{ast.dump(target_ast)}' is not a simple Name, returning TRUE.")
+            log.printer.log_debug(5, f"[PredAbsPrecision WARN] ssa_from_assign: Assignment target '{ast.dump(target_ast)}' is not a simple Name, returning TRUE.")
             # TODO: Handle other target types like ast.Subscript (arrays/lists) or ast.Attribute if needed.
             return TRUE()
 
@@ -437,7 +466,7 @@ class PredAbsPrecision:
         # Variable being assigned to (LHS)
         lhs_smt = _ssa(var_name, _next(var_name, ssa_indices)) # uses next SSA for LHS
         
-        print(f"[PredAbsPrecision DEBUG] ssa_from_assign: {lhs_smt} = {rhs_smt}")
+        log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] ssa_from_assign: {lhs_smt} = {rhs_smt}")
         return Equals(lhs_smt, _cast(rhs_smt, lhs_smt.get_type()))
 
 
@@ -445,17 +474,17 @@ class PredAbsPrecision:
     def ssa_from_assume(edge: CFAEdge, ssa_indices: Dict[str, int]) -> FNode:
         instr = edge.instruction
         expr = instr.expression # This is the assumption's AST expression
-        print(f"[PredAbsPrecision DEBUG] ssa_from_assume: edge='{edge.label()}', ssa_indices={ssa_indices}, expr={ast.dump(expr)}")
+        log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] ssa_from_assume: edge='{edge.label()}', ssa_indices={ssa_indices}, expr={ast.dump(expr)}")
         
         condition_smt = _expr2smt(expr, ssa_indices) # uses current SSA for variables
-        print(f"[PredAbsPrecision DEBUG] ssa_from_assume: condition_smt={condition_smt}")
+        log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] ssa_from_assume: condition_smt={condition_smt}")
         return _bool(condition_smt)
 
 
     @staticmethod
     def from_cfa_edge(edge: CFAEdge, ssa_indices: Dict[str,int]) -> Optional[FNode]:
         """Computes the SMT formula for a given CFAEdge, advancing SSA indices."""
-        print(f"[PredAbsPrecision DEBUG] from_cfa_edge: Processing edge {edge.label()} from {edge.predecessor.node_id} to {edge.successor.node_id}")
+        log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] from_cfa_edge: Processing edge {edge.label()} from {edge.predecessor.node_id} to {edge.successor.node_id}")
         kind = edge.instruction.kind
 
         if kind == InstructionType.STATEMENT:
@@ -463,10 +492,10 @@ class PredAbsPrecision:
             if isinstance(edge.instruction.expression, ast.Assign):
                 return PredAbsPrecision.ssa_from_assign(edge, ssa_indices)
             elif isinstance(edge.instruction.expression, ast.Raise): # Handle raise by returning False
-                print(f"[PredAbsPrecision DEBUG] from_cfa_edge: Encountered Raise statement, returning FALSE.")
+                log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] from_cfa_edge: Encountered Raise statement, returning FALSE.")
                 return FALSE() 
             else: # Other statements (like Expr for standalone calls) might be TRUE
-                print(f"[PredAbsPrecision DEBUG] from_cfa_edge: Unhandled statement type {type(edge.instruction.expression)}, returning TRUE.")
+                log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] from_cfa_edge: Unhandled statement type {type(edge.instruction.expression)}, returning TRUE.")
                 return TRUE()
 
         elif kind == InstructionType.ASSUMPTION:
@@ -480,23 +509,23 @@ class PredAbsPrecision:
             return PredAbsPrecision.ssa_from_return(edge, ssa_indices)
             
         elif kind == InstructionType.NONDET: # E.g. __VERIFIER_nondet_int()
-            print(f"[PredAbsPrecision DEBUG] from_cfa_edge: Nondet instruction, using ssa_from_call logic.")
+            log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] from_cfa_edge: Nondet instruction, using ssa_from_call logic.")
             return PredAbsPrecision.ssa_from_call(edge, ssa_indices) # Or a more specific nondet handler
 
         elif kind == InstructionType.REACH_ERROR: # Typically an ast.Call to reach_error()
-            print(f"[PredAbsPrecision DEBUG] from_cfa_edge: Encountered REACH_ERROR, returning FALSE.")
+            log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] from_cfa_edge: Encountered REACH_ERROR, returning FALSE.")
             return FALSE() # Path becomes infeasible if reach_error is hit
 
         elif kind == InstructionType.EXIT or kind == InstructionType.ABORT:
-             print(f"[PredAbsPrecision DEBUG] from_cfa_edge: Encountered {kind}, returning FALSE (path ends).")
+             log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] from_cfa_edge: Encountered {kind}, returning FALSE (path ends).")
              return FALSE() # Path terminates
 
         elif kind == InstructionType.NOP:
-            print(f"[PredAbsPrecision DEBUG] from_cfa_edge: NOP instruction, returning TRUE.")
+            log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] from_cfa_edge: NOP instruction, returning TRUE.")
             return TRUE()
             
         else:
-            print(f"[PredAbsPrecision WARN] from_cfa_edge: Unknown instruction kind {kind} for edge {edge.label()}, returning None.")
+            log.printer.log_debug(5, f"[PredAbsPrecision WARN] from_cfa_edge: Unknown instruction kind {kind} for edge {edge.label()}, returning None.")
             return None # Or TRUE() if preferred for unknown ops
 
     @staticmethod
@@ -506,7 +535,7 @@ class PredAbsPrecision:
         Predicates are stored globally for simplicity in this initial version.
         A more refined version would store them per-location or per-function.
         """
-        print(f"[PredAbsPrecision INFO] Initializing precision from CFA with {len(roots)} root(s).")
+        log.printer.log_debug(5, f"[PredAbsPrecision INFO] Initializing precision from CFA with {len(roots)} root(s).")
 
         global_preds: Set[FNode] = initial_globals if initial_globals is not None else {TRUE(), FALSE()}
 
@@ -521,7 +550,7 @@ class PredAbsPrecision:
 
         while worklist:
             current_node = worklist.pop(0)
-            print(f"[PredAbsPrecision DEBUG] from_cfa: Visiting node {current_node.node_id}")
+            log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] from_cfa: Visiting node {current_node.node_id}")
 
             for edge in current_node.leaving_edges:
                 if edge in processed_edges:
@@ -533,7 +562,7 @@ class PredAbsPrecision:
                 formula_for_edge = PredAbsPrecision.from_cfa_edge(edge, {}) 
                 if formula_for_edge is not None and formula_for_edge.get_type() == BOOL:
                     atoms = formula_for_edge.get_atoms()
-                    # print(f"[PredAbsPrecision DEBUG] from_cfa: Edge {edge.label()}, formula {formula_for_edge}, atoms {atoms}")
+                    # log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] from_cfa: Edge {edge.label()}, formula {formula_for_edge}, atoms {atoms}")
                     for atom in atoms:
                         if not atom.is_true() and not atom.is_false(): # Avoid adding True/False as specific predicates
                             unindexed_atom = unindex_predicate(atom)
@@ -546,7 +575,7 @@ class PredAbsPrecision:
                     seen_nodes.add(edge.successor)
                     worklist.append(edge.successor)
         
-        print(f"[PredAbsPrecision INFO] from_cfa: Extracted {len(global_preds)} unique global predicates.")
+        log.printer.log_debug(5, f"[PredAbsPrecision INFO] from_cfa: Extracted {len(global_preds)} unique global predicates.")
         # For per-location: return PredAbsPrecision(local_preds=preds_map, global_preds={TRUE(), FALSE()})
         return PredAbsPrecision(global_preds=global_preds)
 

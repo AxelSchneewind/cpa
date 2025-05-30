@@ -4,6 +4,8 @@ from pycpa.ast import (
 )
 from pycpa.cfa import builtin_identifiers
 
+from pycpa import log
+
 import ast
 
 transformers = [
@@ -33,16 +35,8 @@ def preprocess_ast(tree: ast.AST) -> ast.AST:
         tree = FixMissingKeywords().visit(tree)
         tree = ast.fix_missing_locations(tree)
         try:
-            ast.unparse(tree)  # check if AST is valid
+            ast.unparse(tree)
         except Exception as e:
-            print("Unparse failed after", t.__class__.__name__)
-            raise e
-    return tree
-
-
-class FixMissingKeywords(ast.NodeTransformer):
-    def visit_Call(self, node):
-        self.generic_visit(node)
-        if not hasattr(node, 'keywords'):
-            node.keywords = []
-        return node
+            log.printer.log_debug(1, "Unparse failed after", t.__class__.__name__)
+            raise e       # check if ast is valid, i.e. can be unparsed
+    return tree 

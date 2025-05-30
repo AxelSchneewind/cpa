@@ -24,13 +24,12 @@ def get_cpas(entry_point, **params):
     return []
 
 # set up cegar driver here and use it as the algorithm
-def get_algorithm(entrypoint, cfa_roots, specification, task : Task, result : Result, printer):
+def get_algorithm(entrypoint, cfa_roots, specification, task : Task, result : Result):
     return PredAbsCEGARDriver(
         entrypoint,
         cfa_roots,
         task,
         result,
-        printer,
         10, # max refinements, TODO: add to task as an attribute
         None
     )

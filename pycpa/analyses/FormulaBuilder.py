@@ -4,6 +4,8 @@ import pysmt
 
 from pycpa.cfa import Instruction, InstructionType, CFANode
 
+from pycpa import log
+
 import ast
 import astpretty
 
@@ -147,7 +149,7 @@ class FormulaBuilder(ast.NodeVisitor):
         if hasattr(self, attrname):
             result = getattr(self, attrname)(node, required_type=required_type, is_rvalue=is_rvalue)
         else:
-            print('not supported: %s' % t)
+            log.printer.log_debug(1, 'not supported: %s' % t)
             result = self.BV(0)
 
         # cast to desired type
@@ -308,7 +310,7 @@ class FormulaBuilder(ast.NodeVisitor):
                 assert get_type(left_result) == self.int_type
 
             case _:
-                print(type(node.value))
+                log.printer.log_debug(1, type(node.value))
                 raise NotImplementedError()
 
         return result

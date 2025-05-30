@@ -18,6 +18,8 @@ from pycpa.ast import ASTVisualizer
 
 from pycpa.utils.visual import cfa_to_dot, arg_to_dot
 
+from pycpa import log
+
 import ast
 import astpretty
 
@@ -26,32 +28,6 @@ from graphviz import Digraph
 
 import os
 import sys
-
-
-class LogPrinter:
-    def __init__(self, args):
-        self.compact = args.compact
-        self.log_level = args.log_level
-
-    def log_status(self, *msg):
-        if not self.compact:
-            print('\r',  *msg, end='')
-
-    def log_task(self, programname, configs, properties):
-        if not self.compact:
-            prop = str(properties[0]) if len(properties) == 1 else properties
-            conf = str(configs[0]) if len(configs) == 1 else configs
-            print('Verifying ', programname, 'against', prop, 'using', conf)
-
-    def log_debug(self, *msg, level=5):
-        if self.log_level >= level:
-            print(*msg)
-
-    def log_result(self, programname, *msg):
-        if not self.compact:
-            print('\n', programname, ':', *msg)
-        else:
-            print(programname, ':', *msg)
 
 
 
@@ -75,11 +51,10 @@ def check_arg(arg, task, result, specification_mods):
 
 
 def main(args): 
-    ast_program = ""
-
     aborted = False
 
-    printer = LogPrinter(args)
+
+    log.init_printer(args)
 
     for program in args.program:
         if aborted == True:
@@ -87,12 +62,11 @@ def main(args):
 
         program_name = os.path.splitext(os.path.basename(program))[0]
         task = Task(program, args.config, args.property, max_iterations=args.max_iterations)
-        printer.log_task(program_name, args.config, args.property)
+        log.printer.log_task(program_name, args.config, args.property)
 
         with open(program) as file:
             ast_program = file.read()
-
-
+        
         output_dir = args.output_directory + '/' + program_name + '/'
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
@@ -102,13 +76,13 @@ def main(args):
             out_prog.write(ast_program)
 
 
-        printer.log_status('parsing')
+        log.printer.log_status('parsing')
         try:
             tree = ast.parse(ast_program)
         except:
-            printer.log_result(program_name, ': invalid')
+            log.printer.log_result(program_name, 'SYNTAX_INVALID')
             continue
-        printer.log_status('preprocessing')
+        log.printer.log_status('preprocessing')
         tree = preprocess_ast(tree)
         with open(output_dir + '/program-preprocessed.py', 'w') as out_prog:
             out_prog.write(ast.unparse(tree))
@@ -124,7 +98,7 @@ def main(args):
         astvisitor.graph.render(output_dir + '/ast')
     
 
-        printer.log_status('computing CFA')
+        log.printer.log_status('computing CFA')
         # For testing CFA generation
         CFANode.index = 0  # reset the CFA node indices to produce identical output on re-execution
         cfa_creator = CFACreator()
@@ -135,7 +109,7 @@ def main(args):
 
         result = Result()
 
-        printer.log_status('running CPA algorithm')
+        log.printer.log_status('running CPA algorithm')
         algo = None
 
         # root of ARG
@@ -146,7 +120,6 @@ def main(args):
 
         cpas = []
         for p in specification_mods:
-            print(p)
             cpas.extend(p.get_cpas(entry_point=entry_point, cfa_roots=cfa_creator.roots,output_dir=output_dir))
 
         analysis_mods = [ configs.load_cpa(c) for c in args.config ]
@@ -155,7 +128,7 @@ def main(args):
         init = None
         try:
             if hasattr(analysis_mods[0], 'get_algorithm'):
-                algo = analysis_mods[0].get_algorithm(cfa_creator.entry_point, cfa_creator.roots, specification_mods, task, result, printer)
+                algo = analysis_mods[0].get_algorithm(cfa_creator.entry_point, cfa_creator.roots, specification_mods, task, result)
 
                 algo.run_cegar(specification_mods)
                 init = algo.get_arg_root()
@@ -189,11 +162,11 @@ def main(args):
                 dot.render(output_dir + '/arg')
 
         # print status
-        printer.log_status(':  %s' % str(result.status))
+        log.printer.log_status(':  %s' % str(result.status))
 
         check_arg(arg, task, result, specification_mods)
 
-        printer.log_result(program_name, '%s' % str(result.verdict))
+        log.printer.log_result(program_name, '%s' % str(result.verdict))
 
     
 from pycpa.params import parser
