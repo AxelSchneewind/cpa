@@ -31,6 +31,7 @@ import sys
 class LogPrinter:
     def __init__(self, args):
         self.compact = args.compact
+        self.log_level = args.log_level
 
     def log_status(self, *msg):
         if not self.compact:
@@ -41,6 +42,10 @@ class LogPrinter:
             prop = str(properties[0]) if len(properties) == 1 else properties
             conf = str(configs[0]) if len(configs) == 1 else configs
             print('Verifying ', programname, 'against', prop, 'using', conf)
+
+    def log_debug(self, *msg, level=5):
+        if self.log_level >= level:
+            print(*msg)
 
     def log_result(self, programname, *msg):
         if not self.compact:
