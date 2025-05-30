@@ -32,7 +32,6 @@ transformers = [
 def preprocess_ast(tree: ast.AST) -> ast.AST:
     for t in transformers:
         tree = t.visit(tree)
-        tree = FixMissingKeywords().visit(tree)
         tree = ast.fix_missing_locations(tree)
         try:
             ast.unparse(tree)
