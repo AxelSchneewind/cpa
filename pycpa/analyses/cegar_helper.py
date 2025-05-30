@@ -57,10 +57,10 @@ def is_path_feasible(abstract_cex_edges: List[CFAEdge]) -> Tuple[bool, Optional[
             # Or treat as TRUE, or error, depending on desired strictness
             edge_formula = TRUE() # Default to TRUE if no formula, to not break path conjunction
 
-        if not edge_formula.is_true(): # Avoid adding TRUE() to the list if it's just a NOP or similar
-            path_formula_conjuncts.append(edge_formula)
-        log.printer.log_debug(1, f"[CEGAR Helper DEBUG]     Edge SMT: {edge_formula.serialize() if edge_formula else 'None'}")
-        log.printer.log_debug(1, f"[CEGAR Helper DEBUG]     SSA after edge: {current_ssa_indices}")
+        log.printer.log_debug(3, f"[CEGAR Helper DEBUG]     Edge SMT: {edge_formula.serialize() if edge_formula else 'None'}")
+        log.printer.log_debug(3, f"[CEGAR Helper DEBUG]     SSA after edge: {current_ssa_indices}")
+
+        path_formula_conjuncts.append(edge_formula)
 
 
     if not path_formula_conjuncts:
