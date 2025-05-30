@@ -130,6 +130,14 @@ class PredAbsCEGARDriver:
             log.printer.log_debug(5, f"[CEGAR Driver INFO] Running CPAAlgorithm for iteration {i + 1}...")
             algo.run(self.initial_arg_state) # Algorithm updates iteration_result
 
+
+            arg = GraphableARGState(self.initial_arg_state)
+            dot = arg_to_dot(
+                    [ arg ],
+                    nodeattrs={"style": "filled", "shape": "box", "color": "white"},
+                )
+            dot.render(self.task.output_directory + '/arg_' + str(i))
+
             # 3. Check Algorithm's Result for this iteration
             log.printer.log_debug(5, f"[CEGAR Driver INFO] CPAAlgorithm finished. Iteration Verdict: {iteration_result.verdict}, Status: {iteration_result.status}")
 
