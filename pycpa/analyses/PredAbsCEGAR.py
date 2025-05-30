@@ -22,14 +22,13 @@ from pycpa.analyses.PredAbsPrecision import PredAbsPrecision
 # Algorithm
 from pycpa.cpaalgorithm import CPAAlgorithm
 # Helper for SMT an Interpolation
-import cegar_helper # Assuming this is in the same directory or python path
+from pycpa.analyses import cegar_helper 
 
 # For constructing the initial CPA stack
 from pycpa.analyses.ARGCPA import ARGState # For initial state type
 
 class PredAbsCEGARDriver:
     def __init__(self,
-                 program_name: str, # For logging
                  entry_node: CFANode,
                  cfa_roots: List[CFANode], # For initial precision
                  cpa_task: Task,
@@ -38,13 +37,14 @@ class PredAbsCEGARDriver:
                  max_refinements: int = 10,
                  initial_precision: Optional[PredAbsPrecision] = None):
 
-        print(f"\n[CEGAR Driver INFO] Initializing PredAbsCEGARDriver for '{program_name}'.")
-        self.program_name = program_name
+        self.program_name = cpa_task.program
+        print(f"\n[CEGAR Driver INFO] Initializing PredAbsCEGARDriver for '{self.program_name}'.")
         self.entry_node: CFANode = entry_node
         self.cfa_roots: List[CFANode] = cfa_roots # Used for PredAbsPrecision.from_cfa
         self.task: Task = cpa_task
         self.result: Result = cpa_result # This will be updated by the algorithm
         self.log_printer = log_printer
+        self.initial_arg_state = None
 
         self.max_refinements: int = max_refinements
         
@@ -61,6 +61,9 @@ class PredAbsCEGARDriver:
         # This needs to be recreated or updated in each iteration if precision changes.
         self.pred_abs_cpa: Optional[PredAbsCPA] = None # Will be set in _build_cpa_stack
         self.analysis_cpa: Optional[ARGCPA] = None # The top-level ARGCPA
+
+    def get_arg_root(self):
+        return self.initial_arg_state
 
     def _build_cpa_stack(self) -> ARGCPA:
         """Builds the CPA stack with the current precision."""
@@ -79,7 +82,7 @@ class PredAbsCEGARDriver:
         # Simplified: assuming specifications are handled by the `CPAAlgorithm` constructor
         # The `CompositeCPA` here should include all CPAs needed for the abstraction part.
         # The `specifications` passed to `CPAAlgorithm` will handle property checking.
-        composite_cpa = CompositeCPA(cpas=[location_cpa, self.pred_abs_cpa])
+        composite_cpa = CompositeCPA([location_cpa, self.pred_abs_cpa])
         print(f"[CEGAR Driver DEBUG]   CompositeCPA created with: LocationCPA, PredAbsCPA")
         
         arg_cpa = ARGCPA(wrapped_cpa=composite_cpa)
@@ -123,9 +126,9 @@ class PredAbsCEGARDriver:
 
             # 2. Run the CPAAlgorithm
             # ARGCPA.get_initial_state() creates the root ARGState
-            initial_arg_state: ARGState = current_arg_cpa_config.get_initial_state()
+            self.initial_arg_state: ARGState = current_arg_cpa_config.get_initial_state()
             print(f"[CEGAR Driver INFO] Running CPAAlgorithm for iteration {i + 1}...")
-            algo.run(initial_arg_state) # Algorithm updates iteration_result
+            algo.run(self.initial_arg_state) # Algorithm updates iteration_result
 
             # 3. Check Algorithm's Result for this iteration
             print(f"[CEGAR Driver INFO] CPAAlgorithm finished. Iteration Verdict: {iteration_result.verdict}, Status: {iteration_result.status}")

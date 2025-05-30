@@ -128,46 +128,41 @@ def main(args):
         dot = cfa_to_dot([ GraphableCFANode(r) for r in cfa_creator.roots ])
         dot.render(output_dir + '/cfa')
 
-        # setup cpas and properties
-        analysis_mods = [ configs.load_cpa(c) for c in args.config ]
-        specification_mods = [ configs.load_specification(p) for p in args.property ]
-        cpas = []
-        for m in analysis_mods:
-            cpas.extend(m.get_cpas(entry_point=entry_point, cfa_roots=cfa_creator.roots,output_dir=output_dir))
-        for p in specification_mods:
-            cpas.extend(p.get_cpas(entry_point=entry_point, cfa_roots=cfa_creator.roots,output_dir=output_dir))
-        cpa = ARGCPA(CompositeCPA(cpas))
-
         result = Result()
 
         printer.log_status('running CPA algorithm')
-        init = cpa.get_initial_state()
         algo = None
-
-        if hasattr(analysis_mods[0], 'get_algorithm'):
-            algo = analysis_mods[0].get_algorithm(cpa, specification_mods, task, result)
-        else:
-            algo = CPAAlgorithm(cpa, specification_mods, task, result)
 
         # root of ARG
         arg = None
 
-        # 
-        use_cegar = any('CEGAR' in m.__name__ for m in analysis_mods)
+        
+        specification_mods = [ configs.load_specification(p) for p in args.property ]
 
-        # run algorithm
+        cpas = []
+        for p in specification_mods:
+            print(p)
+            cpas.extend(p.get_cpas(entry_point=entry_point, cfa_roots=cfa_creator.roots,output_dir=output_dir))
+
+        analysis_mods = [ configs.load_cpa(c) for c in args.config ]
+
+        # TODO: clean up this mess, find appropriate abstraction that allows for normal CPA and CEGAR
+        init = None
         try:
-            if use_cegar:
-                for k in range(10):
-                    init = cpa.get_initial_state()
-                    algo.run(init)
+            if hasattr(analysis_mods[0], 'get_algorithm'):
+                algo = analysis_mods[0].get_algorithm(cfa_creator.entry_point, cfa_creator.roots, specification_mods, task, result, printer)
 
-                    cex = algo.make_counterexample(init, algo.result.witness)
-                    if cex is not None:
-                        algo.cpa = algo.refine(cpa, cex)
-                    else:
-                        break
+                algo.run_cegar(specification_mods)
+                init = algo.get_arg_root()
             else:
+                # setup cpas and properties
+                for m in analysis_mods:
+                    cpas.extend(m.get_cpas(entry_point, cfa_roots=cfa_creator.roots,output_dir=output_dir))
+                cpa = ARGCPA(CompositeCPA(cpas))
+                init = cpa.get_initial_state()
+
+                # run algorithm
+                algo = CPAAlgorithm(cpa, specification_mods, task, result)
                 algo.run(init)
         except KeyboardInterrupt as x:
             result.status = Status.ABORTED_BY_USER
@@ -180,12 +175,13 @@ def main(args):
             result.status = Status.ERROR
         finally:
             # output arg
-            arg = GraphableARGState(init)
-            dot = arg_to_dot(
-                    [ arg ],
-                    nodeattrs={"style": "filled", "shape": "box", "color": "white"},
-                )
-            dot.render(output_dir + '/arg')
+            if init:
+                arg = GraphableARGState(init)
+                dot = arg_to_dot(
+                        [ arg ],
+                        nodeattrs={"style": "filled", "shape": "box", "color": "white"},
+                    )
+                dot.render(output_dir + '/arg')
 
         # print status
         printer.log_status(':  %s' % str(result.status))
