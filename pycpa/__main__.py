@@ -61,7 +61,7 @@ def main(args):
             break       
 
         program_name = os.path.splitext(os.path.basename(program))[0]
-        task = Task(program, args.config, args.property, max_iterations=args.max_iterations)
+        task = Task(program, args, args.config, args.property, max_iterations=args.max_iterations)
         log.printer.log_task(program_name, args.config, args.property)
 
         with open(program) as file:

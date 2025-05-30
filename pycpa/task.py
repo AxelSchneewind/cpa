@@ -3,11 +3,12 @@
 from typing import Collection
 
 class Task:
-    def __init__(self, program : str, configs : Collection[str] = [], properties : Collection[str] = [], max_iterations=None):
+    def __init__(self, program : str, args, configs : Collection[str] = [], properties : Collection[str] = [], max_iterations=None):
         self.program = program
         self.configs = configs
         self.properties = properties
         self.max_iterations = max_iterations
+        self.output_directory = args.output_directory + '/' + program
     
     def __str__(self):
         return '%s' % self.program
