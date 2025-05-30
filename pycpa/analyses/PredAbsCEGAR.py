@@ -134,15 +134,15 @@ class PredAbsCEGARDriver:
             log.printer.log_debug(5, f"[CEGAR Driver INFO] CPAAlgorithm finished. Iteration Verdict: {iteration_result.verdict}, Status: {iteration_result.status}")
 
             if iteration_result.verdict == Verdict.TRUE:
-                log.printer.log_result(self.program_name, "TRUE (Safe)")
                 self.result.verdict = Verdict.TRUE # Update main result
                 self.result.status = Status.OK
+                log.printer.log_intermediate_result(self.program_name, str(self.result.status), str(self.result.verdict))
                 return # Program is safe
 
             if iteration_result.status == Status.TIMEOUT:
-                log.printer.log_result(self.program_name, "UNKNOWN (Timeout)")
                 self.result.verdict = Verdict.UNKNOWN
                 self.result.status = Status.TIMEOUT
+                log.printer.log_intermediate_result(self.program_name, str(self.result.status), str(self.result.verdict))
                 return # Timeout
 
             if iteration_result.verdict == Verdict.FALSE:
@@ -150,8 +150,9 @@ class PredAbsCEGARDriver:
                 abstract_cex: Optional[List[CFAEdge]] = algo.abstract_cex_edges
                 if not abstract_cex:
                     log.printer.log_debug(5, "[CEGAR Driver ERROR] Algorithm reported FALSE but no CEX path found. Treating as UNKNOWN.")
-                    log.printer.log_result(self.program_name, "UNKNOWN (Error in CEX generation)")
                     self.result.verdict = Verdict.UNKNOWN
+                    self.result.status = Status.OK
+                    log.printer.log_intermediate_result(self.program_name, str(self.result.status), str(self.result.verdict) + '(Error in CEX generation)')
                     return
 
                 log.printer.log_debug(5, f"[CEGAR Driver INFO] Abstract counterexample found with {len(abstract_cex)} edges.")
@@ -160,9 +161,9 @@ class PredAbsCEGARDriver:
                 is_feasible, path_formula_conjuncts = cegar_helper.is_path_feasible(abstract_cex)
 
                 if is_feasible:
-                    log.printer.log_result(self.program_name, "FALSE (Unsafe)")
                     self.result.verdict = Verdict.FALSE # Update main result
                     self.result.status = Status.OK
+                    log.printer.log_intermediate_result(self.program_name, str(self.result.status), str(self.result.verdict))
                     # TODO: Store concrete CEX if model was extracted by is_path_feasible
                     return # Real counterexample
 
@@ -170,8 +171,9 @@ class PredAbsCEGARDriver:
                 log.printer.log_debug(5, "[CEGAR Driver INFO] Abstract counterexample is SPURIOUS. Refining precision...")
                 if path_formula_conjuncts is None:
                     log.printer.log_debug(5, "[CEGAR Driver ERROR] Path was spurious but no path formula conjuncts for interpolation. Cannot refine.")
-                    log.printer.log_result(self.program_name, "UNKNOWN (Error in SMT for interpolation)")
+                    self.result.status = Status.ERROR
                     self.result.verdict = Verdict.UNKNOWN
+                    log.printer.log_intermediate_result(self.program_name, str(self.result.status) + '(Error in SMT for interpolation)', str(self.result.verdict))
                     return
                 
                 # The self.current_precision object is updated in-place by refine_precision
@@ -187,12 +189,13 @@ class PredAbsCEGARDriver:
 
             else: # Should be TRUE or TIMEOUT, already handled. Or UNKNOWN from CPAAlgorithm.
                 log.printer.log_debug(5, f"[CEGAR Driver WARN] CPAAlgorithm returned unexpected status/verdict: {iteration_result.status}/{iteration_result.verdict}. Treating as UNKNOWN.")
-                log.printer.log_result(self.program_name, "UNKNOWN (CPA Error)")
+                self.result.status = Status.ERROR
                 self.result.verdict = Verdict.UNKNOWN
+                log.printer.log_intermediate_result(self.program_name, str(self.result.status), str(self.result.verdict) + '(CPA Error)')
                 return
 
         # Max refinements reached
         log.printer.log_debug(5, f"[CEGAR Driver WARN] Maximum number of refinements ({self.max_refinements}) reached.")
-        log.printer.log_result(self.program_name, "UNKNOWN (Max refinements reached)")
         self.result.verdict = Verdict.UNKNOWN
         self.result.status = Status.TIMEOUT # Or a specific status for max refinements
+        log.printer.log_intermediate_result(self.program_name, str(self.result.status) + '(Max refinements reached)', str(self.result.verdict))

@@ -9,22 +9,26 @@ class LogPrinter:
         if not self.compact:
             print('\r',  *msg, end='')
 
-    def log_task(self, programname, configs, properties):
+    def log_task(self, program_name, configs, properties):
         if not self.compact:
             prop = str(properties[0]) if len(properties) == 1 else properties
             conf = str(configs[0]) if len(configs) == 1 else configs
-            print('Verifying ', programname, 'against', prop, 'using', conf)
+            print('Verifying ', program_name, 'against', prop, 'using', conf)
 
     # 
     def log_debug(self, level, *msg):
         if not self.compact and self.log_level >= level:
             print(*msg)
 
-    def log_result(self, programname, *msg):
+    def log_result(self, programname, status, verdict, *msg):
         if not self.compact:
-            print('\n', programname, ':', *msg)
+            print('\n', programname, ': ', status, ' ', verdict, *msg, sep='')
         else:
-            print(programname, ':', *msg)
+            print(programname, ': ', status, ' ', verdict, *msg, sep='')
+
+    def log_intermediate_result(self, programname, status, verdict, *msg):
+        if not self.compact and self.log_level >= 1:
+            print('\n', programname, ': ', status, ' ', verdict, *msg, sep='')
 
 
 # global object for printing messages

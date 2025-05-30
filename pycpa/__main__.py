@@ -80,7 +80,7 @@ def main(args):
         try:
             tree = ast.parse(ast_program)
         except:
-            log.printer.log_result(program_name, 'SYNTAX_INVALID')
+            log.printer.log_result(program_name, 'SYNTAX_INVALID', str(Verdict.UNKNOWN))
             continue
         log.printer.log_status('preprocessing')
         tree = preprocess_ast(tree)
@@ -162,11 +162,10 @@ def main(args):
                 dot.render(output_dir + '/arg')
 
         # print status
-        log.printer.log_status(':  %s' % str(result.status))
+        log.printer.log_result(program_name, str(result.status), str(result.verdict))
 
         check_arg(arg, task, result, specification_mods)
 
-        log.printer.log_result(program_name, '%s' % str(result.verdict))
 
     
 from pycpa.params import parser
