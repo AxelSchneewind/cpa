@@ -195,6 +195,15 @@ class PredAbsCEGARDriver:
                 log.printer.log_debug(5, f"[CEGAR Driver INFO] Precision updated. New state: {self.current_precision}")
                 # The loop will continue, and _build_cpa_stack will use the updated self.current_precision
 
+
+                if self.current_precision is None:
+                    log.printer.log_debug(5, f"[CEGAR Driver INFO] Could not refine.")
+                    self.result.verdict = Verdict.UNKNOWN
+                    self.result.status = Status.TIMEOUT
+                    log.printer.log_intermediate_result(self.program_name, str(self.result.status) + '(Refinement failed)', str(self.result.verdict))
+                    return
+
+
             else: # Should be TRUE or TIMEOUT, already handled. Or UNKNOWN from CPAAlgorithm.
                 log.printer.log_debug(5, f"[CEGAR Driver WARN] CPAAlgorithm returned unexpected status/verdict: {iteration_result.status}/{iteration_result.verdict}. Treating as UNKNOWN.")
                 self.result.status = Status.ERROR
