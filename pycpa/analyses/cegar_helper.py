@@ -118,7 +118,7 @@ def refine_precision(
     log.printer.log_debug(1, "\n[CEGAR Helper INFO] Refining precision using interpolants...")
     if not path_formula_conjuncts:
         log.printer.log_debug(1, "[CEGAR Helper WARN] No path formula conjuncts provided for interpolation. Precision not refined.")
-        return current_precision
+        return None
 
     interpolants: Optional[List[FNode]] = None
     try:
@@ -139,7 +139,7 @@ def refine_precision(
             
             if raw_interpolants is None:
                 log.printer.log_debug(1, "[CEGAR Helper WARN] Interpolator returned None. Cannot refine precision.")
-                return current_precision
+                return None
 
             # Construct the sequence τ_0, ..., τ_n as per typical CEGAR algorithm
             # τ_0 = True
@@ -152,16 +152,16 @@ def refine_precision(
 
     except NoSolverAvailableError:
         log.printer.log_debug(1, "[CEGAR Helper ERROR] MathSAT solver (for interpolation) not found.")
-        return current_precision
+        return None
     except SolverReturnedUnknownResultError:
         log.printer.log_debug(1, "[CEGAR Helper WARN] Interpolator returned UNKNOWN.")
-        return current_precision
+        return None
     except Exception as e:
         log.printer.log_debug(1, f"[CEGAR Helper ERROR] Error during interpolation: {e}")
-        return current_precision
+        return None
 
     if not interpolants:
-        return current_precision
+        return None
 
     # --- Extract atomic predicates from interpolants and update precision ---
     # The interpolant τ_i is associated with the state *before* edge A_{i+1}
