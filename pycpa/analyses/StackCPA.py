@@ -87,7 +87,7 @@ class StackTransferRelation(TransferRelation):
         assert edge.instruction.kind == InstructionType.RETURN
 
         # exit program
-        if len(predecessor.call_edge_stack) == 0:
+        if len(predecessor.call_edge_stack) <= 1:
             return []
 
         # 
