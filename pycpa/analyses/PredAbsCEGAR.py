@@ -26,9 +26,11 @@ from pycpa.cpaalgorithm import CPAAlgorithm
 from pycpa.analyses import cegar_helper 
 
 # For constructing the initial CPA stack
-from pycpa.analyses.ARGCPA import ARGState # For initial state type
+from pycpa.analyses.ARGCPA import ARGState, GraphableARGState
+from pycpa.utils.visual import arg_to_dot
 
 from pycpa import log
+
 
 class PredAbsCEGARDriver:
     def __init__(self,
