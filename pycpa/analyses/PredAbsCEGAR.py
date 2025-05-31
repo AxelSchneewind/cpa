@@ -35,9 +35,10 @@ from pycpa import log
 class PredAbsCEGARDriver:
     def __init__(self,
                  entry_node: CFANode,
-                 cfa_roots: List[CFANode], # For initial precision
+                 cfa_roots: list[CFANode], # For initial precision
                  cpa_task: Task,
                  cpa_result: Result, # To store final result
+                 specification_cpas : list[CPA],
                  max_refinements: int = 10,
                  initial_precision: Optional[PredAbsPrecision] = None):
 
@@ -48,6 +49,8 @@ class PredAbsCEGARDriver:
         self.task: Task = cpa_task
         self.result: Result = cpa_result # This will be updated by the algorithm
         self.initial_arg_state = None
+
+        self.specification_cpas = specification_cpas
 
         self.max_refinements: int = max_refinements
         
@@ -93,10 +96,9 @@ class PredAbsCEGARDriver:
         self.analysis_cpa = arg_cpa
         return arg_cpa
 
-    def run_cegar(self, specifications_cpas: List[CPA]):
+    def run(self):
         """
         Executes the CEGAR loop.
-        specifications_cpas: CPAs like PropertyCPA for checking the safety property.
         """
         log.printer.log_debug(1, f"\n[CEGAR Driver INFO] Starting CEGAR loop for '{self.program_name}'. Max refinements: {self.max_refinements}")
 
@@ -122,7 +124,7 @@ class PredAbsCEGARDriver:
             # The main `self.result` will be updated with the final outcome.
             iteration_result = Result() 
             algo = CPAAlgorithm(cpa=current_arg_cpa_config,
-                                specifications=specifications_cpas, # e.g. [PropertyCPA_instance]
+                                specifications=self.specification_cpas, # e.g. [PropertyCPA_instance]
                                 task=self.task, # Use the main task
                                 result=iteration_result) # Algo updates this iteration_result
 
@@ -185,13 +187,8 @@ class PredAbsCEGARDriver:
                     return # Real counterexample
 
                 # 5. Spurious CEX: Refine Precision
-                log.printer.log_debug(5, "[CEGAR Driver INFO] Abstract counterexample is SPURIOUS. Refining precision...")
-                if path_formula_conjuncts is None:
-                    log.printer.log_debug(5, "[CEGAR Driver ERROR] Path was spurious but no path formula conjuncts for interpolation. Cannot refine.")
-                    self.result.status = Status.ERROR
-                    self.result.verdict = Verdict.UNKNOWN
-                    log.printer.log_intermediate_result(self.program_name, str(self.result.status) + '(Error in SMT for interpolation)', str(self.result.verdict))
-                    return
+                log.printer.log_debug(2, "[CEGAR Driver INFO] Abstract counterexample is SPURIOUS. Refining precision...")
+                assert path_formula_conjuncts is not None, abstract_cex
                 
                 # The self.current_precision object is updated in-place by refine_precision
                 # if it modifies its internal dicts. Or it returns a new object.
@@ -201,7 +198,7 @@ class PredAbsCEGARDriver:
                     abstract_cex_edges=abstract_cex,
                     path_formula_conjuncts=path_formula_conjuncts
                 )
-                log.printer.log_debug(5, f"[CEGAR Driver INFO] Precision updated. New state: {self.current_precision}")
+                log.printer.log_debug(1, f"[CEGAR Driver INFO] Precision updated. New state: {self.current_precision}")
                 # The loop will continue, and _build_cpa_stack will use the updated self.current_precision
 
                 if new_precision is self.current_precision:

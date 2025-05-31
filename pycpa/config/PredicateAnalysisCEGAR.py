@@ -30,6 +30,7 @@ def get_algorithm(entrypoint, cfa_roots, specification, task : Task, result : Re
         cfa_roots,
         task,
         result,
+        specification,
         10, # max refinements, TODO: add to task as an attribute
         None
     )
