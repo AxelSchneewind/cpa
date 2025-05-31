@@ -22,6 +22,8 @@ from pycpa.analyses.PredAbsPrecision import PredAbsPrecision, unindex_predicate
 
 from pycpa import log
 
+import copy
+
 def is_path_feasible(abstract_cex_edges: List[CFAEdge]) -> Tuple[bool, Optional[List[FNode]]]:
     """
     Checks if the abstract counterexample path is feasible.
@@ -73,7 +75,7 @@ def is_path_feasible(abstract_cex_edges: List[CFAEdge]) -> Tuple[bool, Optional[
 
     # Using MathSAT (msat) as the solver, ensure it's installed and pySMT can find it.
     # QF_LIA is a common logic for integer programs. Adjust if your program uses reals, etc.
-    with Solver(name="msat", logic="QF_LIA") as solver:
+    with Solver(name="msat", logic="QF_BV") as solver:
         solver.add_assertion(full_path_formula)
         is_sat_result = solver.solve()
         log.printer.log_debug(1, f"[CEGAR Helper INFO] Path formula SMT check result: {'SAT' if is_sat_result else 'UNSAT'}")
@@ -110,47 +112,33 @@ def refine_precision(
         return None
 
     interpolants: Optional[List[FNode]] = None
-    try:
-        # Use MathSAT (msat) for interpolation.
-        with Interpolator(name="msat", logic="QF_LIA") as interpolator:
-            # sequence_interpolant expects a list of formulas [A_1, ..., A_n]
-            # whose conjunction is UNSAT. It returns a list of interpolants
-            # [I_0, ..., I_{n-1}] where I_k is an interpolant for
-            # (A_0 ^ ... ^ A_k) and (A_{k+1} ^ ... ^ A_{n-1}).
-            # Note: pySMT's sequence_interpolant might return n-1 interpolants for n formulas.
-            # The BPAC algorithm often refers to τ_0, ..., τ_n.
-            # τ_0 = True, τ_n = False. τ_i is interpolant for (A_1...A_i) and (A_{i+1}...A_n)
-            # Let's assume interpolator.sequence_interpolant([A1..An]) returns [Itp1, ..., Itp_{n-1}]
-            # where Itp_k is for (A1..Ak) and (A_{k+1}..An)
-            # We need to align this with the locations.
-            log.printer.log_debug(1, f"[CEGAR Helper DEBUG] Requesting sequence interpolants for {len(path_formula_conjuncts)} conjuncts.")
-            raw_interpolants = interpolator.sequence_interpolant(path_formula_conjuncts)
-            
-            if raw_interpolants is None:
-                log.printer.log_debug(1, "[CEGAR Helper WARN] Interpolator returned None. Cannot refine precision.")
-                return None
+    # Use MathSAT (msat) for interpolation.
+    with Interpolator(name="msat", logic="QF_BV") as interpolator:
+        # sequence_interpolant expects a list of formulas [A_1, ..., A_n]
+        # whose conjunction is UNSAT. It returns a list of interpolants
+        # [I_0, ..., I_{n-1}] where I_k is an interpolant for
+        # (A_0 ^ ... ^ A_k) and (A_{k+1} ^ ... ^ A_{n-1}).
+        # Note: pySMT's sequence_interpolant might return n-1 interpolants for n formulas.
+        # The BPAC algorithm often refers to τ_0, ..., τ_n.
+        # τ_0 = True, τ_n = False. τ_i is interpolant for (A_1...A_i) and (A_{i+1}...A_n)
+        # Let's assume interpolator.sequence_interpolant([A1..An]) returns [Itp1, ..., Itp_{n-1}]
+        # where Itp_k is for (A1..Ak) and (A_{k+1}..An)
+        # We need to align this with the locations.
+        log.printer.log_debug(1, f"[CEGAR Helper DEBUG] Requesting sequence interpolants for {len(path_formula_conjuncts)} conjuncts.")
+        raw_interpolants = interpolator.sequence_interpolant(path_formula_conjuncts)
+        
+        if raw_interpolants is None:
+            log.printer.log_debug(1, "[CEGAR Helper WARN] Interpolator returned None. Cannot refine precision.")
+            return None
 
-            # Construct the sequence τ_0, ..., τ_n as per typical CEGAR algorithm
-            # τ_0 = True
-            # τ_i for i=1..n-1 is raw_interpolants[i-1]
-            # τ_n = False
-            interpolants = [TRUE()] + raw_interpolants + [FALSE()]
-            log.printer.log_debug(1, f"[CEGAR Helper INFO] Generated {len(interpolants)} interpolants (τ_0 to τ_n).")
-            for i, itp in enumerate(interpolants):
-                log.printer.log_debug(1, f"[CEGAR Helper DEBUG]   τ_{i}: {itp.serialize()}")
-
-    except NoSolverAvailableError:
-        log.printer.log_debug(1, "[CEGAR Helper ERROR] MathSAT solver (for interpolation) not found.")
-        return None
-    except SolverReturnedUnknownResultError:
-        log.printer.log_debug(1, "[CEGAR Helper WARN] Interpolator returned UNKNOWN.")
-        return None
-    except Exception as e:
-        log.printer.log_debug(1, f"[CEGAR Helper ERROR] Error during interpolation: {e}")
-        return None
-
-    if not interpolants:
-        return None
+        # Construct the sequence τ_0, ..., τ_n as per typical CEGAR algorithm
+        # τ_0 = True
+        # τ_i for i=1..n-1 is raw_interpolants[i-1]
+        # τ_n = False
+        interpolants = [TRUE()] + raw_interpolants + [FALSE()]
+        log.printer.log_debug(1, f"[CEGAR Helper INFO] Generated {len(interpolants)} interpolants (τ_0 to τ_n).")
+        for i, itp in enumerate(interpolants):
+            log.printer.log_debug(1, f"[CEGAR Helper DEBUG]   τ_{i}: {itp.serialize()}")
 
     # --- Extract atomic predicates from interpolants and update precision ---
     # The interpolant τ_i is associated with the state *before* edge A_{i+1}
