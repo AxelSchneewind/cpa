@@ -65,39 +65,26 @@ def is_path_feasible(abstract_cex_edges: List[CFAEdge]) -> Tuple[bool, Optional[
         path_formula_conjuncts.append(edge_formula)
 
 
-    if not path_formula_conjuncts:
-        full_path_formula = TRUE()
-    else:
-        full_path_formula = And(path_formula_conjuncts)
+    assert path_formula_conjuncts is not None
+    full_path_formula = And(path_formula_conjuncts)
+    assert full_path_formula is not None
 
     log.printer.log_debug(1, f"[CEGAR Helper DEBUG] Full path formula (Φ) for feasibility check: {full_path_formula.serialize()}")
 
-    try:
-        # Using MathSAT (msat) as the solver, ensure it's installed and pySMT can find it.
-        # QF_LIA is a common logic for integer programs. Adjust if your program uses reals, etc.
-        with Solver(name="msat", logic="QF_LIA") as solver:
-            solver.add_assertion(full_path_formula)
-            is_sat_result = solver.solve()
-            log.printer.log_debug(1, f"[CEGAR Helper INFO] Path formula SMT check result: {'SAT' if is_sat_result else 'UNSAT'}")
+    # Using MathSAT (msat) as the solver, ensure it's installed and pySMT can find it.
+    # QF_LIA is a common logic for integer programs. Adjust if your program uses reals, etc.
+    with Solver(name="msat", logic="QF_LIA") as solver:
+        solver.add_assertion(full_path_formula)
+        is_sat_result = solver.solve()
+        log.printer.log_debug(1, f"[CEGAR Helper INFO] Path formula SMT check result: {'SAT' if is_sat_result else 'UNSAT'}")
 
-            if is_sat_result:
-                # Path is feasible (concrete counterexample)
-                # TODO: Optionally extract model using solver.get_model() if needed for concrete trace
-                return True, None
-            else:
-                # Path is spurious
-                return False, path_formula_conjuncts # Return the conjuncts for interpolation
-
-    except NoSolverAvailableError:
-        log.printer.log_debug(0, "[CEGAR Helper ERROR] MathSAT solver not found or not configured for pySMT.")
-        log.printer.log_debug(0, "[CEGAR Helper ERROR] Please ensure MathSAT is installed and accessible.")
-        return False, None # Treat as error/spurious, cannot proceed
-    except SolverReturnedUnknownResultError:
-        log.printer.log_debug(0, "[CEGAR Helper WARN] SMT solver returned UNKNOWN for path feasibility.")
-        return False, None # Treat as spurious or handle as error
-    except Exception as e:
-        log.printer.log_debug(0, f"[CEGAR Helper ERROR] Error during SMT check for path feasibility: {e}")
-        return False, None
+        if is_sat_result:
+            # Path is feasible (concrete counterexample)
+            # TODO: Optionally extract model using solver.get_model() if needed for concrete trace
+            return True, None
+        else:
+            # Path is spurious
+            return False, path_formula_conjuncts # Return the conjuncts for interpolation
 
 
 def refine_precision(

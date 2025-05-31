@@ -168,8 +168,6 @@ class PredAbsCEGARDriver:
 
                 log.printer.log_debug(1, f"[CEGAR Driver INFO] {'feasible' if is_feasible else 'infeasible' } Abstract counterexample found with {len(abstract_cex)} edges.")
 
-                with open(self.task.output_directory + '/cex_' + str(i), 'w') as f:
-                    f.write(str(path_formula_conjuncts))
 
                 if is_feasible:
                     self.result.verdict = Verdict.FALSE # Update main result
@@ -178,9 +176,12 @@ class PredAbsCEGARDriver:
                     # TODO: Store concrete CEX if model was extracted by is_path_feasible
                     return # Real counterexample
 
+                assert path_formula_conjuncts is not None, abstract_cex
+                with open(self.task.output_directory + '/cex_' + str(i), 'w') as f:
+                    f.write(str(path_formula_conjuncts))
+
                 # 5. Spurious CEX: Refine Precision
                 log.printer.log_debug(2, "[CEGAR Driver INFO] Abstract counterexample is SPURIOUS. Refining precision...")
-                assert path_formula_conjuncts is not None, abstract_cex
                 
                 # The self.current_precision object is updated in-place by refine_precision
                 # if it modifies its internal dicts. Or it returns a new object.
