@@ -1,38 +1,33 @@
 ########################### VIRTUAL ENVIRONMENT ###############################
 
 # venv is required for benchmark generation
-venv:
+venv: 
 	@echo 'setting up the virtual environment'
 	python -m venv venv
 	./venv/bin/pip install -r requirements.txt
-	@echo 'installint math-sat solver'
+	@echo 'installing math-sat solver'
 	@make install-msat
-	@echo 'use '
-	@echo '  source venv/bin/activate'
-	@echo 'to activate'
 
 check-venv:
-	@[ ! -z "$(VIRTUAL_ENV)" ] || (echo 'activate the virtual environment first using source venv/bin/activate' && exit 1)
+	@[ ! -z "$(VIRTUAL_ENV)" ] || (echo -e 'use \n  source venv/bin/activate\nto activate' && exit 1)
 
 
 ##################################### MSAT ####################################
-MSAT-SRC-DIR=mathsat-*/
+MSAT-SRC-DIR=$(wildcard mathsat-*/)
 MSAT-PREFIX=$(shell pwd)/venv/lib/python3.13/site-packages
 
-# exports for msat
-export PYTHONPATH::=$(MSAT-PREFIX)/mathsat/python/:$(PYTHONPATH) 
-export LD_LIBRARY_PATH::=$(MSAT-PREFIX)/mathsat/lib:$(LD_LIBRARY_PATH)
-
 check-msat: venv
-	PYTHONPATH=$(MSAT-PREFIX)/mathsat/python/:$(PYTHONPATH) LD_LIBRARY_PATH=$(MSAT-PREFIX)/mathsat/lib:$(LD_LIBRARY_PATH) pysmt-install --check
+	pysmt-install --check
 
+PYTHONPATH::=$(MSAT-PREFIX)/mathsat/python/:$(PYTHONPATH)
+LD_LIBRARY_PATH::=$(MSAT-PREFIX)/mathsat/lib:$(LD_LIBRARY_PATH)
 
-install-msat:
+install-msat: check-venv
 	@echo 'installing mathsat' 
 	cd ${MSAT-SRC-DIR}/python && python setup.py build && cd -
-	rm -rf ${MSAT-PREFIX}/msat ${MSAT-PREFIX}/mathsat* ${MSAT-PREFIX}/lib
-	cp -r ${MSAT-SRC-DIR}/ ${MSAT-PREFIX}/mathsat
-	PYTHONPATH=$(MSAT-PREFIX)/mathsat/python/:$(PYTHONPATH) LD_LIBRARY_PATH=$(MSAT-PREFIX)/mathsat/lib:$(LD_LIBRARY_PATH) pysmt-install --check
+	rm -rf "${MSAT-PREFIX}"/msat "${MSAT-PREFIX}"/mathsat* "${MSAT-PREFIX}"/lib
+	cp -r "${MSAT-SRC-DIR}" "${MSAT-PREFIX}"/mathsat
+	PYTHONPATH=$(PYTHONPATH) LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) pysmt-install --check
 
 
 # the cpp2py required for benchmark generation seems to be abandoned and has bugs
@@ -86,7 +81,6 @@ run-benchmark-%: venv check-venv benchmarks/% cpp2py.py
 
 run-examples-%:
 	@echo 'testing $* on example programs'
-	@echo ${PYTHONPATH}
 	@python -m pycpa -p ReachSafety -c $* --compact --max-iterations 600 test_progs/*.py -o out/$* 
 
 run-examples: check-venv test_progs/*.py run-examples-PredicateAnalysis run-examples-PredicateAnalysisABEf run-examples-PredicateAnalysisABEbf run-examples-ReachabilityAnalysis run-examples-ValueAnalysis run-examples-ValueAnalysisMergeJoin run-examples-FormulaAnalysis 
@@ -131,8 +125,8 @@ TABLE-GENERATOR-ARGS = -f html --no-diff -c -o ${ABS-OUTPUT-PATH}/
 TABLE-GENERATOR-CALL = ${table-generator} ${TABLE-GENERATOR-ARGS}
 
 PYTHON = python3
-export PATH+=:${BASE-PATH}/benchexec/bin/:${BASE-PATH}/pycpa/
-export PYTHONPATH+=:${BASE-PATH}/benchexec/
+export PATH::=${BASE-PATH}/benchexec/bin/:${BASE-PATH}/pycpa/:$(PATH)
+export PYTHONPATH::=${BASE-PATH}/benchexec/:$(PYTHONPATH)
 
 default:
 	@echo "Please specify a make target!"
