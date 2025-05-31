@@ -118,11 +118,6 @@ class Instruction:
         return Instruction(expression, kind=InstructionType.REACH_ERROR, **params)
 
     @staticmethod
-    def resume(expression : ast.Call, stackframe, call_edge, return_edge):
-        assert isinstance(expression, ast.Call)
-        return Instruction(expression, kind=InstructionType.RESUME, stackframe=stackframe, call_edge=call_edge, return_edge=return_edge)
-
-    @staticmethod
     def ret(expression : ast.Return, return_variable : str = '__ret'): # Added default for return_variable
         assert isinstance(expression, ast.Return)
         return Instruction(expression, kind=InstructionType.RETURN, return_variable=return_variable)
