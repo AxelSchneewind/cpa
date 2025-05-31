@@ -16,9 +16,16 @@ check-venv:
 MSAT-SRC-DIR=$(wildcard mathsat-*/)
 MSAT-PREFIX=$(shell pwd)/venv/lib/python3.13/site-packages
 
-check-msat: venv
+# checks if the defined paths for msat are correct
+check-msat-path: 
+	@[ -e $(MSAT-PREFIX)/mathsat/python/ ] || (echo 'missing ' $(MSAT-PREFIX)/mathsat/python && exit 1)
+	@[ -e $(MSAT-PREFIX)/mathsat/lib/ ] || (echo 'missing ' $(MSAT-PREFIX)/mathsat/lib && exit 1)
+
+check-msat: venv check-msat-path
 	pysmt-install --check
 
+
+# 
 PYTHONPATH::=$(MSAT-PREFIX)/mathsat/python/:$(PYTHONPATH)
 LD_LIBRARY_PATH::=$(MSAT-PREFIX)/mathsat/lib:$(LD_LIBRARY_PATH)
 
@@ -79,14 +86,14 @@ run-benchmark-%: venv check-venv benchmarks/% cpp2py.py
 	@echo 'running benchmark'
 	python -m pycpa -p ReachSafety -c PredicateAnalysis --max-iterations 1 benchmarks/$*/*.py
 
-run-examples-%:
+run-examples-%: check-msat-path
 	@echo 'testing $* on example programs'
-	@python -m pycpa -p ReachSafety -c $* --compact --max-iterations 600 test_progs/*.py -o out/$* 
+	@PYTHONPATH=$(PYTHONPATH) LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) python -m pycpa -p ReachSafety -c $* --compact --max-iterations 600 test_progs/*.py -o out/$* 
 
-run-examples: check-venv test_progs/*.py run-examples-PredicateAnalysis run-examples-PredicateAnalysisABEf run-examples-PredicateAnalysisABEbf run-examples-ReachabilityAnalysis run-examples-ValueAnalysis run-examples-ValueAnalysisMergeJoin run-examples-FormulaAnalysis 
+run-examples: check-venv test_progs/*.py run-examples-PredicateAnalysisCEGAR run-examples-PredicateAnalysisABEf run-examples-PredicateAnalysisABEbf run-examples-ReachabilityAnalysis run-examples-ValueAnalysis run-examples-ValueAnalysisMergeJoin run-examples-FormulaAnalysis 
 
-run-%: check-venv %.py
-	python -m pycpa -p ReachSafety -c PredicateAnalysis --max-iterations 300 $*.py 
+run-%: check-venv %.py check-msat-path
+	PYTHONPATH=$(PYTHONPATH) LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) python -m pycpa -p ReachSafety -c PredicateAnalysis --max-iterations 300 $*.py 
 
 
 
@@ -115,7 +122,7 @@ benchexec-args = --numOfThreads=4
 BENCHEXEC-RESOURCES = -T ${timelimit} -M ${memlimit} -c ${cpulimit}
 BENCHEXECBASE-DIRS = --read-only-dir / --hidden-dir /home/ --overlay-dir "${BASE-PATH}/" --tool-directory "${CPA-PATH}/" 
 BENCHEXEC-DIRS = ${BENCHEXECBASE-DIRS} -o "${ABS-OUTPUT-PATH}"/
-BENCHEXEC-CALL = ${benchexec-call-prefix} ${benchexec} ${benchexec-args} ${BENCHEXEC-RESOURCES} ${BENCHEXEC-DIRS}
+BENCHEXEC-CALL = PYTHONPATH=$(PYTHONPATH) LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) ${benchexec-call-prefix} ${benchexec} ${benchexec-args} ${BENCHEXEC-RESOURCES} ${BENCHEXEC-DIRS}
 BENCHDEFS-PATH = bench-defs
 ABS-BENCHDEFS-PATH = "${BASE-PATH}/bench-defs"
 
@@ -161,10 +168,10 @@ benchexec-test-tooldef: ${TOOLDEF-FILE}
 
 
 # Run experiments
-run-demo-exp: check-output-exist ${TOOLDEF-FILE}
+run-demo-exp: check-output-exist ${TOOLDEF-FILE} check-msat-path check-venv
 	${BENCHEXEC-CALL} "${BENCHDEFS-PATH}/pycpa-demo.xml"
 
-run-medium-exp: check-output-exist ${TOOLDEF-FILE}
+run-medium-exp: check-output-exist ${TOOLDEF-FILE} check-msat-path check-venv
 	${BENCHEXEC-CALL} "${BENCHDEFS-PATH}/pycpa-medium.xml"
 
 # Generate tables from the experiments
