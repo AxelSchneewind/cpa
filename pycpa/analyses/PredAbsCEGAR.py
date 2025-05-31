@@ -16,6 +16,7 @@ from pycpa.analyses import (
     PredAbsCPA,
     PropertyCPA,
     CompositeCPA,
+    StackCPA,
     ARGCPA
 )
 # Precision
@@ -80,16 +81,7 @@ class PredAbsCEGARDriver:
         log.printer.log_debug(1, f"[CEGAR Driver DEBUG]   PredAbsCPA created with precision: {self.current_precision}")
 
         location_cpa = LocationCPA(cfa_root=self.entry_node)
-        # Specifications (like PropertyCPA) would be passed from the main script
-        # For now, assuming PropertyCPA is handled by the main script's `cpas` list
-        # and composed there. Here, we focus on Location x Predicate.
-        # If PropertyCPA needs to be part of this CEGAR-specific stack, add it here.
-        
-        # Simplified: assuming specifications are handled by the `CPAAlgorithm` constructor
-        # The `CompositeCPA` here should include all CPAs needed for the abstraction part.
-        # The `specifications` passed to `CPAAlgorithm` will handle property checking.
-        composite_cpa = CompositeCPA([location_cpa, self.pred_abs_cpa, PropertyCPA()])
-        log.printer.log_debug(5, f"[CEGAR Driver DEBUG]   CompositeCPA created with: LocationCPA, PredAbsCPA")
+        composite_cpa = StackCPA(CompositeCPA([location_cpa, self.pred_abs_cpa, PropertyCPA()]))
         
         arg_cpa = ARGCPA(wrapped_cpa=composite_cpa)
         log.printer.log_debug(5, f"[CEGAR Driver DEBUG]   ARGCPA created, wrapping CompositeCPA.")

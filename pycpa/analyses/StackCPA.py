@@ -87,20 +87,15 @@ class StackTransferRelation(TransferRelation):
         assert edge.instruction.kind == InstructionType.RETURN
 
         # exit program
-        if len(predecessor.call_edge_stack) < 2:
+        if len(predecessor.call_edge_stack) == 0:
             return []
 
-        call_edge = predecessor.call_edge_stack[-1]
-        # virt_edge = copy.copy(call_edge)
-
-        # virt_edge.instruction = Instruction.resume(call_edge.instruction.expression, predecessor.stack[-1], call_edge, edge)
+        # 
         edge.instruction.target_variable = predecessor.call_edge_stack[-1].instruction.target_variable
 
-        # use virtual edge
         states = [
             wrapped_successor
             for wrapped_successor in self.wrapped_transfer_relation.get_abstract_successors_for_edge(
-                # predecessor.stack[-2], virt_edge
                 predecessor.stack[-1], edge
             )
         ]
@@ -110,17 +105,8 @@ class StackTransferRelation(TransferRelation):
             loc = WrappedAbstractState.get_substate(states[i], LocationState)
             loc.location = result[i].call_edge_stack[-1].successor
 
-            # result[i].stack.pop()
             result[i].call_edge_stack.pop()
             result[i].stack[-1] = states[i]
-
-        # for i, wrapped_successor in enumerate(states):
-        #     # advance instruction pointer 
-        #     s = result[i].stack[-1]
-        #     for w in WrappedAbstractState.get_substates(s, LocationState):
-        #         assert len(w.location.leaving_edges) <= 1   # assume unique successor edge
-        #         if len(w.location.leaving_edges) > 0:
-        #             w.location = w.location.leaving_edges[0].successor
 
         return result
 
@@ -139,7 +125,6 @@ class StackTransferRelation(TransferRelation):
             ]
             result = [ copy.deepcopy(predecessor) for w in states]
 
-            # only for non-return edges: update uppermost stack frame
             for i, wrapped_successor in enumerate(states):
                 result[i].stack[-1] = wrapped_successor
 
