@@ -36,7 +36,6 @@ def _next(var: str, ssa: Dict[str, int]) -> int:
 
 def _ssa_get_name(symbol : FNode) -> str:
     name_parts = symbol.symbol_name().split('#')
-    assert len(name_parts) >= 1, f"Symbol name '{symbol.symbol_name()}' does not follow expected SSA pattern."
     return name_parts[0]
 
 def _ssa_get_idx(symbol : FNode) -> Optional[int]:
@@ -52,11 +51,8 @@ def _ssa_get_idx(symbol : FNode) -> Optional[int]:
 def _ssa_inc_index(symbol : FNode, increment : int) -> FNode:
     name = _ssa_get_name(symbol)
     current_idx = _ssa_get_idx(symbol)
-    # If there's no current index, or it's not what we expect, how to handle?
-    # For now, assume if an index exists, it's the one to increment.
-    # This might need refinement if variables can have '#' in their non-SSA names.
-    new_idx = (current_idx + increment) if current_idx is not None else increment
-    return _ssa(name, new_idx)
+    current_idx = current_idx if current_idx is not None else 0
+    return _ssa(name, current_idx + increment)
 
 def _ssa_set_index(symbol : FNode, idx : int) -> FNode:
     name = _ssa_get_name(symbol)
@@ -316,15 +312,16 @@ class PredAbsPrecision:
             count_before = len(self.local_predicates[loc_node])
             for p in preds_for_loc:
                 self.local_predicates[loc_node].add(unindex_predicate(p))
+                self.local_predicates[loc_node].add(Not(unindex_predicate(p)))
             added_count = len(self.local_predicates[loc_node]) - count_before
             if added_count > 0:
                  log.printer.log_debug(5, f"[PredAbsPrecision INFO] Added {added_count} new local preds for node {loc_node.node_id}. Total for node: {len(self.local_predicates[loc_node])}")
 
 
     def __str__(self) -> str:
-        return (f"PredAbsPrecision(Global: {len(self.global_predicates)} preds, "
-                f"Function-specific: {sum(len(p) for p in self.function_predicates.values())} across {len(self.function_predicates)} funcs, "
-                f"Local: {sum(len(p) for p in self.local_predicates.values())} across {len(self.local_predicates)} locs)")
+        return (f"Global: \n{self.global_predicates}\n"
+                f"Function-specific: \n{self.function_predicates}\n"
+                f"Local: \n{[str(k) + ': ' + str(v) for k,v in self.local_predicates.items()]}")
 
     @staticmethod
     def ssa_inc_indices(formula : FNode, indices : int | dict[str,int]) -> FNode:
@@ -345,19 +342,18 @@ class PredAbsPrecision:
             }
         else: # isinstance(indices, dict)
             substitution = {
-                target : _ssa_set_index(target, indices[_ssa_get_name(target)]) 
+                target : _ssa_inc_index(target, indices[_ssa_get_name(target)]) 
                 for target in substitution_targets
                 if _ssa_get_name(target) in indices # Ensure key exists
             }
         
-        if not substitution: return result
-        return result.substitute(substitution)
+        return substitute(copy.copy(result), substitution)
+
 
 
     @staticmethod
     def ssa_set_indices(formula : FNode, indices : int | dict[str,int]) -> FNode:
         # log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] ssa_set_indices: formula={formula}, indices={indices}")
-        result = formula
         substitution_targets = []
         for sub in get_env().formula_manager.get_all_symbols():
             if sub.is_symbol():
@@ -378,8 +374,7 @@ class PredAbsPrecision:
                 if _ssa_get_name(target) in indices # Ensure key exists
             }
         
-        if not substitution: return result
-        return result.substitute(substitution)
+        return substitute(copy.copy(formula), substitution)
 
     @staticmethod
     def ssa_from_call(edge: CFAEdge, ssa_indices: Dict[str, int]) -> FNode:
@@ -415,6 +410,9 @@ class PredAbsPrecision:
             lhs = _ssa(formal, _next(formal, ssa_indices))   # Use next SSA for formal
             conjuncts.append(Equals(lhs, rhs))
             log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] ssa_from_call: Param assignment {lhs} = {rhs}")
+        
+        if target_var:
+            conjuncts.append(Equals(_ssa(target_var, _next(target_var, ssa_indices)), _ssa('__ret', ssa_indices)))
 
         log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] ssa_from_call: conjuncts={conjuncts}")
         return And(conjuncts) if conjuncts else TRUE()
@@ -430,10 +428,9 @@ class PredAbsPrecision:
             # The value being returned (e.g., variable 'r' in 'return r')
             returned_value_smt = _expr2smt(expr.value, ssa_indices) # uses current SSA of 'r'
             if hasattr(instr, 'target_variable') and instr.target_variable:
-                 ret_storage_name = instr.target_variable
+                ret_storage_name = instr.target_variable
             else: # Fallback, less ideal
-                 ret_storage_name = f"__retval_{edge.predecessor.get_function_name()}"
-
+                ret_storage_name = "__ret"
             lhs_return_storage = _ssa(ret_storage_name, _next(ret_storage_name, ssa_indices))
             log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] ssa_from_return: {lhs_return_storage} = {returned_value_smt}")
             return Equals(lhs_return_storage, returned_value_smt)

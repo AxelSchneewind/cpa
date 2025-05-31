@@ -199,13 +199,15 @@ def refine_precision(
 
 
     # Add predicates from τ_0 to π(l_0) where l_0 is abstract_cex_edges[0].predecessor
-    loc_for_tau0 = abstract_cex_edges[0].predecessor
+    location_node = abstract_cex_edges[0].predecessor
     if not interpolants[0].is_true() and not interpolants[0].is_false():
-        if loc_for_tau0 not in new_local_predicates_map:
-            new_local_predicates_map[loc_for_tau0] = set()
+        if location_node not in new_local_predicates_map:
+            new_local_predicates_map[location_node] = set()
         for atom in interpolants[0].get_atoms():
             if not atom.is_true() and not atom.is_false():
-                new_local_predicates_map[loc_for_tau0].add(unindex_predicate(atom))
+                if location_node not in current_precision.local_predicates or unindexed not in current_precision.local_predicates[location_node]:
+                    new_local_predicates_map[location_node].add(unindexed)
+                    current_atoms.add(unindexed)
         log.printer.log_debug(1, f"[CEGAR Helper DEBUG] Extracted from τ_0 for loc {loc_for_tau0.node_id}: {new_local_predicates_map[loc_for_tau0]}")
 
 
@@ -227,29 +229,33 @@ def refine_precision(
         for atom in interp_formula.get_atoms():
             if not atom.is_true() and not atom.is_false(): # Don't add True/False as predicates
                 unindexed = unindex_predicate(atom)
-                new_local_predicates_map[location_node].add(unindexed)
-                current_atoms.add(unindexed)
+                if location_node not in current_precision.local_predicates or unindexed not in current_precision.local_predicates[location_node]:
+                    new_local_predicates_map[location_node].add(unindexed)
+                    current_atoms.add(unindexed)
         if current_atoms:
             log.printer.log_debug(1, f"[CEGAR Helper DEBUG] Extracted from τ_{i} for loc {location_node.node_id}: {current_atoms}")
 
 
     # Add predicates from τ_n to π(l_n) where l_n is abstract_cex_edges[n-1].successor (error location)
-    loc_for_taun = abstract_cex_edges[num_edges-1].successor
+    location_node = abstract_cex_edges[num_edges-1].successor
     if not interpolants[num_edges].is_true() and not interpolants[num_edges].is_false():
         if loc_for_taun not in new_local_predicates_map:
-            new_local_predicates_map[loc_for_taun] = set()
+            new_local_predicates_map[location_node] = set()
         for atom in interpolants[num_edges].get_atoms():
             if not atom.is_true() and not atom.is_false():
-                new_local_predicates_map[loc_for_taun].add(unindex_predicate(atom))
+                unindexed = unindex_predicate(atom)
+                if location_node not in current_precision.local_predicates or unindexed not in current_precision.local_predicates[location_node]:
+                    new_local_predicates_map[location_node].add(unindexed)
+                    current_atoms.add(unindexed)
         log.printer.log_debug(1, f"[CEGAR Helper DEBUG] Extracted from τ_{num_edges} for loc {loc_for_taun.node_id}: {new_local_predicates_map[loc_for_taun]}")
 
-
-    if new_local_predicates_map:
-        log.printer.log_debug(1, f"[CEGAR Helper INFO] Adding new local predicates to precision: { {loc.node_id: preds for loc, preds in new_local_predicates_map.items()} }")
-        current_precision.add_local_predicates_map(new_local_predicates_map)
-    else:
-        log.printer.log_debug(1, "[CEGAR Helper INFO] No new non-trivial predicates extracted from interpolants.")
-        
-    return current_precision
+    if len(current_atoms) > 0:      # only return new precision if new atoms found
+        log.printer.log_debug(0, f"[CEGAR Helper INFO] Adding new local predicates to precision: { {loc.node_id: preds for loc, preds in new_local_predicates_map.items()} }")
+        new_precision = copy.copy(current_precision)
+        new_precision.add_local_predicates_map(new_local_predicates_map)
+        return new_precision
+    else:                           # return old precision
+        log.printer.log_debug(0, "[CEGAR Helper INFO] No new non-trivial predicates extracted from interpolants.")
+        return current_precision
 
 
