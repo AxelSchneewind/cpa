@@ -4,11 +4,12 @@ from typing import Collection
 
 class Task:
     def __init__(self, program : str, args, configs : Collection[str] = [], properties : Collection[str] = [], max_iterations=None):
-        self.program = program
+        # base name of program
+        self.program = program.split('/')[-1].split('.')[0]
         self.configs = configs
         self.properties = properties
         self.max_iterations = max_iterations
-        self.output_directory = args.output_directory + '/' + program
+        self.output_directory = args.output_directory + '/' + self.program
     
     def __str__(self):
         return '%s' % self.program
