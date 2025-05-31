@@ -48,28 +48,28 @@ class CPAAlgorithm:
             is_error_state = any(not s.safe for s in property_substates)
 
             if is_error_state:
-                log.printer.log_debug(1, f"[CPAAlgorithm INFO] Error state N{e.state_id} found: {e.wrapped_state}")
+                log.printer.log_debug(5, f"[CPAAlgorithm INFO] Error state N{e.state_id} found: {e.wrapped_state}")
                 self.result.status = Status.OK
                 self.result.verdict = Verdict.FALSE
                 self.result.witness = e # The ARGState itself is the witness
                 
                 # Reconstruct and store the counterexample path
-                log.printer.log_debug(1, f"[CPAAlgorithm INFO] Reconstructing error path for witness N{e.state_id}...")
+                log.printer.log_debug(5, f"[CPAAlgorithm INFO] Reconstructing error path for witness N{e.state_id}...")
                 self.abstract_cex_edges = self.get_error_path_edges(entry, e)
                 if self.abstract_cex_edges:
-                    log.printer.log_debug(1, f"[CPAAlgorithm INFO] Successfully reconstructed CEX path with {len(self.abstract_cex_edges)} edges.")
+                    log.printer.log_debug(3, f"[CPAAlgorithm INFO] Successfully reconstructed CEX path with {len(self.abstract_cex_edges)} edges.")
                     for i, cex_edge in enumerate(self.abstract_cex_edges):
-                        log.printer.log_debug(1, f"[CPAAlgorithm DEBUG]   CEX Edge {i}: {cex_edge.label()}")
+                        log.printer.log_debug(5, f"[CPAAlgorithm DEBUG]   CEX Edge {i}: {cex_edge.label()}")
                 else:
                     log.printer.log_debug(1, "[CPAAlgorithm WARN] Could not reconstruct CEX path.")
                 return # Stop analysis
 
             # Explore successors
-            log.printer.log_debug(1, f"[CPAAlgorithm DEBUG] Exploring successors of N{e.state_id}...")
+            log.printer.log_debug(3, f"[CPAAlgorithm DEBUG] Exploring successors of N{e.state_id}...")
             successors_generated = 0
             for e_prime_arg in self.cpa.get_transfer_relation().get_abstract_successors(e): # e_prime_arg is also an ARGState
                 successors_generated +=1
-                log.printer.log_debug(1, f"[CPAAlgorithm DEBUG]   Generated successor: N{e_prime_arg.state_id}, Wrapped: {e_prime_arg.wrapped_state}")
+                log.printer.log_debug(3, f"[CPAAlgorithm DEBUG]   Generated successor: N{e_prime_arg.state_id}, Wrapped: {e_prime_arg.wrapped_state}")
                                 
                 to_add_to_waitlist = True # Assume we add unless merged or stopped
                 
@@ -79,7 +79,7 @@ class CPAAlgorithm:
 
                 # Stop Operator: Checks if e_prime_arg (or its wrapped state) is covered by anything in 'reached'
                 if self.cpa.get_stop_operator().stop(e_prime_arg, reached):
-                    log.printer.log_debug(1, f"[CPAAlgorithm DEBUG]     Stop operator covered N{e_prime_arg.state_id}. Not adding to waitlist.")
+                    log.printer.log_debug(3, f"[CPAAlgorithm DEBUG]     Stop operator covered N{e_prime_arg.state_id}. Not adding to waitlist.")
                     to_add_to_waitlist = False
                 else:                  
                     # A more explicit merge loop (if ARGCPA doesn't fully integrate it into stop/transfer):
@@ -109,7 +109,7 @@ class CPAAlgorithm:
                         waitlist.add(merged_e_prime_arg) # Add the state that survived merge/stop
                         reached.add(merged_e_prime_arg)   # Add to reached set
 
-            log.printer.log_debug(1, f"[CPAAlgorithm DEBUG]   Finished exploring successors of N{e.state_id}. Generated {successors_generated} direct successors.")
+            log.printer.log_debug(3, f"[CPAAlgorithm DEBUG]   Finished exploring successors of N{e.state_id}. Generated {successors_generated} direct successors.")
 
 
         if not waitlist: # Double check if error state was the last one processed
@@ -137,11 +137,11 @@ class CPAAlgorithm:
             self.result.verdict = Verdict.TRUE
             return
             
-        log.printer.log_debug(1, f"[CPAAlgorithm DEBUG] End of while loop iteration. Waitlist size: {len(waitlist)}")
+        log.printer.log_debug(3, f"[CPAAlgorithm DEBUG] End of while loop iteration. Waitlist size: {len(waitlist)}")
 
         # Final check after loop finishes
         if self.result.verdict != Verdict.FALSE: # If loop finishes and no error found
-            log.printer.log_debug(1, "[CPAAlgorithm INFO] CPAAlgorithm run finished. Waitlist empty. Program is SAFE.")
+            log.printer.log_debug(3, "[CPAAlgorithm INFO] CPAAlgorithm run finished. Waitlist empty. Program is SAFE.")
             self.result.status = Status.OK
             self.result.verdict = Verdict.TRUE
         return
@@ -170,7 +170,7 @@ class CPAAlgorithm:
             visited_in_path_reconstruction.add(current_arg_state)
 
             parent_arg_state: ARGState = list(current_arg_state.get_parents())[0]
-            log.printer.log_debug(1, f"[CPAAlgorithm DEBUG]   Current: N{current_arg_state.state_id}, Parent: N{parent_arg_state.state_id}")
+            log.printer.log_debug(5, f"[CPAAlgorithm DEBUG]   Current: N{current_arg_state.state_id}, Parent: N{parent_arg_state.state_id}")
 
             parent_loc_state = WrappedAbstractState.get_substate(parent_arg_state.wrapped_state, LocationState)
             current_loc_state = WrappedAbstractState.get_substate(current_arg_state.wrapped_state, LocationState)
@@ -182,7 +182,7 @@ class CPAAlgorithm:
             parent_cfa_node: CFANode = parent_loc_state.location
             current_cfa_node: CFANode = current_loc_state.location
             
-            log.printer.log_debug(1, f"[CPAAlgorithm DEBUG]     Parent Loc: {parent_cfa_node.node_id}, Current Loc: {current_cfa_node.node_id}")
+            log.printer.log_debug(5, f"[CPAAlgorithm DEBUG]     Parent Loc: {parent_cfa_node.node_id}, Current Loc: {current_cfa_node.node_id}")
 
 
             found_edge = None

@@ -86,10 +86,10 @@ class PredAbsCEGARDriver:
         # The `CompositeCPA` here should include all CPAs needed for the abstraction part.
         # The `specifications` passed to `CPAAlgorithm` will handle property checking.
         composite_cpa = CompositeCPA([location_cpa, self.pred_abs_cpa, PropertyCPA()])
-        log.printer.log_debug(1, f"[CEGAR Driver DEBUG]   CompositeCPA created with: LocationCPA, PredAbsCPA")
+        log.printer.log_debug(5, f"[CEGAR Driver DEBUG]   CompositeCPA created with: LocationCPA, PredAbsCPA")
         
         arg_cpa = ARGCPA(wrapped_cpa=composite_cpa)
-        log.printer.log_debug(1, f"[CEGAR Driver DEBUG]   ARGCPA created, wrapping CompositeCPA.")
+        log.printer.log_debug(5, f"[CEGAR Driver DEBUG]   ARGCPA created, wrapping CompositeCPA.")
         self.analysis_cpa = arg_cpa
         return arg_cpa
 
@@ -98,10 +98,10 @@ class PredAbsCEGARDriver:
         Executes the CEGAR loop.
         specifications_cpas: CPAs like PropertyCPA for checking the safety property.
         """
-        log.printer.log_debug(5, f"\n[CEGAR Driver INFO] Starting CEGAR loop for '{self.program_name}'. Max refinements: {self.max_refinements}")
+        log.printer.log_debug(1, f"\n[CEGAR Driver INFO] Starting CEGAR loop for '{self.program_name}'. Max refinements: {self.max_refinements}")
 
         for i in range(self.max_refinements):
-            log.printer.log_debug(5, f"CEGAR Iteration {i + 1}/{self.max_refinements}")
+            log.printer.log_debug(1, f"CEGAR Iteration {i + 1}/{self.max_refinements}")
 
             # 1. Build CPA stack with current precision
             # The analysis_cpa (ARGCPA) will wrap a CompositeCPA containing LocationCPA and PredAbsCPA(self.current_precision)
@@ -144,7 +144,7 @@ class PredAbsCEGARDriver:
             dot.render(self.task.output_directory + '/arg_' + str(i))
 
             # 3. Check Algorithm's Result for this iteration
-            log.printer.log_debug(5, f"[CEGAR Driver INFO] CPAAlgorithm finished. Iteration Verdict: {iteration_result.verdict}, Status: {iteration_result.status}")
+            log.printer.log_debug(1, f"[CEGAR Driver INFO] CPAAlgorithm finished. Iteration Verdict: {iteration_result.verdict}, Status: {iteration_result.status}")
 
             if iteration_result.verdict == Verdict.TRUE:
                 self.result.verdict = Verdict.TRUE # Update main result
@@ -162,16 +162,17 @@ class PredAbsCEGARDriver:
                 # Abstract counterexample found by the algorithm
                 abstract_cex: Optional[List[CFAEdge]] = algo.abstract_cex_edges
                 if not abstract_cex:
-                    log.printer.log_debug(5, "[CEGAR Driver ERROR] Algorithm reported FALSE but no CEX path found. Treating as UNKNOWN.")
+                    log.printer.log_debug(1, "[CEGAR Driver ERROR] Algorithm reported FALSE but no CEX path found. Treating as UNKNOWN.")
                     self.result.verdict = Verdict.UNKNOWN
                     self.result.status = Status.OK
                     log.printer.log_intermediate_result(self.program_name, str(self.result.status), str(self.result.verdict) + '(Error in CEX generation)')
                     return
-
-                log.printer.log_debug(5, f"[CEGAR Driver INFO] Abstract counterexample found with {len(abstract_cex)} edges.")
                 
                 # 4. Check Feasibility of the Abstract CEX
                 is_feasible, path_formula_conjuncts = cegar_helper.is_path_feasible(abstract_cex)
+
+
+                log.printer.log_debug(1, f"[CEGAR Driver INFO] {'feasible' if is_feasible else 'infeasible' } Abstract counterexample found with {len(abstract_cex)} edges.")
 
                 with open(self.task.output_directory + '/cex_' + str(i), 'w') as f:
                     f.write(str(path_formula_conjuncts))
@@ -214,7 +215,7 @@ class PredAbsCEGARDriver:
 
 
             else: # Should be TRUE or TIMEOUT, already handled. Or UNKNOWN from CPAAlgorithm.
-                log.printer.log_debug(5, f"[CEGAR Driver WARN] CPAAlgorithm returned unexpected status/verdict: {iteration_result.status}/{iteration_result.verdict}. Treating as UNKNOWN.")
+                log.printer.log_debug(2, f"[CEGAR Driver WARN] CPAAlgorithm returned unexpected status/verdict: {iteration_result.status}/{iteration_result.verdict}. Treating as UNKNOWN.")
                 self.result.status = Status.ERROR
                 self.result.verdict = Verdict.UNKNOWN
                 log.printer.log_intermediate_result(self.program_name, str(self.result.status), str(self.result.verdict) + '(CPA Error)')

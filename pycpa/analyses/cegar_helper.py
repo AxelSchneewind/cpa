@@ -7,6 +7,8 @@ Provides functions for:
 2. Refining predicate precision using interpolants from a spurious counterexample.
 """
 
+import pprint
+
 from typing import List, Tuple, Optional, Dict, Set
 
 from pysmt.fnode import FNode
@@ -34,9 +36,9 @@ def is_path_feasible(abstract_cex_edges: List[CFAEdge]) -> Tuple[bool, Optional[
                                  representing the path if it's UNSAT (spurious).
                                  None if the path is SAT (feasible) or on error.
     """
-    log.printer.log_debug(1, "\n[CEGAR Helper INFO] Checking path feasibility...")
+    log.printer.log_debug(5, "\n[CEGAR Helper INFO] Checking path feasibility...")
     if not abstract_cex_edges:
-        log.printer.log_debug(1, "[CEGAR Helper WARN] Path is empty, considering it trivially feasible (or an issue).")
+        log.printer.log_debug(3, "[CEGAR Helper WARN] Path is empty, considering it trivially feasible (or an issue).")
         return True, None # Or handle as an error/spurious based on semantics
 
     path_formula_conjuncts: List[FNode] = []
@@ -44,7 +46,7 @@ def is_path_feasible(abstract_cex_edges: List[CFAEdge]) -> Tuple[bool, Optional[
     # This is independent of the SSA maps used during ARG construction for abstraction states
     current_ssa_indices: Dict[str, int] = {}
 
-    log.printer.log_debug(1, f"[CEGAR Helper DEBUG] Abstract CEX Path Edges ({len(abstract_cex_edges)}):")
+    log.printer.log_debug(7, f"[CEGAR Helper DEBUG] Abstract CEX Path Edges ({len(abstract_cex_edges)}):")
     for i, edge in enumerate(abstract_cex_edges):
         log.printer.log_debug(1, f"[CEGAR Helper DEBUG]   Edge {i}: {edge.label()} (from {edge.predecessor.node_id} to {edge.successor.node_id})")
         
@@ -53,7 +55,7 @@ def is_path_feasible(abstract_cex_edges: List[CFAEdge]) -> Tuple[bool, Optional[
         edge_formula = PredAbsPrecision.from_cfa_edge(edge, current_ssa_indices)
         
         if edge_formula is None:
-            log.printer.log_debug(1, f"[CEGAR Helper WARN] Could not get SMT formula for edge: {edge.label()}. Skipping.")
+            log.printer.log_debug(0, f"[CEGAR Helper WARN] Could not get SMT formula for edge: {edge.label()}. Skipping.")
             # Or treat as TRUE, or error, depending on desired strictness
             edge_formula = TRUE() # Default to TRUE if no formula, to not break path conjunction
 
@@ -87,14 +89,14 @@ def is_path_feasible(abstract_cex_edges: List[CFAEdge]) -> Tuple[bool, Optional[
                 return False, path_formula_conjuncts # Return the conjuncts for interpolation
 
     except NoSolverAvailableError:
-        log.printer.log_debug(1, "[CEGAR Helper ERROR] MathSAT solver not found or not configured for pySMT.")
-        log.printer.log_debug(1, "[CEGAR Helper ERROR] Please ensure MathSAT is installed and accessible.")
+        log.printer.log_debug(0, "[CEGAR Helper ERROR] MathSAT solver not found or not configured for pySMT.")
+        log.printer.log_debug(0, "[CEGAR Helper ERROR] Please ensure MathSAT is installed and accessible.")
         return False, None # Treat as error/spurious, cannot proceed
     except SolverReturnedUnknownResultError:
-        log.printer.log_debug(1, "[CEGAR Helper WARN] SMT solver returned UNKNOWN for path feasibility.")
+        log.printer.log_debug(0, "[CEGAR Helper WARN] SMT solver returned UNKNOWN for path feasibility.")
         return False, None # Treat as spurious or handle as error
     except Exception as e:
-        log.printer.log_debug(1, f"[CEGAR Helper ERROR] Error during SMT check for path feasibility: {e}")
+        log.printer.log_debug(0, f"[CEGAR Helper ERROR] Error during SMT check for path feasibility: {e}")
         return False, None
 
 
