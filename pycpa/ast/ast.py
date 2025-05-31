@@ -51,7 +51,6 @@
 
 
 import ast
-import astpretty
 
 
 # This textual representation shows how the AST decomposes the source code into syntactical building blocks.
