@@ -132,6 +132,9 @@ class PredAbsCEGARDriver:
             log.printer.log_debug(5, f"[CEGAR Driver INFO] Running CPAAlgorithm for iteration {i + 1}...")
             algo.run(self.initial_arg_state) # Algorithm updates iteration_result
 
+            with open(self.task.output_directory + '/precision_' + str(i), 'w') as f:
+                f.write(str(self.current_precision))
+
 
             arg = GraphableARGState(self.initial_arg_state)
             dot = arg_to_dot(
@@ -170,6 +173,9 @@ class PredAbsCEGARDriver:
                 # 4. Check Feasibility of the Abstract CEX
                 is_feasible, path_formula_conjuncts = cegar_helper.is_path_feasible(abstract_cex)
 
+                with open(self.task.output_directory + '/cex_' + str(i), 'w') as f:
+                    f.write(str(path_formula_conjuncts))
+
                 if is_feasible:
                     self.result.verdict = Verdict.FALSE # Update main result
                     self.result.status = Status.OK
@@ -189,7 +195,7 @@ class PredAbsCEGARDriver:
                 # The self.current_precision object is updated in-place by refine_precision
                 # if it modifies its internal dicts. Or it returns a new object.
                 # PredAbsPrecision.add_local_predicates_map modifies in-place.
-                self.current_precision = cegar_helper.refine_precision(
+                new_precision = cegar_helper.refine_precision(
                     current_precision=self.current_precision, # Pass the PredAbsPrecision object
                     abstract_cex_edges=abstract_cex,
                     path_formula_conjuncts=path_formula_conjuncts
