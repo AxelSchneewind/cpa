@@ -331,7 +331,7 @@ class PredAbsPrecision:
         # log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] ssa_inc_indices: formula={formula}, indices={indices}")
         result = formula
         substitution_targets = []
-        for sub in result.get_free_variables():
+        for sub in get_env().formula_manager.get_all_symbols():
             if sub.is_symbol():
                 if isinstance(indices, dict) and _ssa_get_name(sub) not in indices:
                     continue
@@ -359,7 +359,7 @@ class PredAbsPrecision:
         # log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] ssa_set_indices: formula={formula}, indices={indices}")
         result = formula
         substitution_targets = []
-        for sub in result.get_free_variables():
+        for sub in get_env().formula_manager.get_all_symbols():
             if sub.is_symbol():
                 if isinstance(indices, dict) and _ssa_get_name(sub) not in indices:
                     continue
