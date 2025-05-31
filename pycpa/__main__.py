@@ -29,6 +29,7 @@ from graphviz import Digraph
 import os
 import sys
 
+import yaml
 
 
 def check_arg(arg, task, result, specification_mods):
@@ -60,14 +61,20 @@ def main(args):
         if aborted == True:
             break       
 
-        program_name = os.path.splitext(os.path.basename(program))[0]
-        task = Task(program, args, args.config, args.property, max_iterations=args.max_iterations)
-        log.printer.log_task(program_name, args.config, args.property)
+        extension = os.path.splitext(os.path.basename(program))[1]
+        if extension == '.yml':
+            with open(program, 'r') as file:
+                task_yml = yaml.safe_load(file)
+                task = Task.task_from_yml(task_yml, os.path.dirname(program), args)
+        else:
+            task = Task(program, args, args.config, args.property, max_iterations=args.max_iterations)
 
-        with open(program) as file:
+        log.printer.log_task(task.program_name, args.config, args.property)
+
+        with open(task.program) as file:
             ast_program = file.read()
-        
-        output_dir = args.output_directory + '/' + program_name + '/'
+
+        output_dir = args.output_directory + '/' + task.program_name + '/'
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
@@ -80,7 +87,7 @@ def main(args):
         try:
             tree = ast.parse(ast_program)
         except:
-            log.printer.log_result(program_name, 'SYNTAX_INVALID', str(Verdict.UNKNOWN))
+            log.printer.log_result(task.program_name, 'SYNTAX_INVALID', str(Verdict.UNKNOWN))
             continue
         log.printer.log_status('preprocessing')
         tree = preprocess_ast(tree)
@@ -162,7 +169,7 @@ def main(args):
                 dot.render(output_dir + '/arg')
 
         # print status
-        log.printer.log_result(program_name, str(result.status), str(result.verdict))
+        log.printer.log_result(task.program_name, str(result.status), str(result.verdict))
 
         check_arg(arg, task, result, specification_mods)
 
