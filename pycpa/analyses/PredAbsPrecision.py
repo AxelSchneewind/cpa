@@ -491,11 +491,8 @@ class PredAbsPrecision:
             # In pycpa, Assign nodes are statements. Raise nodes are also statements.
             if isinstance(edge.instruction.expression, ast.Assign):
                 return PredAbsPrecision.ssa_from_assign(edge, ssa_indices)
-            elif isinstance(edge.instruction.expression, ast.Raise): # Handle raise by returning False
-                log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] from_cfa_edge: Encountered Raise statement, returning FALSE.")
-                return FALSE() 
-            else: # Other statements (like Expr for standalone calls) might be TRUE
-                log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] from_cfa_edge: Unhandled statement type {type(edge.instruction.expression)}, returning TRUE.")
+            else:
+                log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] from_cfa_edge: statment {type(edge.instruction.expression)}, returning TRUE.")
                 return TRUE()
 
         elif kind == InstructionType.ASSUMPTION:
@@ -512,21 +509,9 @@ class PredAbsPrecision:
             log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] from_cfa_edge: Nondet instruction, using ssa_from_call logic.")
             return PredAbsPrecision.ssa_from_call(edge, ssa_indices) # Or a more specific nondet handler
 
-        elif kind == InstructionType.REACH_ERROR: # Typically an ast.Call to reach_error()
-            log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] from_cfa_edge: Encountered REACH_ERROR, returning FALSE.")
-            return FALSE() # Path becomes infeasible if reach_error is hit
-
-        elif kind == InstructionType.EXIT or kind == InstructionType.ABORT:
-             log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] from_cfa_edge: Encountered {kind}, returning FALSE (path ends).")
-             return FALSE() # Path terminates
-
-        elif kind == InstructionType.NOP:
-            log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] from_cfa_edge: NOP instruction, returning TRUE.")
-            return TRUE()
-            
         else:
-            log.printer.log_debug(5, f"[PredAbsPrecision WARN] from_cfa_edge: Unknown instruction kind {kind} for edge {edge.label()}, returning None.")
-            return None # Or TRUE() if preferred for unknown ops
+            log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] from_cfa_edge: instruction does not require formula, returning TRUE.")
+            return TRUE()
 
     @staticmethod
     def from_cfa(roots: List[CFANode], initial_globals: Optional[Set[FNode]] = None) -> PredAbsPrecision:
