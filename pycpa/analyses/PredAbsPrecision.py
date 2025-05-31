@@ -14,7 +14,8 @@ from pysmt.shortcuts import (
     BV, Symbol, TRUE, FALSE, Ite,
     BVNot, BVNeg, BVSGT, BVSGE, BVSLT, BVSLE,
     BVAdd, BVMul, BVSDiv, BVURem, # Changed BVSDiv twice to BVSDiv, BVURem
-    BVLShl, BVAShr, BVOr, BVXor, BVAnd
+    BVLShl, BVAShr, BVOr, BVXor, BVAnd,
+    substitute
 )
 from pysmt.typing import BV64, BOOL
 from pysmt.fnode import FNode
@@ -22,6 +23,8 @@ from pysmt.fnode import FNode
 from pycpa.cfa import InstructionType, CFAEdge, CFANode # Assuming CFANode is hashable
 
 from pycpa import log
+
+import copy
 
 # ------------------ #
 #  SSA helpers       #
