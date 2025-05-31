@@ -15,7 +15,7 @@ from pysmt.shortcuts import (
     BVNot, BVNeg, BVSGT, BVSGE, BVSLT, BVSLE,
     BVAdd, BVMul, BVSDiv, BVURem, # Changed BVSDiv twice to BVSDiv, BVURem
     BVLShl, BVAShr, BVOr, BVXor, BVAnd,
-    substitute
+    substitute, get_env
 )
 from pysmt.typing import BV64, BOOL
 from pysmt.fnode import FNode
