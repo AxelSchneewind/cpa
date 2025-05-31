@@ -130,7 +130,7 @@ def main(args):
             if hasattr(analysis_mods[0], 'get_algorithm'):
                 algo = analysis_mods[0].get_algorithm(cfa_creator.entry_point, cfa_creator.roots, specification_mods, task, result)
 
-                algo.run(specification_mods)
+                algo.run()
                 init = algo.get_arg_root()
             else:
                 # setup cpas and properties
