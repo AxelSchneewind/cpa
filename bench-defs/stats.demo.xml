@@ -8,6 +8,12 @@
     <column title="memory" sourceUnit="B" displayUnit="MB"/>
   </result>
 
+  <result filename="../results/pycpa-demo.????-??-??_??-??-??.results.Predicate Analysis CEGAR.demo.xml.bz2">
+    <column title="status"/>
+    <column title="cputime"/>
+    <column title="memory" sourceUnit="B" displayUnit="MB"/>
+  </result>
+
   <result filename="../results/pycpa-demo.????-??-??_??-??-??.results.Value Analysis.demo.xml.bz2">
     <column title="status"/>
     <column title="cputime"/>
