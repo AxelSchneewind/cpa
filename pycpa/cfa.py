@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#rg!/usr/bin/env python
 
 import ast
 from graphviz import Digraph
@@ -128,9 +128,9 @@ class Instruction:
         assert isinstance(declaration, ast.FunctionDef)
         assert isinstance(entry_point, CFANode) # Forward declaration for CFANode
         
-        # Handle cases where arg.arg might not be an ast.Name (e.g., if constants are passed as arg names somehow)
         param_names = []
         for p in declaration.args.args:
+            assert isinstance(p.arg, str), type(p.arg)
             if isinstance(p.arg, ast.Name):
                 param_names.append(str(p.arg.id))
             elif isinstance(p.arg, str):
@@ -138,14 +138,10 @@ class Instruction:
             else:
                 raise ValueError(f"Unexpected type for parameter name: {type(p.arg)}")
 
-        arg_names_str = []
+        args = []
         for p in argnames:
-            if isinstance(p.arg, ast.Name):
-                arg_names_str.append(str(p.arg.id))
-            elif isinstance(p.arg, str):
-                arg_names_str.append(p.arg)
-            else:
-                arg_names_str.append(str(p.arg)) # Simplified: convert to string
+            assert isinstance(p, ast.Name) or isinstance(p, ast.Constant), (p, type(p))
+            args.append(p)
 
         return Instruction(
             expression, 
@@ -153,7 +149,7 @@ class Instruction:
             location=entry_point, 
             declaration=declaration, 
             param_names=param_names, 
-            arg_names=arg_names_str, 
+            arg_names=args, 
             target_variable=target_variable, 
             **params
         )
@@ -453,16 +449,10 @@ class CFACreator(ast.NodeVisitor):
         func_name_to_call = call_node.func.id
 
         # Argument names (as strings or ast.Name if they are variables)
-        arg_name_nodes = [] # List of ast.arg
+        arg_nodes = [] # List of ast.arg
         for arg_val_ast in call_node.args:
-            if isinstance(arg_val_ast, ast.Name):
-                arg_name_nodes.append(ast.arg(arg=arg_val_ast.id)) # Store var name as string in ast.arg
-            elif isinstance(arg_val_ast, ast.Constant):
-                 arg_name_nodes.append(ast.arg(arg=str(arg_val_ast.value)))
-            else:
-                # Complex expressions as arguments should be preprocessed into temporary variables.
-                # Assuming preprocessor handles this. If not, this is an error.
-                raise NotImplementedError(f"Complex argument expressions like {ast.dump(arg_val_ast)} in call not supported without preprocessing.")
+            assert isinstance(arg_val_ast, ast.Name) or isinstance(arg_val_ast, ast.Constant), arg_val_ast
+            arg_nodes.append(arg_val_ast)
 
         if func_name_to_call in builtin_identifiers:
             # Builtin call (like nondet() or reach_error())
@@ -478,7 +468,7 @@ class CFACreator(ast.NodeVisitor):
                 expression=call_node,
                 declaration=callee_func_def,
                 entry_point=callee_entry_cfa_node,
-                argnames=arg_name_nodes, # list of ast.arg containing strings of actual arg names/values
+                argnames=arg_nodes, # list of ast.arg containing strings of actual arg names/values
                 target_variable=target_variable_name if target_variable_name else "__ret_void" # Where 'x' in x=f() is stored
             )
             edge = CFAEdge(entry_node, node_after_call, instr) # Edge from pre-call to post-call node in caller

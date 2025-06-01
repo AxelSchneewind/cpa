@@ -56,12 +56,7 @@ class CPAAlgorithm:
                 # Reconstruct and store the counterexample path
                 log.printer.log_debug(5, f"[CPAAlgorithm INFO] Reconstructing error path for witness N{e.state_id}...")
                 self.abstract_cex_edges = self.get_error_path_edges(entry, e)
-                if self.abstract_cex_edges:
-                    log.printer.log_debug(3, f"[CPAAlgorithm INFO] Successfully reconstructed CEX path with {len(self.abstract_cex_edges)} edges.")
-                    for i, cex_edge in enumerate(self.abstract_cex_edges):
-                        log.printer.log_debug(5, f"[CPAAlgorithm DEBUG]   CEX Edge {i}: {cex_edge.label()}")
-                else:
-                    log.printer.log_debug(1, "[CPAAlgorithm WARN] Could not reconstruct CEX path.")
+                assert self.abstract_cex_edges
                 return # Stop analysis
 
             # Explore successors
@@ -152,6 +147,7 @@ class CPAAlgorithm:
         Reconstructs the path of CFAEdges from the root_node to the error_node in the ARG.
         Assumes ARGState has 'parents' attribute and a method to get its LocationState.
         """
+        assert isinstance(error_node, ARGState) and isinstance(root_node, ARGState)
         if not isinstance(error_node, ARGState) or not isinstance(root_node, ARGState):
             log.printer.log_debug(1, "[CPAAlgorithm ERROR] get_error_path_edges: error_node or root_node is not an ARGState.")
             return None
@@ -214,13 +210,12 @@ class CPAAlgorithm:
                         break
             
             if not found_edge:
-                log.printer.log_debug(1, f"[CPAAlgorithm ERROR] Failed to find CFAEdge between parent N{parent_arg_state.state_id} (loc {parent_cfa_node.node_id}) and current N{current_arg_state.state_id} (loc {current_cfa_node.node_id}).")
-                return None
-
+                found_edge = None
 
             path_edges.append(found_edge)
             current_arg_state = parent_arg_state
             
+        assert current_arg_state == root_node
         if current_arg_state != root_node:
             log.printer.log_debug(1, f"[CPAAlgorithm ERROR] CEX path reconstruction did not reach root node. Stopped at N{current_arg_state.state_id}.")
             return None # Path did not lead back to root

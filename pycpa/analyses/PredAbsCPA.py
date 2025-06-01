@@ -18,6 +18,8 @@ from pycpa.cpa import CPA, AbstractState, TransferRelation, StopSepOperator, Mer
 
 from pycpa.analyses.PredAbsPrecision import PredAbsPrecision
 
+from pycpa.analyses.ssa_helper import SSA
+
 # --------------------------------------------------------------------------- #
 # Abstract State
 # --------------------------------------------------------------------------- #
@@ -75,17 +77,14 @@ class PredAbsTransferRelation(TransferRelation):
             ssa_indices_new has to be the ssa indices after transfer formula.
         """
         phi = And(list(current_predicates)) if current_predicates else TRUE()
-        PredAbsPrecision.ssa_inc_indices(phi, ssa_indices_old)
+        SSA.inc_indices(phi, ssa_indices_old)
         phi = And(phi, transfer)
 
         implied: Set[FNode] = set()
         for p in precision:
-            try:
-                pnew = PredAbsPrecision.ssa_set_indices(p, ssa_indices_new)
-                sat = is_sat(And(phi, Not(pnew)))
-            except SolverReturnedUnknownResultError:
-                sat = True
-            if not sat:                 # UNSAT ⇒ φ ⇒ p
+            pnew = SSA.set_indices(p, ssa_indices_new)
+            sat = is_sat(And(phi, Not(pnew)))
+            if not sat:
                 implied.add(pnew)
 
         return implied
@@ -107,7 +106,7 @@ class PredAbsTransferRelation(TransferRelation):
         elif kind == InstructionType.ASSUMPTION:
             expr = PredAbsPrecision.ssa_from_assume(edge, ssa_indices=ssa_idx)
 
-            predecessor_formula = PredAbsPrecision.ssa_set_indices(And(predecessor.predicates), predecessor.ssa_indices)
+            predecessor_formula = SSA.set_indices(And(predecessor.predicates), predecessor.ssa_indices)
             if not is_sat(And(expr, predecessor_formula)):
                 return []
 
@@ -115,18 +114,11 @@ class PredAbsTransferRelation(TransferRelation):
         elif kind == InstructionType.CALL or kind == InstructionType.NONDET:
             trans = PredAbsPrecision.ssa_from_call(edge, ssa_indices=ssa_idx)
         elif kind == InstructionType.RETURN:
-            trans = PredAbsPrecision.ssa_from_return(edge, ssa_indices=ssa_idx)
+            trans = PredAbsPrecision.ssa_from_return_dynamic(edge, ssa_indices=ssa_idx)
         else:
             trans = TRUE()
 
-        # 3) If this is truly unsatisfiable (i.e. error-edge), preserve it
-        if trans.is_false():
-            succ = PredAbsState()
-            succ.ssa_indices = ssa_idx
-            succ.predicates  = {trans}
-            return [succ]
-
-        # 4) Otherwise do Cartesian abstraction
+        # implication checks
         new_preds = self._implied_predicates(
             predecessor.predicates,
             trans,
@@ -134,6 +126,9 @@ class PredAbsTransferRelation(TransferRelation):
             predecessor.ssa_indices,
             ssa_idx
         )
+
+        if FALSE() in new_preds:
+            return []
 
         succ = PredAbsState()
         succ.ssa_indices = ssa_idx

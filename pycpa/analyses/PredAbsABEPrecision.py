@@ -3,6 +3,8 @@
     Predicate Abstraction Precision with large block encoding
 """
 
+from __future__ import annotations
+
 import ast, hashlib
 import copy
 from typing import Dict, Iterable, Set, List, Callable
@@ -13,6 +15,66 @@ from pysmt.fnode   import FNode
 from pycpa.analyses import PredAbsPrecision
 
 from pycpa.cfa import CFANode, CFAEdge, InstructionType
+
+from pycpa.analyses.ssa_helper import SSA
+
+
+class BlockEncodings:
+    @staticmethod
+    def is_block_head_fl(node: CFANode) -> bool:
+        """branches and calls are block heads
+        """
+        for edge in node.leaving_edges:
+            kind = edge.instruction.kind
+            match kind:
+                case InstructionType.CALL:
+                    return True
+                case _:
+                    # TODO: check for loop
+                    pass
+        for edge in node.incoming_edges:
+            kind = edge.instruction.kind
+            match kind:
+                case InstructionType.RETURN:
+                    return True
+        return False
+
+    @staticmethod
+    def is_block_head_f(node: CFANode) -> bool:
+        """branches and calls are block heads
+        """
+        for edge in node.leaving_edges:
+            kind = edge.instruction.kind
+            match kind:
+                case InstructionType.CALL:
+                    return True
+        for edge in node.incoming_edges:
+            kind = edge.instruction.kind
+            match kind:
+                case InstructionType.RETURN:
+                    return True
+        return False
+
+    @staticmethod
+    def is_block_head_bf(node: CFANode) -> bool:
+        """branches and calls are block heads
+        """
+        for edge in node.leaving_edges:
+            kind = edge.instruction.kind
+            match kind:
+                case InstructionType.ASSUMPTION | InstructionType.CALL:
+                    return True
+                case _:
+                    pass
+        for edge in node.incoming_edges:
+            kind = edge.instruction.kind
+            match kind:
+                case InstructionType.RETURN:
+                    return True
+        return False
+
+
+
 
 # --------------------------------------------------------------------------- #
 #  Precision object                                                           #
@@ -35,46 +97,34 @@ class PredAbsABEPrecision(Dict, Iterable):
     def __str__(self):
         return str({ str(n) : str(p) for n,p in self.predicates.items()})
 
-    @staticmethod
-    def is_block_head_fl(node: CFANode) -> bool:
-        """branches and calls are block heads
-        """
-        for edge in node.leaving_edges:
-            kind = edge.instruction.kind
-            match kind:
-                case InstructionType.CALL:
-                    return True
 
-                case _:
-                    # TODO: check for loop
-                    pass
-        return False
-
-    @staticmethod
-    def is_block_head_f(node: CFANode) -> bool:
-        """branches and calls are block heads
+    def get_predicates_for_location(self, location: CFANode) -> set[FNode]:
         """
-        for edge in node.leaving_edges:
-            kind = edge.instruction.kind
-            match kind:
-                case InstructionType.CALL:
-                    return True
-                case _:
-                    pass
-        return False
-
-    @staticmethod
-    def is_block_head_bf(node: CFANode) -> bool:
-        """branches and calls are block heads
+        Retrieves all applicable predicates for a given CFA node
         """
-        for edge in node.leaving_edges:
-            kind = edge.instruction.kind
-            match kind:
-                case InstructionType.ASSUMPTION | InstructionType.CALL:
-                    return True
-                case _:
-                    pass
-        return False
+        assert location in self.predicates
+        return self.predicates[location]
+
+    def __getitem__(self, location: CFANode) -> set[FNode]:
+        """Allows dictionary-like access, e.g., precision[cfa_node]."""
+        assert location in self.predicates
+        return self.predicates[location]
+
+
+    def add_global_predicates(self, new_preds: Iterable[FNode]):
+        """Adds new global predicates. Predicates are unindexed before storing."""
+        for p in new_preds:
+            self.global_predicates.add(SSA.unindex_predicate(p))
+
+    def add_local_predicates(self, new_preds: dict[CFANode, Iterable[FNode]]):
+        """Adds new predicates to location. SSA-indices have to be made relative to last block head before storing."""
+        # TODO
+        for location, preds in new_preds.items():
+            if loc_node not in self.predicates:
+                self.predicates[location] = set()
+
+            for p in preds:
+                self.predicates[location].add(SSA.unindex_predicate(p))
 
     @staticmethod
     def from_cfa(roots: list[CFANode], is_block_head : Callable[[CFANode], bool]) -> 'PredAbsABEPrecision':

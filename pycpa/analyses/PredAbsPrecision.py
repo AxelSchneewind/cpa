@@ -20,72 +20,13 @@ from pysmt.shortcuts import (
 from pysmt.typing import BV64, BOOL
 from pysmt.fnode import FNode
 
+from pycpa.analyses.ssa_helper import SSA
+
 from pycpa.cfa import InstructionType, CFAEdge, CFANode # Assuming CFANode is hashable
 
 from pycpa import log
 
 import copy
-
-# ------------------ #
-#  SSA helpers       #
-# ------------------ #
-def _ssa(var: str, idx: int) -> FNode:
-    assert not '#' in var, f"Variable name '{var}' should not contain '#'"
-    return Symbol(f"{var}#{idx}", BV64)
-
-def _next(var: str, ssa: Dict[str, int]) -> int:
-    ssa[var] = ssa.get(var, 0) + 1
-    return ssa[var]
-
-def _ssa_get_name(symbol : FNode) -> str:
-    name_parts = symbol.symbol_name().split('#')
-    return name_parts[0]
-
-def _ssa_get_idx(symbol : FNode) -> Optional[int]:
-    name_parts = symbol.symbol_name().split('#')
-    if len(name_parts) > 1:
-        try:
-            return int(name_parts[-1])
-        except ValueError:
-            # If the part after # is not an int, it's not an SSA index we manage this way
-            return None
-    return None
-
-def _ssa_inc_index(symbol : FNode, increment : int) -> FNode:
-    name = _ssa_get_name(symbol)
-    current_idx = _ssa_get_idx(symbol)
-    current_idx = current_idx if current_idx is not None else 0
-    return _ssa(name, current_idx + increment)
-
-def _ssa_set_index(symbol : FNode, idx : int) -> FNode:
-    name = _ssa_get_name(symbol)
-    return _ssa(name, idx)
-
-def unindex_symbol(symbol: FNode) -> FNode:
-    """Returns a symbol with the SSA index removed, or the original if no index."""
-    if symbol.is_symbol():
-        name = _ssa_get_name(symbol)
-        return Symbol(name, symbol.symbol_type())
-    return symbol # Should ideally only be called on symbols
-
-def unindex_predicate(predicate: FNode) -> FNode:
-    """
-    Replaces all SSA-indexed variables in a predicate with their unindexed versions.
-    e.g., (x#1 > y#0) becomes (x > y)
-    """
-    if not predicate.get_free_variables():
-        return predicate
-
-    substitution = {}
-    for var_symbol in predicate.get_free_variables():
-        unindexed_var = unindex_symbol(var_symbol)
-        if var_symbol != unindexed_var: # only add to substitution if it changed
-            substitution[var_symbol] = unindexed_var
-            
-    if not substitution:
-        return predicate
-        
-    return predicate.substitute(substitution)
 
 
 # --------------------------------- #
@@ -114,14 +55,14 @@ def _expr2smt(node: ast.AST, ssa: Dict[str, int]) -> FNode:
     log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] _expr2smt visiting: {ast.dump(node)} with ssa {ssa}")
     match node:
         case ast.Name(id=v):
-            return _ssa(v, ssa.get(v, 0))
+            return SSA.ssa(v, ssa.get(v, 0))
 
         case ast.Constant(value=v):
-            if isinstance(v, bool): return TRUE() if v else FALSE()
+            if isinstance(v, bool): return _bv(TRUE()) if v else _bv(FALSE())
             if isinstance(v, int):  return BV(v, 64)
             h = hashlib.md5(repr(v).encode()).hexdigest()[:8]
             log.printer.log_debug(1, f"[PredAbsPrecision WARN] _expr2smt: Unknown constant type {type(v)}, creating symbolic const_{h}")
-            return _ssa(f"const_{h}", 0) # Fallback for other const types
+            return SSA.ssa(f"const_{h}", 0) # Fallback for other const types
 
         case ast.BinOp(left=l, op=op_type, right=r): # Consolidate BinOp
             left_smt = _expr2smt(l, ssa)
@@ -237,7 +178,7 @@ def _expr2smt(node: ast.AST, ssa: Dict[str, int]) -> FNode:
 
         case ast.Call(func=ast.Name(id=fname), args=args):
             call_ret_var_name = f"call_{fname}_ret_{len(ssa)}" # Simple unique name
-            return _ssa(call_ret_var_name, _next(call_ret_var_name, ssa))
+            return SSA.ssa(call_ret_var_name, SSA.next(call_ret_var_name, ssa))
 
 
         case _:
@@ -251,18 +192,16 @@ def _expr2smt(node: ast.AST, ssa: Dict[str, int]) -> FNode:
 class PredAbsPrecision:
     def __init__(self,
                  global_preds: Optional[Set[FNode]] = None,
-                 function_preds: Optional[Dict[str, Set[FNode]]] = None,
                  local_preds: Optional[Dict[CFANode, Set[FNode]]] = None):
         # Store unindexed predicates
         self.global_predicates: Set[FNode] = global_preds if global_preds is not None else set()
-        self.function_predicates: Dict[str, Set[FNode]] = function_preds if function_preds is not None else {}
         self.local_predicates: Dict[CFANode, Set[FNode]] = local_preds if local_preds is not None else {}
-        log.printer.log_debug(5, f"[PredAbsPrecision INFO] Initialized precision: Global={len(self.global_predicates)}, Function={len(self.function_predicates)}, Local={len(self.local_predicates)}")
+        log.printer.log_debug(5, f"[PredAbsPrecision INFO] Initialized precision: Global={len(self.global_predicates)}, Local={len(self.local_predicates)}")
 
     def get_predicates_for_location(self, loc_node: CFANode) -> Set[FNode]:
         """
         Retrieves all applicable predicates for a given CFA node,
-        combining global, function-specific, and location-specific predicates.
+        combining global and location-specific predicates.
         """
         log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] Getting predicates for location: {loc_node.node_id if loc_node else 'None'}")
         if loc_node is None: # Should not happen if loc_node is always a CFANode
@@ -270,12 +209,6 @@ class PredAbsPrecision:
 
         preds = self.global_predicates.copy()
         log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] Global preds: {preds}")
-
-        func_name = loc_node.get_function_name() # Assuming CFANode has this method
-        if func_name and func_name in self.function_predicates:
-            preds.update(self.function_predicates[func_name])
-            log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] Added function '{func_name}' preds: {self.function_predicates[func_name]}")
-
 
         if loc_node in self.local_predicates:
             preds.update(self.local_predicates[loc_node])
@@ -292,21 +225,10 @@ class PredAbsPrecision:
         """Adds new global predicates. Predicates are unindexed before storing."""
         count_before = len(self.global_predicates)
         for p in new_preds:
-            self.global_predicates.add(unindex_predicate(p))
+            self.global_predicates.add(SSA.unindex_predicate(p))
         log.printer.log_debug(5, f"[PredAbsPrecision INFO] Added {len(self.global_predicates) - count_before} new global predicates. Total global: {len(self.global_predicates)}")
 
-    def add_function_predicates(self, func_name: str, new_preds: Iterable[FNode]):
-        """Adds new function-specific predicates. Predicates are unindexed."""
-        if func_name not in self.function_predicates:
-            self.function_predicates[func_name] = set()
-        
-        count_before = len(self.function_predicates[func_name])
-        for p in new_preds:
-            self.function_predicates[func_name].add(unindex_predicate(p))
-        log.printer.log_debug(5, f"[PredAbsPrecision INFO] Added {len(self.function_predicates[func_name]) - count_before} new preds for function '{func_name}'. Total for func: {len(self.function_predicates[func_name])}")
-
-
-    def add_local_predicates_map(self, new_local_preds_map: Dict[CFANode, Iterable[FNode]]):
+    def add_local_predicates(self, new_local_preds_map: Dict[CFANode, Iterable[FNode]]):
         """Adds new location-specific predicates from a map. Predicates are unindexed."""
         for loc_node, preds_for_loc in new_local_preds_map.items():
             if loc_node not in self.local_predicates:
@@ -314,8 +236,7 @@ class PredAbsPrecision:
             
             count_before = len(self.local_predicates[loc_node])
             for p in preds_for_loc:
-                self.local_predicates[loc_node].add(unindex_predicate(p))
-                self.local_predicates[loc_node].add(Not(unindex_predicate(p)))
+                self.local_predicates[loc_node].add(SSA.unindex_predicate(p))
             added_count = len(self.local_predicates[loc_node]) - count_before
             if added_count > 0:
                  log.printer.log_debug(5, f"[PredAbsPrecision INFO] Added {added_count} new local preds for node {loc_node.node_id}. Total for node: {len(self.local_predicates[loc_node])}")
@@ -323,72 +244,12 @@ class PredAbsPrecision:
 
     def __str__(self) -> str:
         return (f"Global: \n{self.global_predicates}\n"
-                f"Function-specific: \n{self.function_predicates}\n"
                 f"Local: \n{[str(k) + ': ' + str(v) for k,v in self.local_predicates.items()]}")
-
-    @staticmethod
-    def ssa_inc_indices(formula : FNode, indices : int | dict[str,int]) -> FNode:
-        # log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] ssa_inc_indices: formula={formula}, indices={indices}")
-        result = formula
-        substitution_targets = []
-        for sub in get_env().formula_manager.get_all_symbols():
-            if sub.is_symbol():
-                if isinstance(indices, dict) and _ssa_get_name(sub) not in indices:
-                    continue
-                substitution_targets.append(sub)
-        
-        substitution = {}
-        if isinstance(indices, int):
-            substitution = {
-                target : _ssa_inc_index(target, indices)
-                for target in substitution_targets
-            }
-        else: # isinstance(indices, dict)
-            substitution = {
-                target : _ssa_inc_index(target, indices[_ssa_get_name(target)]) 
-                for target in substitution_targets
-                if _ssa_get_name(target) in indices # Ensure key exists
-            }
-        
-        return substitute(copy.copy(result), substitution)
-
-
-
-    @staticmethod
-    def ssa_set_indices(formula : FNode, indices : int | dict[str,int]) -> FNode:
-        # log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] ssa_set_indices: formula={formula}, indices={indices}")
-        substitution_targets = []
-        for sub in get_env().formula_manager.get_all_symbols():
-            if sub.is_symbol():
-                if isinstance(indices, dict) and _ssa_get_name(sub) not in indices:
-                    continue
-                substitution_targets.append(sub)
-        
-        substitution = {}
-        if isinstance(indices, int):
-            substitution = {
-                target : _ssa_set_index(target, indices) 
-                for target in substitution_targets
-            }
-        else: # isinstance(indices, dict)
-            substitution = {
-                target : _ssa_set_index(target, indices[_ssa_get_name(target)]) 
-                for target in substitution_targets
-                if _ssa_get_name(target) in indices # Ensure key exists
-            }
-        
-        return substitute(copy.copy(formula), substitution)
 
     @staticmethod
     def ssa_from_call(edge: CFAEdge, ssa_indices: Dict[str, int]) -> FNode:
         instr = edge.instruction
         log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] ssa_from_call: edge='{edge.label()}', ssa_indices={ssa_indices}")
-
-        if hasattr(instr, 'target_variable') and instr.target_variable:
-            target_var = instr.target_variable
-
-            log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] ssa_from_call: Nondet/Builtin call, advancing SSA for target '{target_var}'")
-            _next(target_var, ssa_indices) # Advance SSA for the target variable
 
         # Handle regular function calls with parameter passing
         if not hasattr(instr, "param_names") or not hasattr(instr, "arg_names"):
@@ -398,48 +259,37 @@ class PredAbsPrecision:
         conjuncts = []
         # 1. map each actual argument to the formal parameter
         #    formal_new_ssa = actual_current_ssa
-        for formal, actual_name_str in zip(instr.param_names, instr.arg_names):
-            # actual_name_str might be a variable name or a constant string
-            # We need to create an AST node to pass to _expr2smt
-            try:
-                # If actual_name_str is a number, treat it as a constant
-                actual_val = int(actual_name_str)
-                actual_ast_node = ast.Constant(value=actual_val)
-            except ValueError:
-                # Otherwise, treat it as a variable name
-                actual_ast_node = ast.Name(id=actual_name_str, ctx=ast.Load())
-            
-            rhs = _expr2smt(actual_ast_node, ssa_indices) # Use current SSA for actual
-            lhs = _ssa(formal, _next(formal, ssa_indices))   # Use next SSA for formal
+        for formal, actual in zip(instr.param_names, instr.arg_names):
+            rhs = _expr2smt(actual, ssa_indices)
+            lhs = SSA.ssa(formal, SSA.next(formal, ssa_indices))
             conjuncts.append(Equals(lhs, rhs))
             log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] ssa_from_call: Param assignment {lhs} = {rhs}")
-        
-        if target_var:
-            conjuncts.append(Equals(_ssa(target_var, _next(target_var, ssa_indices)), _ssa('__ret', ssa_indices)))
 
         log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] ssa_from_call: conjuncts={conjuncts}")
         return And(conjuncts) if conjuncts else TRUE()
 
 
     @staticmethod
-    def ssa_from_return(edge: CFAEdge, ssa_indices: Dict[str, int]) -> FNode:
+    def ssa_from_return_dynamic(edge: CFAEdge, ssa_indices: Dict[str, int]) -> FNode:
+        ''' ssa from return during runtime, i.e. when target variable is known '''
         instr = edge.instruction
         expr = instr.expression # This is an ast.Return
         log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] ssa_from_return: edge='{edge.label()}', ssa_indices={ssa_indices}, expr={ast.dump(expr) if expr else 'None'}")
         
-        if hasattr(instr, 'return_variable') and expr.value: # expr.value is the AST node being returned
-            # The value being returned (e.g., variable 'r' in 'return r')
+        if  hasattr(instr, 'return_variable') and expr.value:
+            assert hasattr(instr, 'target_variable') and instr.target_variable
             returned_value_smt = _expr2smt(expr.value, ssa_indices) # uses current SSA of 'r'
-            if hasattr(instr, 'target_variable') and instr.target_variable:
-                ret_storage_name = instr.target_variable
-            else: # Fallback, less ideal
-                ret_storage_name = "__ret"
-            lhs_return_storage = _ssa(ret_storage_name, _next(ret_storage_name, ssa_indices))
+            ret_storage_name = instr.target_variable
+            lhs_return_storage = SSA.ssa(ret_storage_name, SSA.next(ret_storage_name, ssa_indices))
             log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] ssa_from_return: {lhs_return_storage} = {returned_value_smt}")
             return Equals(lhs_return_storage, returned_value_smt)
 
         log.printer.log_debug(5, "[PredAbsPrecision DEBUG] ssa_from_return: No value returned or no target variable, returning TRUE.")
         return TRUE() # Return with no value
+
+    @staticmethod
+    def ssa_from_return(edge: CFAEdge, ssa_indices: Dict[str, int]) -> FNode:
+        return TRUE()
 
     @staticmethod
     def ssa_from_assign(edge: CFAEdge, ssa_indices: Dict[str, int]) -> FNode:
@@ -464,7 +314,7 @@ class PredAbsPrecision:
         rhs_smt = _expr2smt(expr.value, ssa_indices) # uses current SSA for vars in RHS
         
         # Variable being assigned to (LHS)
-        lhs_smt = _ssa(var_name, _next(var_name, ssa_indices)) # uses next SSA for LHS
+        lhs_smt = SSA.ssa(var_name, SSA.next(var_name, ssa_indices)) # uses next SSA for LHS
         
         log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] ssa_from_assign: {lhs_smt} = {rhs_smt}")
         return Equals(lhs_smt, _cast(rhs_smt, lhs_smt.get_type()))
@@ -518,7 +368,7 @@ class PredAbsPrecision:
         """
         Creates an initial precision by extracting atomic predicates from all CFA edges.
         Predicates are stored globally for simplicity in this initial version.
-        A more refined version would store them per-location or per-function.
+        A more refined version would store them per-location.
         """
         log.printer.log_debug(5, f"[PredAbsPrecision INFO] Initializing precision from CFA with {len(roots)} root(s).")
 
@@ -550,7 +400,7 @@ class PredAbsPrecision:
                     # log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] from_cfa: Edge {edge.label()}, formula {formula_for_edge}, atoms {atoms}")
                     for atom in atoms:
                         if not atom.is_true() and not atom.is_false(): # Avoid adding True/False as specific predicates
-                            unindexed_atom = unindex_predicate(atom)
+                            unindexed_atom = SSA.unindex_predicate(atom)
                             global_preds.add(unindexed_atom)
                             # For per-location:
                             # if edge.predecessor not in preds_map: preds_map[edge.predecessor] = set()

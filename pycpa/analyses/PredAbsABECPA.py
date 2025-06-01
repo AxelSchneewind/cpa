@@ -37,7 +37,7 @@ class PredAbsABEState(AbstractState):
             # path formula since last block head
             self.path_formula : FNode = TRUE()
             # current ssa_indices
-            self.path_ssa_indices: Dict[str, int] = dict()
+            self.path_ssa_indices: dict[str, int] = dict()
 
     def subsumes(self, other: PredAbsABEState) -> bool:
         # check subset relation of predicates and implication of path formulas (self=>other)
@@ -106,7 +106,7 @@ class PredAbsABETransferRelation(TransferRelation):
         elif kind == InstructionType.CALL:
             trans = PredAbsPrecision.ssa_from_call(edge, ssa_indices=ssa_idx)
         elif kind == InstructionType.RETURN:
-            trans = PredAbsPrecision.ssa_from_return(edge, ssa_indices=ssa_idx)
+            trans = PredAbsPrecision.ssa_from_return_dynamic(edge, ssa_indices=ssa_idx)
         else:
             trans = TRUE()
 
