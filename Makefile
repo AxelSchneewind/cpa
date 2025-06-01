@@ -84,16 +84,16 @@ generate-benchmarks: patch-cpp2py cpp2py.py
 # main target for running benchmarks
 run-benchmark-%: venv check-venv benchmarks/% cpp2py.py
 	@echo 'running benchmark'
-	python -m pycpa -p ReachSafety -c PredicateAnalysis --max-iterations 1 benchmarks/$*/*.py
+	python -m pycpa -p unreach-call -c PredicateAnalysis --max-iterations 1 benchmarks/$*/*.py
 
 run-examples-%: check-msat-path
 	@echo 'testing $* on example programs'
-	@PYTHONPATH=$(PYTHONPATH) LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) python -m pycpa -p ReachSafety -c $* --compact --max-iterations 600 test_progs/*.yml test_progs/*.py -o out/$* 
+	@PYTHONPATH=$(PYTHONPATH) LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) python -m pycpa -p unreach-call -c $* --compact --max-iterations 600 test_progs/*.yml test_progs/*.py -o out/$* 
 
 run-examples: check-venv test_progs/*.py run-examples-PredicateAnalysisCEGAR run-examples-PredicateAnalysisABEf run-examples-PredicateAnalysisABEbf run-examples-ReachabilityAnalysis run-examples-ValueAnalysis run-examples-ValueAnalysisMergeJoin run-examples-FormulaAnalysis 
 
 run-%: check-venv %.py check-msat-path
-	PYTHONPATH=$(PYTHONPATH) LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) python -m pycpa -p ReachSafety -c PredicateAnalysis --max-iterations 300 $*.py 
+	PYTHONPATH=$(PYTHONPATH) LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) python -m pycpa -p unreach-call -c PredicateAnalysis --max-iterations 300 $*.py 
 
 
 
@@ -109,7 +109,7 @@ ABS-OUTPUT-PATH = $(abspath ${output-path})
 # CPAchecker variables
 CPA-PATH = ${BASE-PATH}/pycpa/
 CPA-EXE = ${CPA-PATH}/scripts/cpa.sh
-CPA-DEFAULT-ARGS = --property ReachSafety
+CPA-DEFAULT-ARGS =
 
 # BenchExec variables
 benchexec-call-prefix=
@@ -164,7 +164,7 @@ ${TOOLDEF-FILE}:
 
 # test tool definition
 benchexec-test-tooldef: ${TOOLDEF-FILE}
-	${benchexec-call-prefix} ${PYTHON} -m benchexec.test_tool_info pycpa ${BENCHEXECBASE-DIRS}
+	${benchexec-call-prefix} ${PYTHON} -m benchexec.test_tool_info cpachecker ${BENCHEXECBASE-DIRS}
 
 
 # Run experiments
@@ -190,4 +190,4 @@ test: check-venv
 	python -m pycpa.test
 
 run-bad: 
-	python -m pycpa -p ReachSafety -c PredicateAnalysis --max-iterations 300 test_progs/collatz_safe.py benchmarks/Test/btor2c-lazyMod.anderson.6.prop1-back-serstep.c.py
+	python -m pycpa -p unreach-call -c PredicateAnalysis --max-iterations 300 test_progs/collatz_safe.py benchmarks/Test/btor2c-lazyMod.anderson.6.prop1-back-serstep.c.py

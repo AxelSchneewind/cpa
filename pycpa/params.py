@@ -7,7 +7,7 @@ parser.add_argument('program', help='the program to validate', nargs='+')
 parser.add_argument('-o', '--output-directory', help='directory to write results to', type=str, default='out')
 
 parser.add_argument('-c', '--config', action='append', required=True, help='which analysis configuration to use (use --list-configs to get a list of available ones)')
-parser.add_argument('-p', '--property', action='append', default=['ReachSafety'], help='which analysis configuration to use (use --list-configs to get a list of available ones)')
+parser.add_argument('-p', '--property', action='append', default=['unreach-call'], help='which analysis configuration to use (use --list-configs to get a list of available ones)')
 parser.add_argument('--list-configs', help='a list of available analyses')
 parser.add_argument('--list-properties', help='a list of available properties')
 

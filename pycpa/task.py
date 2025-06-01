@@ -2,9 +2,6 @@
 
 from typing import Collection
 
-properties_map = {
-    'unreach-call' : 'ReachSafety'
-}
 
 
 class Task:
@@ -23,7 +20,7 @@ class Task:
                 base_dir + '/' + yml['input_files'].split(' ')[0],  # only accept single program for now
                 args,
                 args.config,
-                [ properties_map[p.split('/')[-1].split('.')[0]] for p in  args.property],
+                [ p.split('/')[-1].split('.')[0] for p in  args.property],
                 None
         )
         return result
