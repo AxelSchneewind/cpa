@@ -88,7 +88,7 @@ run-benchmark-%: venv check-venv benchmarks/% cpp2py.py
 
 run-examples-%: check-msat-path
 	@echo 'testing $* on example programs'
-	@PYTHONPATH=$(PYTHONPATH) LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) python -m pycpa -p ReachSafety -c $* --compact --max-iterations 600 test_progs/*.py -o out/$* 
+	@PYTHONPATH=$(PYTHONPATH) LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) python -m pycpa -p ReachSafety -c $* --compact --max-iterations 600 test_progs/*.yml test_progs/*.py -o out/$* 
 
 run-examples: check-venv test_progs/*.py run-examples-PredicateAnalysisCEGAR run-examples-PredicateAnalysisABEf run-examples-PredicateAnalysisABEbf run-examples-ReachabilityAnalysis run-examples-ValueAnalysis run-examples-ValueAnalysisMergeJoin run-examples-FormulaAnalysis 
 
@@ -175,8 +175,8 @@ run-medium-exp: check-output-exist ${TOOLDEF-FILE} check-msat-path check-venv
 	${BENCHEXEC-CALL} "${BENCHDEFS-PATH}/pycpa-medium.xml"
 
 # Generate tables from the experiments
-gen-demo-table:
-	${TABLE-GENERATOR-CALL} -x ${ABS-BENCHDEFS-PATH}/stats.demo.xml -o ${ABS-OUTPUT-PATH}
+gen-%-table:
+	${TABLE-GENERATOR-CALL} -x ${ABS-BENCHDEFS-PATH}/stats.$*.xml -o ${ABS-OUTPUT-PATH}
 
 
 
