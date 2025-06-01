@@ -1,0 +1,8 @@
+format_version: '2.0'
+
+input_files: 'off_by_one_bug.py'
+
+properties:
+  - property_file: properties/unreach-call.prp
+    expected_verdict: false
+

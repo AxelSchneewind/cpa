@@ -1,0 +1,8 @@
+format_version: '2.0'
+
+input_files: 'sum_mult_unsafe.py'
+
+properties:
+  - property_file: properties/unreach-call.prp
+    expected_verdict: false
+
