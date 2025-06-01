@@ -2,6 +2,11 @@
 
 from typing import Collection
 
+properties_map = {
+    'unreach-call' : 'ReachSafety'
+}
+
+
 class Task:
     def __init__(self, program : str, args, configs : Collection[str] = [], properties : Collection[str] = [], max_iterations=None):
         # base name of program
@@ -18,7 +23,7 @@ class Task:
                 base_dir + '/' + yml['input_files'].split(' ')[0],  # only accept single program for now
                 args,
                 args.config,
-                args.property,
+                [ properties_map[p.split('/')[-1].split('.')[0]] for p in  args.property],
                 None
         )
         return result
