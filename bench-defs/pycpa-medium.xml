@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE benchmark PUBLIC "+//IDN sosy-lab.org//DTD BenchExec benchmark 1.0//EN" "http://www.sosy-lab.org/benchexec/benchmark-1.0.dtd">
+<benchmark tool="pycpa">
+
+    <propertyfile>../benchmarks/properties/unreach-call.prp</propertyfile>
+  
+    <rundefinition name="Predicate Analysis CEGAR">
+      <option name="--config">PredicateAnalysisCEGAR</option>
+    </rundefinition>
+  
+    <rundefinition name="Value Analysis">
+      <option name="--config">ValueAnalysis</option>
+    </rundefinition>
+  
+    <rundefinition name="Predicate Analysis">
+      <option name="--config">PredicateAnalysis</option>
+    </rundefinition>
+  
+    <rundefinition name="Predicate Analysis LBE">
+      <option name="--config">PredicateAnalysisABEbf</option>
+    </rundefinition>
+  
+    <tasks name="demo">
+      <includesfile>sets/demo.set</includesfile>
+    </tasks>
+
+    <tasks name="medium">
+      <includesfile>sets/medium.set</includesfile>
+    </tasks>
+  
+
+</benchmark>
