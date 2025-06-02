@@ -124,24 +124,7 @@ def refine_precision(
         for i, itp in enumerate(interpolants):
             log.printer.log_debug(1, f"[CEGAR Helper DEBUG]   τ_{i}: {itp.serialize()}")
 
-    # --- Extract atomic predicates from interpolants and update precision ---
-    # The interpolant τ_i is associated with the state *before* edge A_{i+1}
-    # (or at location l_i, which is the predecessor of edge i).
-    # Predicates from τ_i are added to π(l_i).
-    # abstract_cex_edges: [edge_0, edge_1, ..., edge_{m-1}] (m edges)
-    # path_formula_conjuncts: [A_0, A_1, ..., A_{n-1}] (n conjuncts, usually n=m)
-    # interpolants: [τ_0, τ_1, ..., τ_n] (n+1 interpolants)
-    # τ_i is for the state between A_i and A_{i+1} (using 1-based A for clarity here)
-    # So, τ_i is relevant for location l_i = predecessor of edge_i (or successor of edge_{i-1})
-
     new_local_predicates_map: Dict[CFANode, Set[FNode]] = {}
-
-    # τ_0 is True, τ_n is False. We are interested in τ_1, ..., τ_{n-1} primarily.
-    # However, predicates can be extracted from all τ_i (except True/False).
-    # The location for τ_i (0 < i < n) is abstract_cex_edges[i-1].successor
-    # which is also abstract_cex_edges[i].predecessor.
-    # For τ_0, it's abstract_cex_edges[0].predecessor.
-    # For τ_n, it's abstract_cex_edges[n-1].successor.
 
     num_edges = len(abstract_cex_edges)
     assert len(interpolants) == num_edges + 1
@@ -178,7 +161,7 @@ def refine_precision(
         for atom in interp_formula.get_atoms():
             if not atom.is_true() and not atom.is_false(): # Don't add True/False as predicates
                 unindexed = SSA.unindex_predicate(atom)
-                if location_node not in current_precision.local_predicates or unindexed not in current_precision.local_predicates[location_node]:
+                if location_node not in current_precision.predicates or unindexed not in current_precision.predicates[location_node]:
                     new_local_predicates_map[location_node].add(unindexed)
                     new_local_predicates_map[location_node].add(Not(unindexed))
                     current_atoms.add(unindexed)
@@ -194,19 +177,19 @@ def refine_precision(
         for atom in interpolants[num_edges].get_atoms():
             if not atom.is_true() and not atom.is_false():
                 unindexed = SSA.unindex_predicate(atom)
-                if location_node not in current_precision.local_predicates or unindexed not in current_precision.local_predicates[location_node]:
+                if location_node not in current_precision.predicates or unindexed not in current_precision.predicates[location_node]:
                     new_local_predicates_map[location_node].add(unindexed)
                     new_local_predicates_map[location_node].add(Not(unindexed))
                     current_atoms.add(unindexed)
         log.printer.log_debug(1, f"[CEGAR Helper DEBUG] Extracted from τ_{num_edges} for loc {loc_for_taun.node_id}: {new_local_predicates_map[loc_for_taun]}")
 
     if len(current_atoms) > 0:      # only return new precision if new atoms found
-        log.printer.log_debug(0, f"[CEGAR Helper INFO] Adding new local predicates to precision: { {loc.node_id: preds for loc, preds in new_local_predicates_map.items()} }")
+        log.printer.log_debug(1, f"[CEGAR Helper INFO] Adding new local predicates to precision: { {loc.node_id: preds for loc, preds in new_local_predicates_map.items()} }")
         new_precision = copy.copy(current_precision)
         new_precision.add_local_predicates(new_local_predicates_map)
         return new_precision
     else:                           # return old precision
-        log.printer.log_debug(0, "[CEGAR Helper INFO] No new non-trivial predicates extracted from interpolants.")
+        log.printer.log_debug(1, "[CEGAR Helper INFO] No new non-trivial predicates extracted from interpolants.")
         return current_precision
 
 

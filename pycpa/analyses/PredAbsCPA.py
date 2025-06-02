@@ -25,7 +25,7 @@ from pycpa.analyses.ssa_helper import SSA
 # --------------------------------------------------------------------------- #
 class PredAbsState(AbstractState):
     def __init__(self, other: PredAbsState | None = None) -> None:
-        if other:
+        if other:   # copy constructor
             self.predicates: Set[FNode] = set(other.predicates)
             self.ssa_indices: Dict[str, int] = copy.deepcopy(other.ssa_indices)
         else:
@@ -77,7 +77,7 @@ class PredAbsTransferRelation(TransferRelation):
             ssa_indices_new has to be the ssa indices after transfer formula.
         """
         phi = And(list(current_predicates)) if current_predicates else TRUE()
-        SSA.inc_indices(phi, ssa_indices_old)
+        phi = SSA.set_indices(phi, ssa_indices_old)
         phi = And(phi, transfer)
 
         implied: Set[FNode] = set()
@@ -85,7 +85,7 @@ class PredAbsTransferRelation(TransferRelation):
             pnew = SSA.set_indices(p, ssa_indices_new)
             sat = is_sat(And(phi, Not(pnew)))
             if not sat:
-                implied.add(pnew)
+                implied.add(SSA.unindex_predicate(pnew))
 
         return implied
 

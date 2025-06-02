@@ -14,6 +14,8 @@ from pycpa.verdict import Verdict
 from pycpa.analyses import (
     LocationCPA,
     PredAbsCPA,
+    PredAbsABECPA,
+    IsBlockOperator,
     PropertyCPA,
     CompositeCPA,
     StackCPA,
@@ -74,17 +76,14 @@ class PredAbsCEGARDriver:
 
     def _build_cpa_stack(self) -> ARGCPA:
         """Builds the CPA stack with the current precision."""
-        log.printer.log_debug(1, "[CEGAR Driver DEBUG] Building CPA stack...")
-        
         # Ensure PredAbsCPA uses the most up-to-date precision
-        self.pred_abs_cpa = PredAbsCPA(initial_precision=self.current_precision)
+        self.pred_abs_cpa = PredAbsABECPA(self.current_precision, IsBlockOperator.is_block_head_fl)
         log.printer.log_debug(1, f"[CEGAR Driver DEBUG]   PredAbsCPA created with precision: {self.current_precision}")
 
         location_cpa = LocationCPA(cfa_root=self.entry_node)
         composite_cpa = StackCPA(CompositeCPA([location_cpa, self.pred_abs_cpa, PropertyCPA()]))
         
         arg_cpa = ARGCPA(wrapped_cpa=composite_cpa)
-        log.printer.log_debug(5, f"[CEGAR Driver DEBUG]   ARGCPA created, wrapping CompositeCPA.")
         self.analysis_cpa = arg_cpa
         return arg_cpa
 

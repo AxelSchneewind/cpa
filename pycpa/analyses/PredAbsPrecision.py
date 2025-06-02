@@ -190,61 +190,50 @@ def _expr2smt(node: ast.AST, ssa: Dict[str, int]) -> FNode:
 #  Precision object (mapping from CFANode to predicate set)                   #
 # --------------------------------------------------------------------------- #
 class PredAbsPrecision:
-    def __init__(self,
-                 global_preds: Optional[Set[FNode]] = None,
-                 local_preds: Optional[Dict[CFANode, Set[FNode]]] = None):
-        # Store unindexed predicates
-        self.global_predicates: Set[FNode] = global_preds if global_preds is not None else set()
-        self.local_predicates: Dict[CFANode, Set[FNode]] = local_preds if local_preds is not None else {}
-        log.printer.log_debug(5, f"[PredAbsPrecision INFO] Initialized precision: Global={len(self.global_predicates)}, Local={len(self.local_predicates)}")
+    def __init__(self, preds: dict[CFANode,FNode]):
+        self.predicates: dict[CFANode,FNode] = preds
 
-    def get_predicates_for_location(self, loc_node: CFANode) -> Set[FNode]:
+    def __getitem__(self, loc):  
+        return self.predicates[loc]
+    def __contains__(self, loc): 
+        return loc in self.predicates
+
+    def __iter__(self): 
+        return iter(self.predicates)
+    def __len__(self): 
+        return len(self.predicates)
+
+    def __str__(self):
+        return str({ str(n) : str(p) for n,p in self.predicates.items()})
+
+
+    def get_predicates_for_location(self, location: CFANode) -> set[FNode]:
         """
-        Retrieves all applicable predicates for a given CFA node,
-        combining global and location-specific predicates.
+        Retrieves all applicable predicates for a given CFA node
         """
-        log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] Getting predicates for location: {loc_node.node_id if loc_node else 'None'}")
-        if loc_node is None: # Should not happen if loc_node is always a CFANode
-            return self.global_predicates.copy()
+        assert location in self.predicates
+        return self.predicates[location]
 
-        preds = self.global_predicates.copy()
-        log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] Global preds: {preds}")
-
-        if loc_node in self.local_predicates:
-            preds.update(self.local_predicates[loc_node])
-            log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] Added local (node {loc_node.node_id}) preds: {self.local_predicates[loc_node]}")
-        
-        log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] Total preds for node {loc_node.node_id}: {preds}")
-        return preds
-
-    def __getitem__(self, loc_node: CFANode) -> Set[FNode]:
+    def __getitem__(self, location: CFANode) -> set[FNode]:
         """Allows dictionary-like access, e.g., precision[cfa_node]."""
-        return self.get_predicates_for_location(loc_node)
+        assert location in self.predicates
+        return self.predicates[location]
+
 
     def add_global_predicates(self, new_preds: Iterable[FNode]):
         """Adds new global predicates. Predicates are unindexed before storing."""
-        count_before = len(self.global_predicates)
         for p in new_preds:
-            self.global_predicates.add(SSA.unindex_predicate(p))
-        log.printer.log_debug(5, f"[PredAbsPrecision INFO] Added {len(self.global_predicates) - count_before} new global predicates. Total global: {len(self.global_predicates)}")
+            for location in self.predicates:
+                for p in preds:
+                    self.predicates[location].add(SSA.unindex_predicate(p))
 
-    def add_local_predicates(self, new_local_preds_map: Dict[CFANode, Iterable[FNode]]):
-        """Adds new location-specific predicates from a map. Predicates are unindexed."""
-        for loc_node, preds_for_loc in new_local_preds_map.items():
-            if loc_node not in self.local_predicates:
-                self.local_predicates[loc_node] = set()
-            
-            count_before = len(self.local_predicates[loc_node])
-            for p in preds_for_loc:
-                self.local_predicates[loc_node].add(SSA.unindex_predicate(p))
-            added_count = len(self.local_predicates[loc_node]) - count_before
-            if added_count > 0:
-                 log.printer.log_debug(5, f"[PredAbsPrecision INFO] Added {added_count} new local preds for node {loc_node.node_id}. Total for node: {len(self.local_predicates[loc_node])}")
-
-
-    def __str__(self) -> str:
-        return (f"Global: \n{self.global_predicates}\n"
-                f"Local: \n{[str(k) + ': ' + str(v) for k,v in self.local_predicates.items()]}")
+    def add_local_predicates(self, new_preds: dict[CFANode, Iterable[FNode]]):
+        """Adds new predicates to location. SSA-indices have to be made relative to last block head before storing."""
+        for location, preds in new_preds.items():
+            if location not in self.predicates:
+                self.predicates[location] = set()
+            for p in preds:
+                self.predicates[location].add(SSA.unindex_predicate(p))
 
     @staticmethod
     def ssa_from_call(edge: CFAEdge, ssa_indices: Dict[str, int]) -> FNode:
@@ -302,11 +291,7 @@ class PredAbsPrecision:
             return TRUE()
 
         target_ast = expr.targets[0]
-        
-        if not isinstance(target_ast, ast.Name): # Simple assignment: x = ...
-            log.printer.log_debug(5, f"[PredAbsPrecision WARN] ssa_from_assign: Assignment target '{ast.dump(target_ast)}' is not a simple Name, returning TRUE.")
-            # TODO: Handle other target types like ast.Subscript (arrays/lists) or ast.Attribute if needed.
-            return TRUE()
+        assert isinstance(target_ast, ast.Name)
 
         var_name = target_ast.id
         
@@ -374,43 +359,33 @@ class PredAbsPrecision:
 
         global_preds: Set[FNode] = initial_globals if initial_globals is not None else {TRUE(), FALSE()}
 
-        processed_edges = set()
-        
-        worklist = []
-        for root_node in roots:
-            if root_node not in worklist:
-                 worklist.append(root_node)
-        
+        worklist = list(roots)
         seen_nodes = set(roots)
+
+        predicates = dict()
 
         while worklist:
             current_node = worklist.pop(0)
             log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] from_cfa: Visiting node {current_node.node_id}")
 
-            for edge in current_node.leaving_edges:
-                if edge in processed_edges:
-                    continue
-                processed_edges.add(edge)
+            if current_node not in predicates:
+                predicates[current_node] = set()
 
-                # Use a temporary empty SSA map for predicate extraction, as we only want the structure.
-                # Predicates in the precision are typically stored unindexed.
+            for edge in current_node.leaving_edges:
                 formula_for_edge = PredAbsPrecision.from_cfa_edge(edge, {}) 
                 if formula_for_edge is not None and formula_for_edge.get_type() == BOOL:
                     atoms = formula_for_edge.get_atoms()
-                    # log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] from_cfa: Edge {edge.label()}, formula {formula_for_edge}, atoms {atoms}")
                     for atom in atoms:
                         if not atom.is_true() and not atom.is_false(): # Avoid adding True/False as specific predicates
                             unindexed_atom = SSA.unindex_predicate(atom)
                             global_preds.add(unindexed_atom)
-                            # For per-location:
-                            # if edge.predecessor not in preds_map: preds_map[edge.predecessor] = set()
-                            # preds_map[edge.predecessor].add(unindexed_atom)
                 
                 if edge.successor not in seen_nodes:
                     seen_nodes.add(edge.successor)
                     worklist.append(edge.successor)
         
-        log.printer.log_debug(5, f"[PredAbsPrecision INFO] from_cfa: Extracted {len(global_preds)} unique global predicates.")
-        # For per-location: return PredAbsPrecision(local_preds=preds_map, global_preds={TRUE(), FALSE()})
-        return PredAbsPrecision(global_preds=global_preds)
+        for n in predicates:
+            predicates[n] = global_preds
+
+        return PredAbsPrecision(predicates)
 

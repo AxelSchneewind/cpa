@@ -1,4 +1,4 @@
-from pycpa.analyses import PredAbsABEPrecision, PredAbsABECPA
+from pycpa.analyses import PredAbsPrecision, PredAbsABECPA
 from pycpa.analyses import CompositeCPA
 from pycpa.analyses import LocationCPA
 from pycpa.analyses import StackCPA
@@ -16,7 +16,7 @@ def get_cpas(entry_point=None, cfa_roots=None, output_dir=None, **params):
 
     if cfa_roots is None:
         cfa_roots = [entry_point]
-    precision = PredAbsABEPrecision.from_cfa(cfa_roots, lambda x : False)
+    precision = PredAbsPrecision.from_cfa(cfa_roots)
 
     # dump initial precision
     if output_dir:

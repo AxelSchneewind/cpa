@@ -14,12 +14,16 @@ from pysmt.fnode import FNode
 from pysmt.exceptions import SolverReturnedUnknownResultError
 
 from pycpa.cfa import InstructionType, CFAEdge
-from pycpa.cpa import CPA, AbstractState, TransferRelation, StopSepOperator, MergeSepOperator
+from pycpa.cpa import ( 
+    CPA, AbstractState, TransferRelation, StopSepOperator, MergeSepOperator
+)
 
 from pycpa.analyses.PredAbsPrecision import PredAbsPrecision
 from pycpa.analyses.PredAbsCPA import PredAbsCPA, PredAbsTransferRelation
 
 from pycpa.analyses.ssa_helper import SSA
+
+import copy
 
 # --------------------------------------------------------------------------- #
 # Abstract State
@@ -28,14 +32,13 @@ class PredAbsABEState(AbstractState):
     def __init__(self, other: PredAbsABEState | None = None) -> None:
         if other:
             self.predicates: Set[FNode] = set(other.predicates)
-            self.ssa_indices: Dict[str, int] = copy.deepcopy(other.ssa_indices)
+            self.abstraction_location : CfANode = other.abstraction_location
             self.path_formula : FNode = copy.copy(other.path_formula)
             self.path_ssa_indices: Dict[str, int] = copy.deepcopy(other.path_ssa_indices)
         else:
             # predicates computed at last block head
             self.predicates = set()
-            # ssa indices at last block head
-            self.ssa_indices = dict()
+            self.abstraction_location = None
             # path formula since last block head
             self.path_formula : FNode = TRUE()
             # current ssa_indices
@@ -43,8 +46,8 @@ class PredAbsABEState(AbstractState):
 
     def subsumes(self, other: PredAbsABEState) -> bool:
         # check subset relation of predicates and implication of path formulas (self=>other)
-        lformula = SSA.inc_indices(And(self.predicates), self.ssa_indices)
-        rformula = SSA.inc_indices(And(other.predicates), other.ssa_indices)
+        lformula = SSA.inc_indices(And(self.predicates), self.path_ssa_indices)
+        rformula = SSA.inc_indices(And(other.predicates), other.path_ssa_indices)
         result = (
             # self => other
             not is_sat(
@@ -56,12 +59,13 @@ class PredAbsABEState(AbstractState):
         return (
             isinstance(other, PredAbsABEState) and
             self.predicates == other.predicates and
-            self.ssa_indices == other.ssa_indices and
+            self.abstraction_location == other.abstraction_location and
+            self.path_ssa_indices == other.path_ssa_indices and
             self.path_formula == other.path_formula
         )
 
     def __hash__(self) -> int:
-        return (frozenset(self.predicates).__hash__(), frozenset(self.ssa_indices.items()).__hash__(), self.path_formula.__hash__()).__hash__()
+        return (frozenset(self.predicates).__hash__(), self.abstraction_location.__hash__(), frozenset(self.path_ssa_indices.items()).__hash__(), self.path_formula.__hash__()).__hash__()
 
     def __str__(self) -> str:
         return '{' + ', '.join(str(p) for p in self.predicates) + '} | ' + str(self.path_formula)
@@ -90,9 +94,10 @@ class PredAbsABETransferRelation(TransferRelation):
         # 1) Copy SSA indices locally, these will be advanced by the current edge formula
         ssa_idx = copy.deepcopy(predecessor.path_ssa_indices)
         predicates = None
+        abstraction_location = predecessor.abstraction_location
 
         # check if successor node is head
-        is_block_head = self.is_block_head(edge.successor)
+        is_block_head = self.is_block_head(edge.predecessor, edge)
 
         kind = edge.instruction.kind
         if   kind == InstructionType.STATEMENT:
@@ -100,7 +105,7 @@ class PredAbsABETransferRelation(TransferRelation):
         elif kind == InstructionType.ASSUMPTION:
             expr = PredAbsPrecision.ssa_from_assume(edge, ssa_indices=ssa_idx)
 
-            predecessor_formula = SSA.inc_indices(And(predecessor.predicates), predecessor.ssa_indices)
+            predecessor_formula = SSA.inc_indices(And(predecessor.predicates), predecessor.path_ssa_indices)
             if not is_sat(And(And(expr, predecessor.path_formula), predecessor_formula)):
                 return []
 
@@ -112,37 +117,36 @@ class PredAbsABETransferRelation(TransferRelation):
         else:
             trans = TRUE()
 
-        if is_block_head:
-            # 3) If this is truly unsatisfiable (i.e. error-edge), preserve it
-            if trans.is_false():
-                succ = PredAbsABEState()
-                succ.ssa_indices = ssa_idx
-                succ.predicates  = {trans}
-                return [succ]
+        if is_block_head:       # compute new abstraction formula
+            if And(predecessor.path_formula, trans).is_false():
+                return []
 
-            # 4) Otherwise do Cartesian abstraction
             predicates = PredAbsTransferRelation._implied_predicates(
                 predecessor.predicates,
                 And(predecessor.path_formula, trans),
                 self.precision[edge.successor],
-                predecessor.ssa_indices,
+                0,
                 ssa_idx
             )
+            predicates = { SSA.unindex_predicate(p) for p in predicates }
+
+            # store location of new abstraction formula
+            abstraction_location = edge.predecessor
 
             # reset path formula
             path_formula = TRUE()
-        else:
+            ssa_idx = dict()
+        else:                   # update path formula
             # update path formula with current edge
             path_formula = And(trans, predecessor.path_formula)
             # keep these from previous block head
             predicates   = predecessor.predicates
 
-
         succ = PredAbsABEState()
-        succ.ssa_indices = ssa_idx if is_block_head else predecessor.ssa_indices
         succ.predicates  = predicates
         succ.path_formula = path_formula
         succ.path_ssa_indices = ssa_idx
+        succ.abstraction_location = abstraction_location
         return [succ]
 
 # --------------------------------------------------------------------------- #

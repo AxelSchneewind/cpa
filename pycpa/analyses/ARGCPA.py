@@ -243,15 +243,13 @@ class GraphableARGState(Graphable):
         return self.arg_state_internal
 
     def get_node_label(self) -> str:
-        # Add target state indication to label
-        is_target_str = " T" if self.arg_state_internal.is_target() else ""
         # Add creating edge info to label for debugging
         edge_label_str = ""
         # creating_edge = self.arg_state_internal.get_creating_edge()
         # if creating_edge:
         #     edge_label_str = f"\\nvia: {creating_edge.label()}"
         
-        return str(f"N{self.arg_state_internal.state_id}{is_target_str}\n{self.arg_state_internal.wrapped_state}{edge_label_str}")
+        return str(f"N{self.arg_state_internal.state_id}\n{self.arg_state_internal.wrapped_state}")
 
 
     def get_edge_labels(self, other: 'GraphableARGState') -> Collection[str]:

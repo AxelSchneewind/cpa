@@ -47,13 +47,7 @@ class SSA:
     @staticmethod   
     def get_idx(symbol : FNode) -> Optional[int]:
         name_parts = symbol.symbol_name().split('#')
-        if len(name_parts) > 1:
-            try:
-                return int(name_parts[-1])
-            except ValueError:
-                # If the part after # is not an int, it's not an SSA index we manage this way
-                return None
-        return None
+        return int(name_parts[-1]) if len(name_parts) > 1 else 0
     
     @staticmethod   
     def inc_index(symbol : FNode, increment : int) -> FNode:
@@ -131,8 +125,6 @@ class SSA:
         substitution_targets = []
         for sub in get_env().formula_manager.get_all_symbols():
             if sub.is_symbol():
-                if isinstance(indices, dict) and SSA.get_name(sub) not in indices:
-                    continue
                 substitution_targets.append(sub)
         
         substitution = {}
@@ -144,12 +136,11 @@ class SSA:
         else:
             assert isinstance(indices, dict)
             substitution = {
-                target : SSA.set_index(target, indices[SSA.get_name(target)]) 
+                target : SSA.set_index(target, indices.get(SSA.get_name(target), 0)) 
                 for target in substitution_targets
-                if SSA.get_name(target) in indices # Ensure key exists
             }
         
-        return substitute(copy.copy(formula), substitution)
+        return substitute(formula, substitution)
     
     @staticmethod   
     def pad_indices(formula : FNode, indices : dict[str,int], target_indices : dict[str,int]):
