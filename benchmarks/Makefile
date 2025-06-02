@@ -1,6 +1,9 @@
 
-%/: %.set
+%/: %.set properties/
 	./transpile_set.sh $*
+
+properties/: sv-benchmarks/c/properties
+	ln -s sv-benchmarks/c/properties properties
 
 sets: ReachSafety-Arrays.set ReachSafety-ControlFlow.set ReachSafety-ECA.set ReachSafety-Floats.set ReachSafety-Heap.set ReachSafety-Loops.set ReachSafety-ProductLines.set ReachSafety-Sequentialized.set ReachSafety-XCSP.set ReachSafety-Combinations.set ReachSafety-Hardware.set SoftwareSystems-AWS-C-Common-ReachSafety.set SoftwareSystems-DeviceDriversLinux64-ReachSafety.set SoftwareSystems-uthash-ReachSafety.set
 

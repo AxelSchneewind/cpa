@@ -1,0 +1,6 @@
+goto
+struct
+union
+enum
+switch
+do
