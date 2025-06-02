@@ -9,19 +9,21 @@ import ast
 import sys
 from typing import List, Set, Dict
 
-from pysmt.shortcuts import And, Not, TRUE, FALSE, is_sat
+from pysmt.shortcuts import And, Not, TRUE, FALSE, is_sat, Or
 from pysmt.fnode import FNode
 from pysmt.exceptions import SolverReturnedUnknownResultError
 
-from pycpa.cfa import InstructionType, CFAEdge
+from pycpa.cfa import InstructionType, CFAEdge, CFANode
 from pycpa.cpa import ( 
-    CPA, AbstractState, TransferRelation, StopSepOperator, MergeSepOperator
+    CPA, AbstractState, TransferRelation, StopSepOperator, MergeSepOperator, MergeOperator
 )
+
 
 from pycpa.analyses.PredAbsPrecision import PredAbsPrecision
 from pycpa.analyses.PredAbsCPA import PredAbsCPA, PredAbsTransferRelation
 
 from pycpa.analyses.ssa_helper import SSA
+
 
 import copy
 
@@ -29,31 +31,28 @@ import copy
 # Abstract State
 # --------------------------------------------------------------------------- #
 class PredAbsABEState(AbstractState):
-    def __init__(self, other: PredAbsABEState | None = None) -> None:
-        if other:
-            self.predicates: Set[FNode] = set(other.predicates)
-            self.abstraction_location : CfANode = other.abstraction_location
-            self.path_formula : FNode = copy.copy(other.path_formula)
-            self.path_ssa_indices: Dict[str, int] = copy.deepcopy(other.path_ssa_indices)
-        else:
-            # predicates computed at last block head
-            self.predicates = set()
-            self.abstraction_location = None
-            # path formula since last block head
-            self.path_formula : FNode = TRUE()
-            # current ssa_indices
-            self.path_ssa_indices: dict[str, int] = dict()
+    def __init__(self,
+            predicates: Set[FNode],
+            abstraction_location : CFANode,
+            path_formula : FNode,
+            path_ssa_indices: Dict[str, int]
+    ) -> None:
+        self.predicates = predicates
+        self.abstraction_location = abstraction_location
+        self.path_formula = path_formula
+        self.path_ssa_indices = path_ssa_indices
 
     def subsumes(self, other: PredAbsABEState) -> bool:
         # check subset relation of predicates and implication of path formulas (self=>other)
         lformula = SSA.inc_indices(And(self.predicates), self.path_ssa_indices)
         rformula = SSA.inc_indices(And(other.predicates), other.path_ssa_indices)
-        result = (
+        return (
             # self => other
             not is_sat(
                 And(And(self.path_formula, lformula), Not(And(other.path_formula, rformula)))
             )
         )
+
 
     def __eq__(self, other: object) -> bool:
         return (
@@ -71,7 +70,12 @@ class PredAbsABEState(AbstractState):
         return '{' + ', '.join(str(p) for p in self.predicates) + '} | ' + str(self.path_formula)
     
     def __deepcopy__(self, memo):
-        return PredAbsABEState(self)
+        return PredAbsABEState(
+            copy.copy(self.predicates),
+            self.abstraction_location,
+            copy.copy(self.path_formula),
+            copy.copy(self.path_ssa_indices)
+        )
 
 
 # --------------------------------------------------------------------------- #
@@ -103,13 +107,11 @@ class PredAbsABETransferRelation(TransferRelation):
         if   kind == InstructionType.STATEMENT:
             trans = PredAbsPrecision.ssa_from_assign(edge, ssa_indices=ssa_idx)
         elif kind == InstructionType.ASSUMPTION:
-            expr = PredAbsPrecision.ssa_from_assume(edge, ssa_indices=ssa_idx)
+            trans = PredAbsPrecision.ssa_from_assume(edge, ssa_indices=ssa_idx)
 
-            predecessor_formula = SSA.inc_indices(And(predecessor.predicates), predecessor.path_ssa_indices)
-            if not is_sat(And(And(expr, predecessor.path_formula), predecessor_formula)):
+            predecessor_formula = SSA.set_indices(And(predecessor.predicates), predecessor.path_ssa_indices)
+            if not is_sat(And(And(trans, predecessor.path_formula), predecessor_formula)):
                 return []
-
-            trans = expr
         elif kind == InstructionType.CALL:
             trans = PredAbsPrecision.ssa_from_call(edge, ssa_indices=ssa_idx)
         elif kind == InstructionType.RETURN:
@@ -142,12 +144,24 @@ class PredAbsABETransferRelation(TransferRelation):
             # keep these from previous block head
             predicates   = predecessor.predicates
 
-        succ = PredAbsABEState()
-        succ.predicates  = predicates
-        succ.path_formula = path_formula
-        succ.path_ssa_indices = ssa_idx
-        succ.abstraction_location = abstraction_location
-        return [succ]
+        return [ PredAbsABEState(
+            predicates,
+            abstraction_location,
+            path_formula,
+            ssa_idx
+        ) ]
+
+
+class MergeJoinOperator(MergeOperator):
+    def merge(self, e: PredAbsABEState, eprime: PredAbsABEState) -> AbstractState:
+        # can't merge if different abstractions
+        if ( e.abstraction_location != eprime.abstraction_location
+             or e.predicates != eprime.predicates):
+            return eprime
+        
+        eprime.path_formula = Or(SSA.pad_indices(e.path_formula, e.path_ssa_indices, eprime.path_ssa_indices), SSA.pad_indices(eprime.path_formula, eprime.path_ssa_indices, e.path_ssa_indices))
+        return eprime
+
 
 # --------------------------------------------------------------------------- #
 # CPA wrapper
@@ -158,13 +172,18 @@ class PredAbsABECPA(CPA):
         self.is_block_head = is_block_head
 
     def get_initial_state(self) -> PredAbsABEState:
-        return PredAbsABEState()
+        return PredAbsABEState(
+            set(),
+            None,
+            TRUE(),
+            dict()
+        )
 
     def get_stop_operator(self) -> StopSepOperator:
         return StopSepOperator(PredAbsABEState.subsumes)
 
-    def get_merge_operator(self) -> MergeSepOperator:
-        return MergeSepOperator()
+    def get_merge_operator(self) -> MergeJoinOperator:
+        return MergeJoinOperator()
 
     def get_transfer_relation(self) -> TransferRelation:
         return PredAbsABETransferRelation(self.precision, self.is_block_head)
