@@ -16,7 +16,10 @@ class ExpandReturn(StatementExtractor):
     def visit_Return(self, node) -> ast.Return:
         if node.value is None:
             return node
+        if isinstance(node.value, ast.Constant) or isinstance(node.value, ast.Name):
+            return node
 
+        # for complex expressions, extract
         varname = '__ret'
         ret = ast.Return(
             ast.Name(varname, ast.Load())

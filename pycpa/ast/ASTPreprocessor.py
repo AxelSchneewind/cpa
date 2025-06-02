@@ -65,29 +65,11 @@ class ASTPreprocessor(StatementExtractor):
             return call
 
     def visit_Assign(self, node) -> ast.Assign:
-        self.extract = True
         target, value = node.targets[0], node.value
+        assert isinstance(node.targets[0], ast.Name)
 
-        if (isinstance(node.targets[0], ast.Tuple) and isinstance(node.value, ast.Tuple)):
-            if len(node.targets[0].elts) == len(node.value.elts) > 1:
-                target, value = node.targets[0].elts.pop(), node.value.elts.pop()
-            
-                right = self.visit(value)
-                left  = self.visit(target) 
-                assign = ast.Assign(
-                    targets=[left],
-                    value=right
-                )
-                ast.copy_location(assign, node)
-                ast.fix_missing_locations(assign)
-
-                result = self.visit(assign)
-                self.push_instruction_below(result)
-
-                return self.visit(node)
-
-            else:
-                target, value = node.targets[0].elts[0], node.value.elts[0]
+        # simple expression can be kept
+        self.extract = not (isinstance(value, ast.Name) or isinstance(value, ast.Constant) or isinstance(value, ast.Call))
 
         right = self.visit(value)
         left  = self.visit(target)
