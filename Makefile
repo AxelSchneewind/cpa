@@ -21,18 +21,21 @@ check-msat-path:
 	@[ -e $(MSAT-PREFIX)/mathsat/python/ ] || (echo 'missing ' $(MSAT-PREFIX)/mathsat/python && exit 1)
 	@[ -e $(MSAT-PREFIX)/mathsat/lib/ ] || (echo 'missing ' $(MSAT-PREFIX)/mathsat/lib && exit 1)
 
-check-msat: venv check-msat-path
-	pysmt-install --check
-
-
-# 
-PYTHONPATH::=$(MSAT-PREFIX)/mathsat/python/:$(PYTHONPATH)
+# PYTHONPATH::=$(MSAT-PREFIX)/mathsat/python/:$(PYTHONPATH)
 LD_LIBRARY_PATH::=$(MSAT-PREFIX)/mathsat/lib:$(LD_LIBRARY_PATH)
+
+
+check-msat: venv check-msat-path
+	PYTHONPATH=$(PYTHONPATH) LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) pysmt-install --check
+
 
 install-msat: check-venv
 	@echo 'installing mathsat' 
 	cd ${MSAT-SRC-DIR}/python && python setup.py build && cd -
 	rm -rf "${MSAT-PREFIX}"/msat "${MSAT-PREFIX}"/mathsat* "${MSAT-PREFIX}"/lib
+	cp -r "${MSAT-SRC-DIR}/lib/libmathsat.so" "${MSAT-PREFIX}"/
+	cp -r "${MSAT-SRC-DIR}/python/mathsat.py" "${MSAT-PREFIX}"/
+	cp -r "${MSAT-SRC-DIR}/python/build"/lib.*/_mathsat*.so "${MSAT-PREFIX}"/_mathsat.so
 	cp -r "${MSAT-SRC-DIR}" "${MSAT-PREFIX}"/mathsat
 	PYTHONPATH=$(PYTHONPATH) LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) pysmt-install --check
 
@@ -79,21 +82,19 @@ generate-benchmarks: patch-cpp2py cpp2py.py
 
 
 
-############################ BENCHMARK EXECUTION ###############################
-
-# main target for running benchmarks
-run-benchmark-%: venv check-venv benchmarks/% cpp2py.py
-	@echo 'running benchmark'
-	python -m pycpa -p unreach-call -c PredicateAnalysis --max-iterations 1 benchmarks/$*/*.py
+########################### EXAMPLE TASK EXECUTION ############################
 
 run-examples-%: check-msat-path
 	@echo 'testing $* on example programs'
-	@PYTHONPATH=$(PYTHONPATH) LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) python -m pycpa -p unreach-call -c $* --compact --max-iterations 600 test_progs/*.yml test_progs/*.py -o out/$* 
+	@${PYTHON} -m pycpa -p unreach-call -c $* --compact --max-iterations 600 test_progs/*.yml test_progs/*.py -o out/$* 
 
 run-examples: check-venv test_progs/*.py run-examples-PredicateAnalysisCEGAR run-examples-PredicateAnalysisABEf run-examples-PredicateAnalysisABEbf run-examples-ReachabilityAnalysis run-examples-ValueAnalysis run-examples-ValueAnalysisMergeJoin run-examples-FormulaAnalysis 
 
-run-%: check-venv %.py check-msat-path
-	PYTHONPATH=$(PYTHONPATH) LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) python -m pycpa -p unreach-call -c PredicateAnalysis --max-iterations 300 $*.py 
+demo-example: check-venv
+	@${PYTHON} -m pycpa -c ValueAnalysis --max-iterations 600 -o out-demo/ValueAnalysis test_progs/collatz_safe.py
+	@${PYTHON} -m pycpa -c PredicateAnalysis --max-iterations 600 -o out-demo/PredicateAnalysis test_progs/collatz_safe.py
+	@${PYTHON} -m pycpa -c PredicateAnalysisABEbf --max-iterations 600 -o out-demo/PredicateAnalysisABEbf test_progs/collatz_safe.py
+	@${PYTHON} -m pycpa -c PredicateAnalysisCEGAR --max-iterations 600 -o out-demo/PredicateAnalysisCEGAR test_progs/collatz_safe.py
 
 
 
@@ -122,7 +123,7 @@ benchexec-args = --numOfThreads=4
 BENCHEXEC-RESOURCES = -T ${timelimit} -M ${memlimit} -c ${cpulimit}
 BENCHEXECBASE-DIRS = --read-only-dir / --hidden-dir /home/ --overlay-dir "${BASE-PATH}/" --tool-directory "${CPA-PATH}/" 
 BENCHEXEC-DIRS = ${BENCHEXECBASE-DIRS} -o "${ABS-OUTPUT-PATH}"/
-BENCHEXEC-CALL = PYTHONPATH=$(PYTHONPATH) LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) ${benchexec-call-prefix} ${benchexec} ${benchexec-args} ${BENCHEXEC-RESOURCES} ${BENCHEXEC-DIRS}
+BENCHEXEC-CALL=PYTHONPATH=$(PYTHONPATH) LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) ${benchexec-call-prefix} ${benchexec} ${benchexec-args} ${BENCHEXEC-RESOURCES} ${BENCHEXEC-DIRS}
 BENCHDEFS-PATH = bench-defs
 ABS-BENCHDEFS-PATH = "${BASE-PATH}/bench-defs"
 
@@ -131,7 +132,7 @@ table-generator = table-generator
 TABLE-GENERATOR-ARGS = -f html --no-diff -c -o ${ABS-OUTPUT-PATH}/
 TABLE-GENERATOR-CALL = ${table-generator} ${TABLE-GENERATOR-ARGS}
 
-PYTHON = python3
+PYTHON = PYTHONPATH=$(PYTHONPATH) LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) python
 export PATH::=${BASE-PATH}/benchexec/bin/:${BASE-PATH}/pycpa/:$(PATH)
 export PYTHONPATH::=${BASE-PATH}/benchexec/:$(PYTHONPATH)
 
@@ -190,4 +191,5 @@ test: check-venv
 	python -m pycpa.test
 
 run-bad: 
-	python -m pycpa -p unreach-call -c PredicateAnalysis --max-iterations 300 test_progs/collatz_safe.py benchmarks/Test/btor2c-lazyMod.anderson.6.prop1-back-serstep.c.py
+	${PYTHON} -m pycpa --compact -p unreach-call -o out-bad -c PredicateAnalysisABEbf --max-iterations 300 test_progs/absolutely_trivial_*.py 
+
