@@ -45,10 +45,7 @@ class CompositeState(WrappedAbstractState):
         ).__hash__()
 
     def __str__(self):
-        if any((isinstance(w, WrappedAbstractState) for w in self.wrapped_states)):
-            return " %s " % "\n".join([str(state) for state in self.wrapped_states])
-        else:
-            return "(%s)" % ", ".join([str(state) for state in self.wrapped_states])
+        return " %s " % "\n".join([str(state) for state in self.wrapped_states])
     
     def __deepcopy__(self, memo):
         return CompositeState(copy.deepcopy(self.wrapped_states))
