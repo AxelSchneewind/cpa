@@ -10,7 +10,7 @@ class Task:
         self.program = program
         self.program_name = program.split('/')[-1].split('.')[0]
         self.configs = configs
-        self.properties = properties
+        self.properties = set(properties)
         self.max_iterations = max_iterations
         self.output_directory = args.output_directory + '/' + self.program_name
 
@@ -20,7 +20,7 @@ class Task:
                 base_dir + '/' + yml['input_files'].split(' ')[0],  # only accept single program for now
                 args,
                 args.config,
-                [ p.split('/')[-1].split('.')[0] for p in  args.property],
+                { p.split('/')[-1].split('.')[0] for p in  args.property},
                 None
         )
         return result
