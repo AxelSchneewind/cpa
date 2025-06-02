@@ -37,27 +37,12 @@ class ARGState(AbstractState):
     def __str__(self):
         return f"N{self.state_id} | {self.wrapped_state}" # Simplified for brevity in non-graph logs
 
-    def is_target(self): # Delegate to wrapped state if it defines is_target
-        # Check specific property CPA states for 'safe' attribute for error condition
-        from pycpa.analyses import PropertyState # Local import to avoid circularity at module level
-        property_substates = WrappedAbstractState.get_substates(self.wrapped_state, PropertyState)
-        if any(not s.safe for s in property_substates):
-            return True # This ARGState is a target/error state
-
-        # Fallback to general is_target if defined by other wrapped CPAs
-        if hasattr(self.wrapped_state, "is_target") and callable(getattr(self.wrapped_state, "is_target")):
-            return self.wrapped_state.is_target()
-        return False
-
-
     def __eq__(self, other):
         if not isinstance(other, ARGState):
             return False
-        # Equality primarily based on wrapped state for coverage checks by StopOperator
         return self.wrapped_state == other.wrapped_state
     
     def __hash__(self):
-        # Hash primarily based on wrapped state
         return hash(self.wrapped_state)
 
     def get_location_node(self) -> Optional[CFANode]: # Helper
@@ -236,33 +221,33 @@ class ARGCPA(CPA):
 class GraphableARGState(Graphable):
     def __init__(self, arg_state: ARGState):
         assert isinstance(arg_state, ARGState), f"Expected ARGState, got {type(arg_state)}"
-        self.arg_state_internal = arg_state # Renamed to avoid clash with wrapped_state property if any
+        self.arg_state = arg_state
 
     @property
     def wrapped_state(self): # Keep a similar interface if needed by visualizer
-        return self.arg_state_internal
+        return self.arg_state
 
     def get_node_label(self) -> str:
         # Add creating edge info to label for debugging
         edge_label_str = ""
-        # creating_edge = self.arg_state_internal.get_creating_edge()
+        # creating_edge = self.arg_state.get_creating_edge()
         # if creating_edge:
         #     edge_label_str = f"\\nvia: {creating_edge.label()}"
         
-        return str(f"N{self.arg_state_internal.state_id}\n{self.arg_state_internal.wrapped_state}")
+        return f"N{self.arg_state.state_id}\n{self.arg_state.wrapped_state}"
 
 
     def get_edge_labels(self, other: 'GraphableARGState') -> Collection[str]:
         # The edge label should come from the CFAEdge that created the 'other' state (child)
         # from 'self' state (parent).
-        creating_edge = other.arg_state_internal.get_creating_edge()
-        if creating_edge and self.arg_state_internal in other.arg_state_internal.get_parents():
+        creating_edge = other.arg_state.get_creating_edge()
+        if creating_edge and self.arg_state in other.arg_state.get_parents():
             return [creating_edge.label()]
 
         # Fallback if creating_edge is not definitive or for other edge types
         # It might not always be correct for interprocedural or complex CPAs.
-        loc1_node = self.arg_state_internal.get_location_node()
-        loc2_node = other.arg_state_internal.get_location_node()
+        loc1_node = self.arg_state.get_location_node()
+        loc2_node = other.arg_state.get_location_node()
         if loc1_node and loc2_node:
             for leaving_edge in loc1_node.leaving_edges:
                 # Direct successor match
@@ -277,19 +262,19 @@ class GraphableARGState(Graphable):
         return ["?"] # Default if no specific edge found
 
     def get_location_node(self) -> Optional[CFANode]: # Helper for get_edge_labels
-        return self.arg_state_internal.get_location_node()
+        return self.arg_state.get_location_node()
 
 
     def get_successors(self) -> Collection['GraphableARGState']:
-        return [GraphableARGState(child) for child in self.arg_state_internal.children]
+        return [GraphableARGState(child) for child in self.arg_state.children]
 
     def __eq__(self, other):
         if not isinstance(other, GraphableARGState):
             return False
-        return self.arg_state_internal == other.arg_state_internal # Compare underlying ARGStates
+        return self.arg_state == other.arg_state
 
     def get_node_id(self) -> int:
-        return self.arg_state_internal.state_id
+        return self.arg_state.state_id
 
     def __hash__(self):
-        return hash(self.arg_state_internal)
+        return hash(self.arg_state)

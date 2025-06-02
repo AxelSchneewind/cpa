@@ -43,8 +43,7 @@ class CPAAlgorithm:
                 return
 
             # Check for error before exploring successors
-            # The property check should be on the wrapped state inside the ARGState
-            property_substates = WrappedAbstractState.get_substates(e.wrapped_state, PropertyState)
+            property_substates = WrappedAbstractState.get_substates(e, PropertyState)
             is_error_state = any(not s.safe for s in property_substates)
 
             if is_error_state:
@@ -148,9 +147,6 @@ class CPAAlgorithm:
         Assumes ARGState has 'parents' attribute and a method to get its LocationState.
         """
         assert isinstance(error_node, ARGState) and isinstance(root_node, ARGState)
-        if not isinstance(error_node, ARGState) or not isinstance(root_node, ARGState):
-            log.printer.log_debug(1, "[CPAAlgorithm ERROR] get_error_path_edges: error_node or root_node is not an ARGState.")
-            return None
 
         path_edges: List[CFAEdge] = []
         current_arg_state: ARGState = error_node
@@ -160,65 +156,25 @@ class CPAAlgorithm:
         visited_in_path_reconstruction = set() # To detect cycles in ARG during reconstruction (should not happen for CEX)
 
         while current_arg_state != root_node and current_arg_state.get_parents():
-            if current_arg_state in visited_in_path_reconstruction:
-                log.printer.log_debug(1, f"[CPAAlgorithm ERROR] Cycle detected in ARG during CEX path reconstruction at N{current_arg_state.state_id}. Aborting.")
-                return None # Error or malformed ARG
+            assert current_arg_state not in visited_in_path_reconstruction
             visited_in_path_reconstruction.add(current_arg_state)
 
             parent_arg_state: ARGState = list(current_arg_state.get_parents())[0]
-            log.printer.log_debug(5, f"[CPAAlgorithm DEBUG]   Current: N{current_arg_state.state_id}, Parent: N{parent_arg_state.state_id}")
 
             parent_loc_state = WrappedAbstractState.get_substate(parent_arg_state.wrapped_state, LocationState)
             current_loc_state = WrappedAbstractState.get_substate(current_arg_state.wrapped_state, LocationState)
-
-            if not parent_loc_state or not current_loc_state:
-                log.printer.log_debug(1, "[CPAAlgorithm ERROR] Could not get LocationState from ARGState during CEX reconstruction.")
-                return None
+            assert parent_loc_state and current_loc_state
 
             parent_cfa_node: CFANode = parent_loc_state.location
             current_cfa_node: CFANode = current_loc_state.location
             
-            log.printer.log_debug(5, f"[CPAAlgorithm DEBUG]     Parent Loc: {parent_cfa_node.node_id}, Current Loc: {current_cfa_node.node_id}")
+            assert hasattr(current_arg_state, 'get_creating_edge') 
+            found_edge = current_arg_state.get_creating_edge()
 
-
-            found_edge = None
-            for leaving_edge in parent_cfa_node.leaving_edges:
-                if leaving_edge.successor == current_cfa_node:
-                    found_edge = leaving_edge
-                    break
-            
-            if hasattr(current_arg_state, 'get_creating_edge') and callable(getattr(current_arg_state, 'get_creating_edge')):
-                # Ideal: if ARGState stores the edge that created it (e.g., set by ARGTransferRelation)
-                edge_candidate = current_arg_state.get_creating_edge()
-                if edge_candidate and edge_candidate.predecessor == parent_cfa_node and edge_candidate.successor == current_cfa_node:
-                     found_edge = edge_candidate
-                else: 
-                    log.printer.log_debug(1, f"[CPAAlgorithm WARN] creating_edge mismatch or not found for N{current_arg_state.state_id}")
-
-
-            if not found_edge:
-                 # Fallback: iterate through parent's leaving edges
-                for edge_option in parent_cfa_node.leaving_edges:
-                    next_loc_after_edge = edge_option.successor # Default next location
-                    if edge_option.instruction.kind == edge_option.instruction.kind.CALL:
-                        # LocationCPA jumps to function entry for a CALL
-                        if hasattr(edge_option.instruction, 'location') and edge_option.instruction.location == current_cfa_node:
-                           found_edge = edge_option
-                           break
-                    elif edge_option.successor == current_cfa_node:
-                        found_edge = edge_option
-                        break
-            
-            if not found_edge:
-                found_edge = None
-
+            assert found_edge
             path_edges.append(found_edge)
             current_arg_state = parent_arg_state
             
         assert current_arg_state == root_node
-        if current_arg_state != root_node:
-            log.printer.log_debug(1, f"[CPAAlgorithm ERROR] CEX path reconstruction did not reach root node. Stopped at N{current_arg_state.state_id}.")
-            return None # Path did not lead back to root
-
         return list(reversed(path_edges))
 

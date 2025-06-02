@@ -22,19 +22,8 @@ class StackState(WrappedAbstractState):
         return StackState(stack, call_edge_stack)
         
     def __str__(self):
-        if len(self.stack) > 0:
-            if len(self.stack) > 2:
-                stacks = '\n'.join(reversed([str(s) for s in self.stack[-3:]]))
-                return f"{stacks}\n..."
-            if len(self.stack) <= 2:
-                stacks = '\n'.join(reversed([str(s) for s in self.stack]))
-                return f"{stacks}"
-        else:
-            return f"..."
+        return f"{self.stack[-1]}"
 
-    def is_target(self):
-        return hasattr(self.stack[-1], "is_target") and self.stack[-1].is_target()
-    
     def wrapped(self):
         return WrappedAbstractState.unwrap(self.stack[-1]) if len(self.stack) > 0 else []
     
