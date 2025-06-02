@@ -32,7 +32,7 @@ class BlockEncodings:
                 case _:
                     # TODO: check for loop
                     pass
-        for edge in node.incoming_edges:
+        for edge in node.entering_edges:
             kind = edge.instruction.kind
             match kind:
                 case InstructionType.RETURN:
@@ -48,7 +48,7 @@ class BlockEncodings:
             match kind:
                 case InstructionType.CALL:
                     return True
-        for edge in node.incoming_edges:
+        for edge in node.entering_edges:
             kind = edge.instruction.kind
             match kind:
                 case InstructionType.RETURN:
@@ -66,7 +66,7 @@ class BlockEncodings:
                     return True
                 case _:
                     pass
-        for edge in node.incoming_edges:
+        for edge in node.entering_edges:
             kind = edge.instruction.kind
             match kind:
                 case InstructionType.RETURN:

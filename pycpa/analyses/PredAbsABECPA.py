@@ -19,6 +19,8 @@ from pycpa.cpa import CPA, AbstractState, TransferRelation, StopSepOperator, Mer
 from pycpa.analyses.PredAbsPrecision import PredAbsPrecision
 from pycpa.analyses.PredAbsCPA import PredAbsCPA, PredAbsTransferRelation
 
+from pycpa.analyses.ssa_helper import SSA
+
 # --------------------------------------------------------------------------- #
 # Abstract State
 # --------------------------------------------------------------------------- #
@@ -41,8 +43,8 @@ class PredAbsABEState(AbstractState):
 
     def subsumes(self, other: PredAbsABEState) -> bool:
         # check subset relation of predicates and implication of path formulas (self=>other)
-        lformula = PredAbsPrecision.ssa_inc_indices(And(self.predicates), self.ssa_indices)
-        rformula = PredAbsPrecision.ssa_inc_indices(And(other.predicates), other.ssa_indices)
+        lformula = SSA.inc_indices(And(self.predicates), self.ssa_indices)
+        rformula = SSA.inc_indices(And(other.predicates), other.ssa_indices)
         result = (
             # self => other
             not is_sat(
@@ -98,7 +100,7 @@ class PredAbsABETransferRelation(TransferRelation):
         elif kind == InstructionType.ASSUMPTION:
             expr = PredAbsPrecision.ssa_from_assume(edge, ssa_indices=ssa_idx)
 
-            predecessor_formula = PredAbsPrecision.ssa_inc_indices(And(predecessor.predicates), predecessor.ssa_indices)
+            predecessor_formula = SSA.inc_indices(And(predecessor.predicates), predecessor.ssa_indices)
             if not is_sat(And(And(expr, predecessor.path_formula), predecessor_formula)):
                 return []
 
