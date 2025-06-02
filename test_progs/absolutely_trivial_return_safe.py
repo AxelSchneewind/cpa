@@ -1,6 +1,5 @@
-def f(x):
-    result = 2 * x
-    return result
+def f():
+    return 2
 
 def VERIFIER_assert(cond):
     if not cond:
@@ -9,5 +8,5 @@ def VERIFIER_assert(cond):
 
 def main():
     x = 1
-    y = f(x)
+    y = f()
     VERIFIER_assert(y == 2)
