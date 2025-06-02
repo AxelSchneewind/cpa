@@ -42,10 +42,6 @@ class Tool(benchexec.tools.template.BaseTool2):
 
     def _get_additional_options(self, existing_options, task, rlimits):
         options = []
-
-        if task.property_file:
-            options += ["--property", task.property_file]
-
         return options
 
     def cmdline(self, executable, options, task, rlimits):
@@ -64,10 +60,6 @@ class Tool(benchexec.tools.template.BaseTool2):
         (e.g., "CRASH", "OUT_OF_MEMORY", etc.).
         """
         for line in run.output:
-            if "All test cases time out or crash, giving up!" in line:
-                return "Couldn't run: all seeds time out or crash"
-            if "ERROR:" in line:
-                return "Couldn't run pycpa"
             if "FALSE" in line:
                 return result.RESULT_FALSE_PROP
             if "TRUE" in line:
