@@ -68,29 +68,20 @@ class ARGTransferRelation(TransferRelation):
         The CPAAlgorithm should iterate over CFA edges from the predecessor's location
         and call get_abstract_successors_for_edge.
         """
-        # log.printer.log_debug(1, f"[ARGTransferRelation WARN] General get_abstract_successors called for N{predecessor_arg_state.state_id}. CPAAlgorithm should use _for_edge variant.")
-        # Fallback implementation: iterate edges from current location
-        results: List[ARGState] = []
+        results: list[ARGState] = []
         loc_state = WrappedAbstractState.get_substate(predecessor_arg_state.wrapped_state, LocationState)
-        if not loc_state or not loc_state.location:
-            # log.printer.log_debug(1, f"[ARGTransferRelation ERROR] No LocationState or CFANode in N{predecessor_arg_state.state_id} for general successor exploration.")
-            return results
+        assert loc_state is not None and loc_state.location is not None
         
         current_cfa_node: CFANode = loc_state.location
-        # log.printer.log_debug(1, f"[ARGTransferRelation DEBUG] Fallback get_abstract_successors for N{predecessor_arg_state.state_id} from Loc {current_cfa_node.node_id}")
         for cfa_edge in current_cfa_node.leaving_edges:
-            # log.printer.log_debug(1, f"[ARGTransferRelation DEBUG]   Considering edge in fallback: {cfa_edge.label()}")
             results.extend(self.get_abstract_successors_for_edge(predecessor_arg_state, cfa_edge))
         return results
 
     def get_abstract_successors_for_edge(self, 
                                          predecessor_arg_state: ARGState, 
                                          edge: CFAEdge) -> Collection[ARGState]:
-        # log.printer.log_debug(1, f"[ARGTransferRelation DEBUG] get_successors_for_edge: N{predecessor_arg_state.state_id} --{edge.label()}--> ???")
         result_arg_states = []
         
-        # The wrapped_transfer_relation is typically a CompositeTransferRelation or StackTransferRelation
-        # It takes the *wrapped* state of the predecessor_arg_state
         for wrapped_successor_state in \
                 self.wrapped_transfer_relation.get_abstract_successors_for_edge(
                     predecessor_arg_state.wrapped_state, edge):
@@ -102,7 +93,6 @@ class ARGTransferRelation(TransferRelation):
             
             self.arg_cpa._arg_nodes.add(new_arg_state) # ARGCPA tracks all nodes
             result_arg_states.append(new_arg_state)
-            # log.printer.log_debug(1, f"[ARGTransferRelation DEBUG]   Generated successor ARGState N{new_arg_state.state_id} via edge '{edge.label()}'")
         return result_arg_states
 
 
@@ -113,14 +103,9 @@ class ARGStopOperator(StopOperator):
     def stop(self, e: ARGState, reached: Collection[ARGState]) -> bool:
         # Stop is based on the wrapped state.
         # 'e' is the new state, 'reached' is a collection of already existing ARGStates.
-        # log.printer.log_debug(1, f"[ARGStopOperator DEBUG] Checking stop for N{e.state_id} ({e.wrapped_state}) against {len(reached)} reached states.")
         is_stopped = self.wrapped_stop_operator.stop(
             e.wrapped_state, [r.wrapped_state for r in reached if isinstance(r, ARGState)] # Make sure to unwrap
         )
-        # if is_stopped:
-            # log.printer.log_debug(1, f"[ARGStopOperator DEBUG]   N{e.state_id} IS covered by a state in 'reached'.")
-        # else:
-            # log.printer.log_debug(1, f"[ARGStopOperator DEBUG]   N{e.state_id} is NOT covered.")
         return is_stopped
 
 
@@ -137,7 +122,6 @@ class ARGMergeOperator(MergeOperator):
         merged_wrapped_state = self.wrapped_merge_operator.merge(wrapped_state1, wrapped_state2)
 
         if merged_wrapped_state == wrapped_state2:
-            # log.printer.log_debug(1, f"[ARGMergeOperator DEBUG]   Merge result is state2_arg (N{state2_arg.state_id}). state1_arg might be subsumed.")
             # state1_arg.is_covered_by = state2_arg # Mark for removal from waitlist
             return state2_arg # state1 is covered by state2
         
@@ -201,7 +185,6 @@ class ARGCPA(CPA):
         root = ARGState(wrapped_state=initial_wrapped, parent=None, creating_edge=None)
         self.arg_root = root
         self._arg_nodes = {root}
-        # log.printer.log_debug(1, f"[ARGCPA INFO] Initial ARGState created: N{root.state_id}")
         return root
 
     def get_stop_operator(self) -> StopOperator:
@@ -258,7 +241,6 @@ class GraphableARGState(Graphable):
                    hasattr(leaving_edge.instruction, 'location') and \
                    leaving_edge.instruction.location == loc2_node:
                     return [leaving_edge.label()]
-        # log.printer.log_debug(1, f"[GraphableARGState WARN] Could not determine edge label between N{self.get_node_id()} and N{other.get_node_id()}")
         return ["?"] # Default if no specific edge found
 
     def get_location_node(self) -> Optional[CFANode]: # Helper for get_edge_labels
