@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from typing import Collection, Optional # Added Optional
+from typing import Collection, Optional, Self
 
 from pycpa.cpa import CPA, AbstractState, WrappedAbstractState, TransferRelation, MergeOperator, StopOperator
 from pycpa.cfa import Graphable, CFAEdge, CFANode, InstructionType # Added CFANode, InstructionType
@@ -17,7 +17,7 @@ class ARGState(AbstractState):
     index = 0
 
     def __init__(self, wrapped_state: AbstractState, 
-                 parent: Optional['ARGState'] = None, 
+                 parent: Optional[Self] = None, 
                  creating_edge: Optional[CFAEdge] = None):
         self.wrapped_state = wrapped_state
         self.state_id = ARGState.index
@@ -26,7 +26,7 @@ class ARGState(AbstractState):
         if parent:
             self.parents.add(parent)
             parent.children.add(self)
-        self.children = set()
+        self.children : set[Self] = set()
         self.creating_edge: Optional[CFAEdge] = creating_edge
 
     def get_creating_edge(self) -> Optional[CFAEdge]:
@@ -45,7 +45,7 @@ class ARGState(AbstractState):
 
     def get_location_node(self) -> CFANode:
         loc_state = WrappedAbstractState.get_substate(self.wrapped_state, LocationState)
-        return loc_state.location if loc_state else None
+        return loc_state.location
 
     def get_parents(self): 
         return self.parents
@@ -54,7 +54,7 @@ class ARGState(AbstractState):
         return self.children
 
 
-class ARGTransferRelation(TransferRelation):
+class ARGTransferRelation(TransferRelation[ARGState]):
     def __init__(self, wrapped_transfer_relation: TransferRelation):
         self.wrapped_transfer_relation = wrapped_transfer_relation
 
@@ -75,7 +75,7 @@ class ARGTransferRelation(TransferRelation):
         return results
 
     def get_abstract_successors_for_edge(self, 
-                                         predecessor_arg_state: ARGState, 
+                                         predecessor_arg_state: AbstractState, 
                                          edge: CFAEdge) -> Collection[ARGState]:
         result_arg_states = []
         
@@ -92,11 +92,11 @@ class ARGTransferRelation(TransferRelation):
         return result_arg_states
 
 
-class ARGStopOperator(StopOperator):
+class ARGStopOperator(StopOperator[ARGState]):
     def __init__(self, wrapped_stop_operator: StopOperator):
         self.wrapped_stop_operator = wrapped_stop_operator
 
-    def stop(self, e: AbstractState, reached: Collection[AbstractState]) -> bool:
+    def stop(self, e: ARGState, reached: Collection[ARGState]) -> bool:
         # Stop is based on the wrapped state.
         # 'e' is the new state, 'reached' is a collection of already existing ARGStates.
         is_stopped = self.wrapped_stop_operator.stop(
@@ -105,12 +105,11 @@ class ARGStopOperator(StopOperator):
         return is_stopped
 
 
-class ARGMergeOperator(MergeOperator):
+class ARGMergeOperator(MergeOperator[ARGState]):
     def __init__(self, wrapped_merge_operator: MergeOperator):
         self.wrapped_merge_operator = wrapped_merge_operator
 
-    def merge(self, state1_arg: ARGState, state2_arg: ARGState) -> ARGState:
-        # log.printer.log_debug(1, f"[ARGMergeOperator DEBUG] Attempting merge between N{state1_arg.state_id} and N{state2_arg.state_id}")
+    def merge(self, state1_arg: ARGState, state2_arg: ARGState) -> AbstractState:
         wrapped_state1 = state1_arg.wrapped_state
         wrapped_state2 = state2_arg.wrapped_state
         

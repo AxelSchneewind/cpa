@@ -25,7 +25,7 @@ class LocationState(AbstractState):
         return LocationState(self.location)
 
 
-class LocationTransferRelation(TransferRelation):
+class LocationTransferRelation(TransferRelation[LocationState]):
 
     def get_abstract_successors(self, predecessor: LocationState) -> Collection[LocationState]:
         return [

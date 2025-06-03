@@ -10,7 +10,7 @@ class ExpandAugAssign(ast.NodeTransformer):
     def __init__(self):
         pass
 
-    def visit_AugAssign(self, node) -> ast.AugAssign:
+    def visit_AugAssign(self, node) -> ast.Assign:
         assign = None
         match node.target:
             case ast.Name() | ast.Subscript():

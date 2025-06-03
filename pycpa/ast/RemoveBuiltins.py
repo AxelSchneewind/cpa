@@ -1,5 +1,8 @@
+from typing import Optional
+
 import ast
 import re
+
 
 class RemoveBuiltins(ast.NodeTransformer):
     """
@@ -23,7 +26,7 @@ class RemoveBuiltins(ast.NodeTransformer):
             case _:
                 return node
 
-    def visit_FunctionDef(self, node) -> ast.FunctionDef:
+    def visit_FunctionDef(self, node) -> Optional[ast.FunctionDef]:
         """
             remove redefinitions
         """

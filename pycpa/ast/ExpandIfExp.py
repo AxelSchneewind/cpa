@@ -1,5 +1,8 @@
-import ast
 from pycpa.ast.StatementExtractor import StatementExtractor
+
+from typing import Optional
+
+import ast
 
 class ExpandIfExp(StatementExtractor):
     """
@@ -10,7 +13,7 @@ class ExpandIfExp(StatementExtractor):
     def __init__(self):
         StatementExtractor.__init__(self)
 
-    def assign_result_to(self, call : ast.AST, return_var : str) -> ast.AST:
+    def assign_result_to(self, call : ast.AST, return_var : str) -> ast.Assign:
         expr = ast.Assign(
             targets = [ast.Name(return_var, ctx=ast.Store())],
             value = call
@@ -33,7 +36,7 @@ class ExpandIfExp(StatementExtractor):
 
         return self.extract_expression(branch)
 
-    def visit_Assign(self, node: ast.Assign) -> ast.Name:
+    def visit_Assign(self, node: ast.Assign) -> Optional[ast.Assign]:
         if not isinstance(node.value, ast.IfExp):
             return node
 

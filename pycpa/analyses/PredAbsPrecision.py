@@ -134,7 +134,7 @@ def _expr2smt(node: ast.AST, ssa: Dict[str, int]) -> FNode:
             if len(ops) == 1:
                 lhs = _expr2smt(l, ssa)
                 rhs = _expr2smt(comps[0], ssa)
-                op_type = ops[0]
+                op_type : cmpop = ops[0]
 
                 # Ensure operands are compatible, typically numeric (BV) for comparisons
                 if lhs.get_type() != BV64: lhs = _bv(lhs)

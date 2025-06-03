@@ -59,7 +59,7 @@ class StatementExtractor(ast.NodeTransformer):
         assert len(self.instruction_stack) == 0
         return result
 
-    def fresh_tmp_var(self) -> ast.Name:
+    def fresh_tmp_var(self) -> str:
         var_name = '__tmp_' + str(self.current_tmp_ctr)
         self.current_tmp_ctr += 1
         return var_name

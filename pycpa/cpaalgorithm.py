@@ -4,9 +4,9 @@ from typing import List, Optional
 
 from pycpa.task import Task, Result, Status
 from pycpa.cpa import WrappedAbstractState, AbstractState
-from pycpa.analyses import PropertyState, LocationState # Assuming LocationState is in pycpa.analyses
-from pycpa.analyses.ARGCPA import ARGState # Assuming ARGState is in pycpa.analyses.ARGCPA
-from pycpa.cfa import CFAEdge # Assuming CFAEdge is in pycpa.cfa
+from pycpa.analyses import PropertyState, LocationState
+from pycpa.analyses.ARGCPA import ARGState
+from pycpa.cfa import CFANode, CFAEdge
 from pycpa.verdict import Verdict
 
 from pycpa import log

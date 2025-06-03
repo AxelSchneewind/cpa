@@ -121,11 +121,11 @@ class StackTransferRelation(TransferRelation):
             return result
 
 
-class StackStopOperator(StopOperator):
-    def __init__(self, wrapped_stop_operator):
+class StackStopOperator(StopOperator[StackState]):
+    def __init__(self, wrapped_stop_operator : StopOperator):
         self.wrapped_stop_operator = wrapped_stop_operator
 
-    def stop(self, e : StackState, reached : Collection[StackState]) -> StackState:
+    def stop(self, e : StackState, reached : Collection[StackState]) -> bool:
         return any( # Exists any reached state that covers e?
                    all(# All frames of e are covered by the corresponding component of eprime?
                        self.wrapped_stop_operator.stop(e_inner, [eprime_inner])
@@ -135,11 +135,11 @@ class StackStopOperator(StopOperator):
                )
 
 
-class StackMergeOperator(MergeOperator):
-    def __init__(self, wrapped_merge_operator):
+class StackMergeOperator(MergeOperator[StackState]):
+    def __init__(self, wrapped_merge_operator : MergeOperator):
         self.wrapped_merge_operator = wrapped_merge_operator
 
-    def merge(self, state1, state2):
+    def merge(self, state1 : StackState, state2 : StackState) -> StackState:
         # merge only if lower stack frames are equal
         if len(state1.stack) == len(state2.stack) > 0 and all(a == b for a,b in zip(state1.stack[:-1], state2.stack[:-1])):
             frame = self.wrapped_merge_operator.merge(state1.stack[-1], state2.stack[-1])
@@ -150,7 +150,7 @@ class StackMergeOperator(MergeOperator):
         return state2
 
 
-class StackCPA(CPA):
+class StackCPA(CPA[StackState]):
     def __init__(self, wrapped_cpa):
         self.wrapped_cpa = wrapped_cpa
 

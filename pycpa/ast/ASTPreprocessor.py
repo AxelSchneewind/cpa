@@ -41,7 +41,7 @@ class ASTPreprocessor(StatementExtractor):
             return node
         return self.extract_expression(node)
 
-    def visit_Call(self, node: ast.Call) -> ast.Name:
+    def visit_Call(self, node: ast.Call) -> ast.Name | ast.Call:
         do_extract = self.extract
         self.extract = True
         self.extract_expr = True

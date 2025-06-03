@@ -99,7 +99,7 @@ class CompositeTransferRelation(TransferRelation):
         ]
 
 
-class CompositeMergeOperator(MergeOperator):
+class CompositeMergeOperator(MergeOperator[CompositeState]):
     """
     Merge-Agree: All wrapped states are merged pairwise.
     Example:
@@ -115,7 +115,7 @@ class CompositeMergeOperator(MergeOperator):
         self.wrapped_merge_operators = wrapped_merge_operators
         self.wrapped_stop_operators = wrapped_stop_operators
 
-    def merge(self, state1, state2):
+    def merge(self, state1 : CompositeState, state2 : CompositeState) -> CompositeState:
         merge_results = list()
         wrapped_states1 = state1.wrapped_states
         wrapped_states2 = state2.wrapped_states
@@ -136,7 +136,7 @@ class CompositeMergeOperator(MergeOperator):
         return CompositeState(merge_results)
 
 
-class CompositeCPA(CPA):
+class CompositeCPA(CPA[CompositeState]):
     def __init__(self, wrapped_cpas):
         self.wrapped_cpas = wrapped_cpas
 

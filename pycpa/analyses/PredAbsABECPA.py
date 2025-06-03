@@ -162,11 +162,8 @@ class PredAbsABETransferRelation(TransferRelation):
         ) ]
 
 
-class MergeJoinOperator(MergeOperator):
-    def merge(self, e: AbstractState, eprime: AbstractState) -> AbstractState:
-        assert isinstance(e, PredAbsABEState)
-        assert isinstance(eprime, PredAbsABEState)
-
+class MergeJoinOperator(MergeOperator[PredAbsABEState]):
+    def merge(self, e: PredAbsABEState, eprime: PredAbsABEState) -> PredAbsABEState:
         # can't merge if abstractions sets/locations differ
         if ( e.abstraction_location != eprime.abstraction_location
              or e.predicates != eprime.predicates):
@@ -182,7 +179,7 @@ class MergeJoinOperator(MergeOperator):
 # --------------------------------------------------------------------------- #
 # CPA wrapper
 # --------------------------------------------------------------------------- #
-class PredAbsABECPA(CPA):
+class PredAbsABECPA(CPA[PredAbsABEState]):
     def __init__(self, initial_precision : PredAbsPrecision, is_block_head : Callable[[CFANode, CFAEdge], bool]):
         self.precision = initial_precision
         self.is_block_head = is_block_head
@@ -195,13 +192,13 @@ class PredAbsABECPA(CPA):
             dict()
         )
 
-    def get_stop_operator(self) -> StopOperator:
+    def get_stop_operator(self) -> StopOperator[PredAbsABEState]:
         return StopSepOperator(PredAbsABEState.subsumes)
 
-    def get_merge_operator(self) -> MergeOperator:
+    def get_merge_operator(self) -> MergeOperator[PredAbsABEState]:
         return MergeJoinOperator()
 
-    def get_transfer_relation(self) -> TransferRelation:
+    def get_transfer_relation(self) -> TransferRelation[PredAbsABEState]:
         return PredAbsABETransferRelation(self.precision, self.is_block_head)
 
 

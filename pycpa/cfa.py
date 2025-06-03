@@ -1,13 +1,41 @@
 #!/usr/bin/env python
 
-import ast
-from graphviz import Digraph
-from typing import List
-
+from typing import List, Self
 from enum import Enum
 
+from graphviz import Digraph
+import ast
 
 from pycpa import log
+
+
+
+class CFANode:
+    index = 0
+
+    def __init__(self):
+        self.node_id = CFANode.index
+        self.entering_edges = list()
+        self.leaving_edges = list()
+        CFANode.index += 1
+
+    def __str__(self):
+        return "(%s)" % str(self.node_id)
+
+    @staticmethod
+    def merge(a : 'CFANode', b : 'CFANode') -> 'CFANode':
+        for entering_edge in b.entering_edges:
+            entering_edge.successor = a
+            a.entering_edges.append(entering_edge)
+        for leaving_edge in b.leaving_edges:
+            leaving_edge.predecessor = a
+            a.leaving_edges.append(leaving_edge)
+        b.entering_edges = list()
+        b.leaving_edges = list()
+        if CFANode.index == b.node_id + 1:
+            CFANode.index -= 1
+        return a
+
 
 
 class InstructionType(Enum):
@@ -68,7 +96,6 @@ class Instruction:
                 return '%s' % self.identifier
 
 
-
     @staticmethod
     def assumption(expression, negated=False):
         if negated:
@@ -107,25 +134,16 @@ class Instruction:
         return Instruction(expression, kind=InstructionType.RETURN)
 
     @staticmethod
-    def call(expression : ast.Call, declaration : ast.FunctionDef, entry_point : 'CFANode', argnames : List[ast.arg], target_variable : str = '__ret', **params):
-        assert isinstance(expression, ast.Call)
-        assert isinstance(declaration, ast.FunctionDef)
-        assert isinstance(entry_point, CFANode) # Forward declaration for CFANode
-        
+    def call(expression : ast.Call, declaration : ast.FunctionDef, entry_point : CFANode, argnames : List[ast.Name | ast.Constant], **params):
         param_names = []
         for p in declaration.args.args:
             assert isinstance(p.arg, str), type(p.arg)
-            if isinstance(p.arg, ast.Name):
-                param_names.append(str(p.arg.id))
-            elif isinstance(p.arg, str):
-                 param_names.append(p.arg)
-            else:
-                raise ValueError(f"Unexpected type for parameter name: {type(p.arg)}")
+            param_names.append(p.arg)
 
         args = []
-        for p in argnames:
-            assert isinstance(p, ast.Name) or isinstance(p, ast.Constant), (p, type(p))
-            args.append(p)
+        for a in argnames:
+            assert isinstance(a, ast.Name) or isinstance(a, ast.Constant), (a, type(a))
+            args.append(a)
 
         return Instruction(
             expression, 
@@ -134,7 +152,6 @@ class Instruction:
             declaration=declaration, 
             param_names=param_names, 
             arg_names=args, 
-            target_variable=target_variable, 
             **params
         )
 
@@ -142,32 +159,6 @@ class Instruction:
     def nop(expression):
         return Instruction(expression, kind=InstructionType.NOP)
 
-
-class CFANode:
-    index = 0
-
-    def __init__(self):
-        self.node_id = CFANode.index
-        self.entering_edges = list()
-        self.leaving_edges = list()
-        CFANode.index += 1
-
-    def __str__(self):
-        return "(%s)" % str(self.node_id)
-
-    @staticmethod
-    def merge(a : 'CFANode', b : 'CFANode') -> 'CFANode':
-        for entering_edge in b.entering_edges:
-            entering_edge.successor = a
-            a.entering_edges.append(entering_edge)
-        for leaving_edge in b.leaving_edges:
-            leaving_edge.predecessor = a
-            a.leaving_edges.append(leaving_edge)
-        b.entering_edges = list()
-        b.leaving_edges = list()
-        if CFANode.index == b.node_id + 1:
-            CFANode.index -= 1
-        return a
 
 class CFAEdge:
     def __init__(self, predecessor, successor, instruction):
@@ -184,7 +175,7 @@ class CFAEdge:
             str(self.successor),
         )
 
-    def label(self):
+    def label(self) -> str:
         if self.instruction.kind == InstructionType.ASSUMPTION:
             return str(self.instruction.expression.lineno) + ': [' + ast.unparse(self.instruction.expression).strip() + ']'
         elif self.instruction.kind == InstructionType.STATEMENT:
@@ -331,7 +322,7 @@ class CFACreator(ast.NodeVisitor):
         edge = CFAEdge(entry_node, exit_node, Instruction.ret(node))
         self.node_stack.append(exit_node)
 
-    def _handle_Call_inline(self, call_node : ast.Call, target_variable : str =None):
+    def _handle_Call_inline(self, call_node : ast.Call, target_variable : str | None = None):
         assert isinstance(call_node, ast.Call), call_node
         assert isinstance(call_node.func, ast.Name), call_node  # function could be attribute (e.g. member functions), not supported
 
@@ -355,13 +346,13 @@ class CFACreator(ast.NodeVisitor):
                 if formal != arg:
                     assign = ast.Assign(
                         targets=[ast.Name( formal.arg, ctx=ast.Store() )],
-                        value= ast.Name( arg.arg, ctx=ast.Load() )
+                        value= arg
                     )
                     ast.copy_location(assign, call_node)
                     ast.fix_missing_locations(assign)
                     self.visit(assign)
             for b in self.function_def[call_node.func.id].body:
-                if isinstance(b, ast.Return):
+                if isinstance(b, ast.Return) and target_variable:
                     if target_variable and b.value and (not isinstance(b.value, ast.Name) or b.value.id != target_variable):
                         assign = ast.Assign(
                             targets=[ast.Name(target_variable, ctx=ast.Store() )],
@@ -400,7 +391,7 @@ class CFACreator(ast.NodeVisitor):
             entry_node = self.node_stack.pop()
             exit_node = CFANode()
 
-            instruction = Instruction.call(call_node, self.function_def[call_node.func.id], self.function_entry_point[call_node.func.id], arg_names, target_variable=target_variable)
+            instruction = Instruction.call(call_node, self.function_def[call_node.func.id], self.function_entry_point[call_node.func.id], arg_names)
             edge = CFAEdge(entry_node, exit_node, instruction)
             self.node_stack.append(exit_node)
 
