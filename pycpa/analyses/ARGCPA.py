@@ -43,7 +43,7 @@ class ARGState(AbstractState):
     def __hash__(self):
         return hash(self.wrapped_state)
 
-    def get_location_node(self) -> Optional[CFANode]: # Helper
+    def get_location_node(self) -> CFANode:
         loc_state = WrappedAbstractState.get_substate(self.wrapped_state, LocationState)
         return loc_state.location if loc_state else None
 
