@@ -23,14 +23,6 @@ class CompositeState(WrappedAbstractState):
         assert len(wrapped_states) > 0
         self.wrapped_states = wrapped_states
 
-    def is_target(self):
-        return any(
-            [
-                hasattr(state, "is_target") and state.is_target()
-                for state in self.wrapped_states
-            ]
-        )
-
     def __eq__(self, other):
         assert type(self) == type(other)
         if other is self:

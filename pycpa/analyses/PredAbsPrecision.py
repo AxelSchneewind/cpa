@@ -349,12 +349,12 @@ class PredAbsPrecision:
         """
         log.printer.log_debug(5, f"[PredAbsPrecision INFO] Initializing precision from CFA with {len(roots)} root(s).")
 
-        global_preds: Set[FNode] = initial_globals if initial_globals is not None else {TRUE(), FALSE()}
+        global_preds: set[FNode] = initial_globals if initial_globals is not None else {TRUE(), FALSE()}
 
         worklist = list(roots)
         seen_nodes = set(roots)
 
-        predicates = dict()
+        predicates : dict[CFANode, set[FNode]] = dict()
 
         while worklist:
             current_node = worklist.pop(0)

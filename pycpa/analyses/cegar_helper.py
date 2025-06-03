@@ -13,7 +13,6 @@ from typing import List, Tuple, Optional, Dict, Set
 
 from pysmt.fnode import FNode
 from pysmt.shortcuts import Solver, And, Not, TRUE, FALSE, Interpolator
-from pysmt.exceptions import SolverReturnedUnknownResultError, NoSolverAvailableError
 
 from pycpa.cfa import CFAEdge, CFANode, InstructionType
 from pycpa.analyses.PredAbsPrecision import PredAbsPrecision
@@ -23,7 +22,7 @@ from pycpa import log
 
 import copy
 
-def is_path_feasible(abstract_cex_edges: List[CFAEdge]) -> tuple[bool, list[FNode]]:
+def is_path_feasible(abstract_cex_edges: list[CFAEdge]) -> tuple[bool, list[FNode]]:
     """
     Checks if the abstract counterexample path is feasible.
 
@@ -36,12 +35,10 @@ def is_path_feasible(abstract_cex_edges: List[CFAEdge]) -> tuple[bool, list[FNod
         - list[FNode]: A list of SMT formula conjuncts (A_1, ..., A_n) representing the path
     """
     log.printer.log_debug(5, "\n[CEGAR Helper INFO] Checking path feasibility...")
-    if not abstract_cex_edges:
-        log.printer.log_debug(3, "[CEGAR Helper WARN] Path is empty, considering it trivially feasible (or an issue).")
-        return True, None # Or handle as an error/spurious based on semantics
+    assert abstract_cex_edges is not None
 
-    path_formula_conjuncts: List[FNode] = []
-    current_ssa_indices: Dict[str, int] = {}
+    path_formula_conjuncts: list[FNode] = []
+    current_ssa_indices: dict[str, int] = {}
 
     log.printer.log_debug(7, f"[CEGAR Helper DEBUG] Abstract CEX Path Edges ({len(abstract_cex_edges)}):")
     for i, edge in enumerate(abstract_cex_edges):
@@ -57,8 +54,6 @@ def is_path_feasible(abstract_cex_edges: List[CFAEdge]) -> tuple[bool, list[FNod
 
     log.printer.log_debug(1, f"[CEGAR Helper DEBUG] Full path formula (Φ) for feasibility check: {full_path_formula.serialize()}")
 
-    # Using MathSAT (msat) as the solver, ensure it's installed and pySMT can find it.
-    # QF_LIA is a common logic for integer programs. Adjust if your program uses reals, etc.
     with Solver(name="msat", logic="QF_BV") as solver:
         solver.add_assertion(full_path_formula)
         is_sat_result = solver.solve()
@@ -67,10 +62,10 @@ def is_path_feasible(abstract_cex_edges: List[CFAEdge]) -> tuple[bool, list[FNod
         if is_sat_result:
             # Path is feasible (concrete counterexample)
             # TODO: Optionally extract model using solver.get_model() if needed for concrete trace
-            return True, path_formula_conjuncts
+            return True, solver.get_model()
         else:
             # Path is spurious
-            return False, path_formula_conjuncts # Return the conjuncts for interpolation
+            return False, path_formula_conjuncts
 
 
 def refine_precision(
@@ -95,8 +90,8 @@ def refine_precision(
         log.printer.log_debug(1, "[CEGAR Helper WARN] No path formula conjuncts provided for interpolation. Precision not refined.")
         return None
 
-    interpolants: Optional[List[FNode]] = None
     # Use MathSAT (msat) for interpolation.
+    interpolants: list[FNode]
     with Interpolator(name="msat", logic="QF_BV") as interpolator:
         # sequence_interpolant expects a list of formulas [A_1, ..., A_n]
         # whose conjunction is UNSAT. It returns a list of interpolants
@@ -123,33 +118,16 @@ def refine_precision(
 
     new_local_predicates_map: Dict[CFANode, Set[FNode]] = {}
 
+    # add predicates from τ_i (1 <= i <= n-1) to π(l_i) where l_i is abstract_cex_edges[i-1].successor
     num_edges = len(abstract_cex_edges)
     assert len(interpolants) == num_edges + 1
-
-
-    # Add predicates from τ_0 to π(l_0) where l_0 is abstract_cex_edges[0].predecessor
-    current_atoms = set()
-    location_node = abstract_cex_edges[0].predecessor
-    if not interpolants[0].is_true() and not interpolants[0].is_false():
-        if location_node not in new_local_predicates_map:
-            new_local_predicates_map[location_node] = set()
-        for atom in interpolants[0].get_atoms():
-            if not atom.is_true() and not atom.is_false():
-                if location_node not in current_precision.local_predicates or unindexed not in current_precision.local_predicates[location_node]:
-                    new_local_predicates_map[location_node].add(not(unindexed))
-                    current_atoms.add(unindexed)
-        log.printer.log_debug(1, f"[CEGAR Helper DEBUG] Extracted from τ_0 for loc {loc_for_tau0.node_id}: {new_local_predicates_map[loc_for_tau0]}")
-
-
-    # Add predicates from τ_i (1 <= i <= n-1) to π(l_i) where l_i is abstract_cex_edges[i-1].successor
     for i in range(1, num_edges): # Corresponds to τ_1 to τ_{n-1} (or τ_m-1 if n=m)
         interp_formula = interpolants[i]
         if interp_formula.is_true() or interp_formula.is_false():
             continue
 
-        # Location l_i is the state *after* edge_{i-1} / block A_i
-        # This is abstract_cex_edges[i-1].successor
-        # This is also abstract_cex_edges[i].predecessor
+        # for assumptions, use predecessor (as predicate will be relevant for reachability)
+        # for other edges, use successor   (as predicate might hold after this edge)
         location_node = abstract_cex_edges[i-1].predecessor if abstract_cex_edges[i-1].instruction.kind == InstructionType.ASSUMPTION else abstract_cex_edges[i-1].successor
         
         if location_node not in new_local_predicates_map:
@@ -161,26 +139,8 @@ def refine_precision(
                 if location_node not in current_precision.predicates or unindexed not in current_precision.predicates[location_node]:
                     new_local_predicates_map[location_node].add(unindexed)
                     new_local_predicates_map[location_node].add(Not(unindexed))
-                    current_atoms.add(unindexed)
-        if current_atoms:
-            log.printer.log_debug(1, f"[CEGAR Helper DEBUG] Extracted from τ_{i} for loc {location_node.node_id}: {current_atoms}")
 
-
-    # Add predicates from τ_n to π(l_n) where l_n is abstract_cex_edges[n-1].successor (error location)
-    location_node = abstract_cex_edges[num_edges-1].successor
-    if not interpolants[num_edges].is_true() and not interpolants[num_edges].is_false():
-        if loc_for_taun not in new_local_predicates_map:
-            new_local_predicates_map[location_node] = set()
-        for atom in interpolants[num_edges].get_atoms():
-            if not atom.is_true() and not atom.is_false():
-                unindexed = SSA.unindex_predicate(atom)
-                if location_node not in current_precision.predicates or unindexed not in current_precision.predicates[location_node]:
-                    new_local_predicates_map[location_node].add(unindexed)
-                    new_local_predicates_map[location_node].add(Not(unindexed))
-                    current_atoms.add(unindexed)
-        log.printer.log_debug(1, f"[CEGAR Helper DEBUG] Extracted from τ_{num_edges} for loc {loc_for_taun.node_id}: {new_local_predicates_map[loc_for_taun]}")
-
-    if len(current_atoms) > 0:      # only return new precision if new atoms found
+    if len(new_local_predicates_map) > 0:      # only return new precision if new atoms found
         log.printer.log_debug(1, f"[CEGAR Helper INFO] Adding new local predicates to precision: { {loc.node_id: preds for loc, preds in new_local_predicates_map.items()} }")
         new_precision = copy.copy(current_precision)
         new_precision.add_local_predicates(new_local_predicates_map)

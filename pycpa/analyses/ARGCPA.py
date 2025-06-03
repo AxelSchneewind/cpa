@@ -9,7 +9,6 @@ from pycpa.analyses.LocationCPA import LocationState # Assuming LocationState is
 from pycpa import log
 
 import ast
-import astpretty
 from graphviz import Digraph
 import copy
 
@@ -19,7 +18,7 @@ class ARGState(AbstractState):
 
     def __init__(self, wrapped_state: AbstractState, 
                  parent: Optional['ARGState'] = None, 
-                 creating_edge: Optional[CFAEdge] = None): # MODIFIED: Added creating_edge
+                 creating_edge: Optional[CFAEdge] = None):
         self.wrapped_state = wrapped_state
         self.state_id = ARGState.index
         ARGState.index += 1
@@ -28,14 +27,13 @@ class ARGState(AbstractState):
             self.parents.add(parent)
             parent.children.add(self)
         self.children = set()
-        self.creating_edge: Optional[CFAEdge] = creating_edge # MODIFIED: Store the edge
-        # log.printer.log_debug(1, f"[ARGState DEBUG] Created N{self.state_id}, parent N{parent.state_id if parent else 'None'}, edge: {creating_edge.label() if creating_edge else 'Initial'}")
+        self.creating_edge: Optional[CFAEdge] = creating_edge
 
-    def get_creating_edge(self) -> Optional[CFAEdge]: # NEW METHOD
+    def get_creating_edge(self) -> Optional[CFAEdge]:
         return self.creating_edge
 
     def __str__(self):
-        return f"N{self.state_id} | {self.wrapped_state}" # Simplified for brevity in non-graph logs
+        return f"N{self.state_id} | {self.wrapped_state}"
 
     def __eq__(self, other):
         if not isinstance(other, ARGState):
@@ -57,9 +55,8 @@ class ARGState(AbstractState):
 
 
 class ARGTransferRelation(TransferRelation):
-    def __init__(self, wrapped_transfer_relation: TransferRelation, arg_cpa: 'ARGCPA'):
+    def __init__(self, wrapped_transfer_relation: TransferRelation):
         self.wrapped_transfer_relation = wrapped_transfer_relation
-        self.arg_cpa = arg_cpa 
 
     def get_abstract_successors(self, predecessor_arg_state: ARGState) -> Collection[ARGState]:
         """
@@ -89,9 +86,8 @@ class ARGTransferRelation(TransferRelation):
             # Create a new ARGState, crucially storing the 'edge' that created it.
             new_arg_state = ARGState(wrapped_state=wrapped_successor_state, 
                                      parent=predecessor_arg_state, 
-                                     creating_edge=edge) # MODIFIED: Pass the edge
+                                     creating_edge=edge)
             
-            self.arg_cpa._arg_nodes.add(new_arg_state) # ARGCPA tracks all nodes
             result_arg_states.append(new_arg_state)
         return result_arg_states
 
@@ -100,7 +96,7 @@ class ARGStopOperator(StopOperator):
     def __init__(self, wrapped_stop_operator: StopOperator):
         self.wrapped_stop_operator = wrapped_stop_operator
 
-    def stop(self, e: ARGState, reached: Collection[ARGState]) -> bool:
+    def stop(self, e: AbstractState, reached: Collection[AbstractState]) -> bool:
         # Stop is based on the wrapped state.
         # 'e' is the new state, 'reached' is a collection of already existing ARGStates.
         is_stopped = self.wrapped_stop_operator.stop(
@@ -176,7 +172,6 @@ class ARGCPA(CPA):
     def __init__(self, wrapped_cpa: CPA):
         self.wrapped_cpa = wrapped_cpa
         self.arg_root: Optional[ARGState] = None 
-        self._arg_nodes: Set[ARGState] = set() # To track all nodes in the ARG
 
     def get_initial_state(self) -> ARGState:
         # The initial wrapped state (e.g. CompositeState(LocationState, PredAbsState))
@@ -184,7 +179,6 @@ class ARGCPA(CPA):
         # Create the root ARGState. It has no parent and no creating_edge.
         root = ARGState(wrapped_state=initial_wrapped, parent=None, creating_edge=None)
         self.arg_root = root
-        self._arg_nodes = {root}
         return root
 
     def get_stop_operator(self) -> StopOperator:
@@ -194,10 +188,7 @@ class ARGCPA(CPA):
         return ARGMergeOperator(self.wrapped_cpa.get_merge_operator())
 
     def get_transfer_relation(self) -> TransferRelation:
-        return ARGTransferRelation(
-            self.wrapped_cpa.get_transfer_relation(), # wrapped TR
-            self                                      # back-link to this ARGCPA instance
-        )
+        return ARGTransferRelation(self.wrapped_cpa.get_transfer_relation())
 
 
 # For visualization of the resulting ARG
@@ -207,16 +198,10 @@ class GraphableARGState(Graphable):
         self.arg_state = arg_state
 
     @property
-    def wrapped_state(self): # Keep a similar interface if needed by visualizer
+    def wrapped_state(self):
         return self.arg_state
 
     def get_node_label(self) -> str:
-        # Add creating edge info to label for debugging
-        edge_label_str = ""
-        # creating_edge = self.arg_state.get_creating_edge()
-        # if creating_edge:
-        #     edge_label_str = f"\\nvia: {creating_edge.label()}"
-        
         return f"N{self.arg_state.state_id}\n{self.arg_state.wrapped_state}"
 
 
@@ -241,13 +226,13 @@ class GraphableARGState(Graphable):
                    hasattr(leaving_edge.instruction, 'location') and \
                    leaving_edge.instruction.location == loc2_node:
                     return [leaving_edge.label()]
-        return ["?"] # Default if no specific edge found
+        return ["?"]
 
     def get_location_node(self) -> Optional[CFANode]: # Helper for get_edge_labels
         return self.arg_state.get_location_node()
 
 
-    def get_successors(self) -> Collection['GraphableARGState']:
+    def get_successors(self) -> list['GraphableARGState']:
         return [GraphableARGState(child) for child in self.arg_state.children]
 
     def __eq__(self, other):

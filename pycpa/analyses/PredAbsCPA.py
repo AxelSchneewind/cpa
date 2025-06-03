@@ -11,7 +11,6 @@ from typing import List, Set, Dict
 
 from pysmt.shortcuts import And, Not, TRUE, FALSE, is_sat
 from pysmt.fnode import FNode
-from pysmt.exceptions import SolverReturnedUnknownResultError
 
 from pycpa.cfa import InstructionType, CFAEdge
 from pycpa.cpa import CPA, AbstractState, TransferRelation, StopSepOperator, MergeSepOperator
@@ -24,13 +23,9 @@ from pycpa.analyses.ssa_helper import SSA
 # Abstract State
 # --------------------------------------------------------------------------- #
 class PredAbsState(AbstractState):
-    def __init__(self, other: PredAbsState | None = None) -> None:
-        if other:   # copy constructor
-            self.predicates: Set[FNode] = set(other.predicates)
-            self.ssa_indices: Dict[str, int] = copy.deepcopy(other.ssa_indices)
-        else:
-            self.predicates = set()
-            self.ssa_indices = dict()
+    def __init__(self, predicates : set[FNode] | None = None, ssa_indices : dict[str,int] | None = None) -> None:
+        self.predicates  : set[FNode]    = predicates if predicates is not None else set()
+        self.ssa_indices : dict[str,int] = ssa_indices if ssa_indices else dict()
 
     def subsumes(self, other: PredAbsState) -> bool:
         return other.predicates.issubset(self.predicates)
@@ -47,9 +42,18 @@ class PredAbsState(AbstractState):
 
     def __str__(self) -> str:
         return '{' + ', '.join(str(p) for p in self.predicates) + '}'
+
+    def __copy__(self):
+        return PredAbsState(
+            copy.copy(self.predicates),
+            copy.copy(self.ssa_indices)
+        )
     
     def __deepcopy__(self, memo):
-        return PredAbsState(self)
+        return PredAbsState(
+            copy.copy(self.predicates),
+            copy.copy(self.ssa_indices)
+        )
 
 
 # --------------------------------------------------------------------------- #
@@ -67,8 +71,8 @@ class PredAbsTransferRelation(TransferRelation):
     def _implied_predicates(current_predicates: set[FNode],
                             transfer: FNode,
                             precision: set[FNode],
-                            ssa_indices_old : dict[str,int],
-                            ssa_indices_new : dict[str,int]) -> Set[FNode]:
+                            ssa_indices_old : dict[str,int] | int,
+                            ssa_indices_new : dict[str,int] | int) -> Set[FNode]:
         """
             computes predicates from the given precision
             that are implied from current predicates and (edge/path-formula) transfer.
@@ -76,12 +80,14 @@ class PredAbsTransferRelation(TransferRelation):
             ssa_indices_old has to be the ssa indices before transfer formula.
             ssa_indices_new has to be the ssa indices after transfer formula.
         """
-        phi = And(list(current_predicates)) if current_predicates else TRUE()
+        # make formula from predicates
+        phi = And(current_predicates) if current_predicates else TRUE()
         phi = SSA.set_indices(phi, ssa_indices_old)
         phi = And(phi, transfer)
 
         implied: Set[FNode] = set()
         for p in precision:
+            # instantiate predicate to new indices
             pnew = SSA.set_indices(p, ssa_indices_new)
             sat = is_sat(And(phi, Not(pnew)))
             if not sat:
@@ -89,17 +95,19 @@ class PredAbsTransferRelation(TransferRelation):
 
         return implied
 
-    def get_abstract_successors(self, predecessor: PredAbsState) -> List[PredAbsState]:
+    def get_abstract_successors(self, predecessor: AbstractState) -> List[PredAbsState]:
         raise NotImplementedError()
 
     def get_abstract_successors_for_edge(self,
-                                         predecessor: PredAbsState,
+                                         predecessor: AbstractState,
                                          edge: CFAEdge
                                         ) -> List[PredAbsState]:
-        # 1) Copy SSA indices locally
-        ssa_idx = copy.deepcopy(predecessor.ssa_indices)
+        assert isinstance(predecessor, PredAbsState)       
 
-        # 2) Compute strongest‐post condition (trans)
+        # copy SSA indices locally
+        ssa_idx = copy.copy(predecessor.ssa_indices)
+
+        # compute strongest‐post condition (trans)
         kind = edge.instruction.kind
         if   kind == InstructionType.STATEMENT:
             trans = PredAbsPrecision.ssa_from_assign(edge, ssa_indices=ssa_idx)

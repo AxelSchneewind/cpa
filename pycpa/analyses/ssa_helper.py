@@ -9,14 +9,10 @@ import hashlib
 from typing import Dict, Iterable, Set, List, Optional
 
 from pysmt.shortcuts import (
-    And, Or, Not, Equals, NotEquals,
-    BV, Symbol, TRUE, FALSE, Ite,
-    BVNot, BVNeg, BVSGT, BVSGE, BVSLT, BVSLE,
-    BVAdd, BVMul, BVSDiv, BVURem, # Changed BVSDiv twice to BVSDiv, BVURem
-    BVLShl, BVAShr, BVOr, BVXor, BVAnd,
+    And, Or, Not, Equals, NotEquals, Symbol,
     substitute, get_env
 )
-from pysmt.typing import BV64, BOOL
+from pysmt.typing import BV64
 from pysmt.fnode import FNode
 
 from pycpa.cfa import InstructionType, CFAEdge, CFANode # Assuming CFANode is hashable
@@ -35,7 +31,7 @@ class SSA:
         return Symbol(f"{var}#{idx}", BV64)
     
     @staticmethod   
-    def next(var: str, idx: Dict[str, int]) -> int:
+    def next(var: str, idx: dict[str, int]) -> int:
         idx[var] = idx.get(var, 0) + 1
         return idx[var]
     
@@ -76,30 +72,26 @@ class SSA:
         Replaces all SSA-indexed variables in a predicate with their unindexed versions.
         e.g., (x#1 > y#0) becomes (x > y)
         """
-        if not predicate.get_free_variables():
-            return predicate
-    
-        substitution = {}
-        for var_symbol in predicate.get_free_variables():
-            unindexed_var = SSA.unindex_symbol(var_symbol)
-            if var_symbol != unindexed_var: # only add to substitution if it changed
-                substitution[var_symbol] = unindexed_var
-                
-        if not substitution:
-            return predicate
-            
-        return predicate.substitute(substitution)
+        substitution_targets = [
+            sub
+            for sub in get_env().formula_manager.get_all_symbols()
+        ]
+
+        substitution = {
+            var_symbol : SSA.unindex_symbol(var_symbol)
+            for var_symbol in substitution_targets
+        }
+
+        return substitute(predicate, substitution)
     
     
     @staticmethod   
     def inc_indices(formula : FNode, indices : int | dict[str,int]) -> FNode:
-        # log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] inc_indices: formula={formula}, indices={indices}")
-        substitution_targets = []
-        for sub in get_env().formula_manager.get_all_symbols():
-            if sub.is_symbol():
-                if isinstance(indices, dict) and SSA.get_name(sub) not in indices:
-                    continue
-                substitution_targets.append(sub)
+        substitution_targets = [
+            sub
+            for sub in get_env().formula_manager.get_all_symbols()
+            if not isinstance(indices, dict) or SSA.get_name(sub) in indices
+        ]
         
         substitution = {}
         if isinstance(indices, int):
@@ -118,14 +110,13 @@ class SSA:
         return substitute(formula, substitution)
     
     
-    
     @staticmethod   
     def set_indices(formula : FNode, indices : int | dict[str,int]) -> FNode:
-        # log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] set_indices: formula={formula}, indices={indices}")
-        substitution_targets = []
-        for sub in get_env().formula_manager.get_all_symbols():
-            if sub.is_symbol():
-                substitution_targets.append(sub)
+        substitution_targets = [
+            sub
+            for sub in get_env().formula_manager.get_all_symbols()
+            if not isinstance(indices, dict) or SSA.get_name(sub) in indices
+        ]
         
         substitution = {}
         if isinstance(indices, int):
@@ -144,17 +135,22 @@ class SSA:
     
     @staticmethod   
     def pad_indices(formula : FNode, indices : dict[str,int], target_indices : dict[str,int]):
+        """ 
+        Adds padding assignments to the given formula such that for a variable x, its index becomes max(indices[x], target_indices[x])
+        """
         padding_terms = []
         for sub in get_env().formula_manager.get_all_symbols():
-            if sub.is_symbol():
-                name = SSA.get_name(sub)
-                if name not in indices or name not in target_indices:
-                    continue
-                term = Equals(
-                        SSA.ssa(name, target_indices[name]),
-                        SSA.ssa(name, indices[name])
-                )
-                padding_terms.append(term)
+            name = SSA.get_name(sub)
+            if name not in indices or name not in target_indices:
+                continue
+            if indices[name] >= target_indices[name]:
+                continue
+
+            term = Equals(
+                    SSA.ssa(name, target_indices[name]),
+                    SSA.ssa(name, indices[name])
+            )
+            padding_terms.append(term)
     
         return And(formula, And(padding_terms))
 
