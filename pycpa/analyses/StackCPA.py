@@ -79,9 +79,6 @@ class StackTransferRelation(TransferRelation):
         if len(predecessor.call_edge_stack) <= 1:
             return []
 
-        # 
-        edge.instruction.target_variable = predecessor.call_edge_stack[-1].instruction.target_variable
-
         states = [
             wrapped_successor
             for wrapped_successor in self.wrapped_transfer_relation.get_abstract_successors_for_edge(
