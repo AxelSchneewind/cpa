@@ -8,13 +8,26 @@
     <option name="--config">ValueAnalysis</option>
   </rundefinition>
 
+  <rundefinition name="Formula Analysis">
+    <option name="--config">FormulaAnalysis</option>
+  </rundefinition>
+
   <rundefinition name="Predicate Analysis">
     <option name="--config">PredicateAnalysis</option>
+  </rundefinition>
+
+  <rundefinition name="Predicate Analysis ABE bf">
+    <option name="--config">PredicateAnalysisABEbf</option>
   </rundefinition>
 
   <rundefinition name="Predicate Analysis CEGAR">
     <option name="--config">PredicateAnalysisCEGAR</option>
   </rundefinition>
+
+  <rundefinition name="Predicate Analysis CEGAR ABEbf">
+    <option name="--config">PredicateAnalysisCEGARABEbf</option>
+  </rundefinition>
+
 
   <tasks name="demo">
     <includesfile>sets/demo.set</includesfile>
