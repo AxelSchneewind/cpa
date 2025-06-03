@@ -96,7 +96,7 @@ class PredAbsABETransferRelation(TransferRelation):
                                          edge: CFAEdge
                                         ) -> List[PredAbsABEState]:
         # 1) Copy SSA indices locally, these will be advanced by the current edge formula
-        ssa_idx = copy.deepcopy(predecessor.path_ssa_indices)
+        ssa_idx = copy.copy(predecessor.path_ssa_indices)
         predicates = None
         abstraction_location = predecessor.abstraction_location
 
