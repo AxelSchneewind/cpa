@@ -128,6 +128,7 @@ def refine_precision(
 
 
     # Add predicates from τ_0 to π(l_0) where l_0 is abstract_cex_edges[0].predecessor
+    current_atoms = set()
     location_node = abstract_cex_edges[0].predecessor
     if not interpolants[0].is_true() and not interpolants[0].is_false():
         if location_node not in new_local_predicates_map:
@@ -154,7 +155,6 @@ def refine_precision(
         if location_node not in new_local_predicates_map:
             new_local_predicates_map[location_node] = set()
         
-        current_atoms = set()
         for atom in interp_formula.get_atoms():
             if not atom.is_true() and not atom.is_false(): # Don't add True/False as predicates
                 unindexed = SSA.unindex_predicate(atom)
