@@ -67,7 +67,7 @@ def main(args):
                 task_yml = yaml.safe_load(file)
                 task = Task.task_from_yml(task_yml, os.path.dirname(program), args)
         else:
-            task = Task(program, args, args.config, args.property, max_iterations=args.max_iterations)
+            task = Task.task_from_args(program, os.path.dirname(program), args)
 
         log.printer.log_task(task.program_name, args.config, args.property)
 

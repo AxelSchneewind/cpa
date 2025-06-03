@@ -2,28 +2,37 @@
 
 from typing import Collection
 
+from os import path
 
 
 class Task:
-    def __init__(self, program : str, args, configs : Collection[str] = [], properties : Collection[str] = [], max_iterations=None):
+    def __init__(self, program : str, args, configs : Collection[str] = [], properties : Collection[str] = []):
         # base name of program
         self.program = program
         self.program_name = program.split('/')[-1].split('.')[0]
         self.configs = configs
         self.properties = set(properties)
-        self.max_iterations = max_iterations
+        self.max_iterations = args.max_iterations
+        self.max_refinements = args.max_refinements
         self.output_directory = args.output_directory + '/' + self.program_name
 
     @staticmethod
+    def task_from_args(program, base_dir, args):
+        return Task(
+            program,
+            args,
+            args.config,
+            { path.splitext(path.basename(p))[0] for p in  args.property},
+        )
+
+    @staticmethod
     def task_from_yml(yml, base_dir, args):
-        result = Task(
+        return Task(
                 base_dir + '/' + yml['input_files'].split(' ')[0],  # only accept single program for now
                 args,
                 args.config,
                 { p.split('/')[-1].split('.')[0] for p in  args.property},
-                None
         )
-        return result
     
     def __str__(self):
         return '%s' % self.program

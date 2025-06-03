@@ -8,7 +8,7 @@ from pycpa.analyses import ValueAnalysisCPA
 
 import pprint
 
-from pycpa.cpa import CPA, WrappedTransferRelation
+from pycpa.cpa import CPA
 from pycpa.task import Task, Result, Status
 from pycpa.verdict import Verdict
 
@@ -31,7 +31,7 @@ def get_algorithm(entrypoint, cfa_roots, specification, task : Task, result : Re
         task,
         result,
         specification,
-        10, # max refinements, TODO: add to task as an attribute
+        task.max_refinements,
         None
     )
 

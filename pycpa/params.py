@@ -12,6 +12,7 @@ parser.add_argument('--list-configs', help='a list of available analyses')
 parser.add_argument('--list-properties', help='a list of available properties')
 
 parser.add_argument('--max-iterations', help='maximum number of CPA loop iterations', type=int)
+parser.add_argument('--max-refinements', help='maximum number of refinements for CEGAR', type=int, default=100)
 
 parser.add_argument('--compact', help='print less output (only program and verdict)', action='store_true')
 parser.add_argument('--verbose', help='print more output', action='store_true')
