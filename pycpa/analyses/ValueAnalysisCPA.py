@@ -467,9 +467,13 @@ class ValueTransferRelation(TransferRelation):
             passed = True if result.actual else False
             return [copy.copy(predecessor)] if passed else []
         elif edge.instruction.kind == InstructionType.CALL:
-            newval = ValueState()
-            newval.valuation = { edge.instruction.param_names[i] : predecessor.valuation[k] for i,k in enumerate(edge.instruction.arg_names) if k in predecessor.valuation }
-            return [newval]
+            successor = ValueState(predecessor)
+            for a,k in zip(edge.instruction.param_names, edge.instruction.arg_names):
+                v = ValueExpressionVisitor(predecessor.valuation)
+                v.lstack.append(a)
+                v.visit(k)
+                v.update(successor.valuation)
+            return [successor]
         elif edge.instruction.kind == InstructionType.RETURN:
             targetvar = edge.instruction.target_variable
             returnvar = edge.instruction.return_variable
