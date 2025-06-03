@@ -229,10 +229,9 @@ class PredAbsPrecision:
 
     def add_global_predicates(self, new_preds: Iterable[FNode]):
         """Adds new global predicates"""
-        for p in new_preds:
-            for location in self.predicates:
-                for p in preds:
-                    self.predicates[location].add(p)
+        for location in self.predicates:
+            for p in new_preds:
+                self.predicates[location].add(p)
 
     def add_local_predicates(self, new_preds: dict[CFANode, Iterable[FNode]]):
         """Adds new predicates to location"""
