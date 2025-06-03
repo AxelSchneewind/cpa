@@ -15,7 +15,7 @@ from pysmt.fnode import FNode
 from pysmt.shortcuts import Solver, And, Not, TRUE, FALSE, Interpolator
 from pysmt.exceptions import SolverReturnedUnknownResultError, NoSolverAvailableError
 
-from pycpa.cfa import CFAEdge, CFANode
+from pycpa.cfa import CFAEdge, CFANode, InstructionType
 from pycpa.analyses.PredAbsPrecision import PredAbsPrecision
 from pycpa.analyses.ssa_helper import SSA
 
@@ -150,7 +150,7 @@ def refine_precision(
         # Location l_i is the state *after* edge_{i-1} / block A_i
         # This is abstract_cex_edges[i-1].successor
         # This is also abstract_cex_edges[i].predecessor
-        location_node = abstract_cex_edges[i-1].successor 
+        location_node = abstract_cex_edges[i-1].predecessor if abstract_cex_edges[i-1].instruction.kind == InstructionType.ASSUMPTION else abstract_cex_edges[i-1].successor
         
         if location_node not in new_local_predicates_map:
             new_local_predicates_map[location_node] = set()
