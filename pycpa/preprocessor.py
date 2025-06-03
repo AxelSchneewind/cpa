@@ -1,7 +1,7 @@
 from pycpa.ast import (
     ExpandAugAssign, ASTPreprocessor, EnsureReturn, RemoveBuiltins, 
     ASTVisualizer, SetExecutionContext, ExpandIfExp, ExpandReturn,
-    EnsureScoping
+    EnsureScoping, CallAssignToRet
 )
 from pycpa.cfa import builtin_identifiers
 
@@ -17,6 +17,7 @@ transformers = [
     ExpandIfExp(),
     RemoveBuiltins(set(builtin_identifiers.keys())),
     ASTPreprocessor(),
+    CallAssignToRet(),
 ]
 
 def preprocess_ast(tree : ast.AST) -> ast.AST:

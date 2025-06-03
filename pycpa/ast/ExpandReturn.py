@@ -16,7 +16,7 @@ class ExpandReturn(StatementExtractor):
     def visit_Return(self, node) -> ast.Return:
         if node.value is None:
             return node
-        if isinstance(node.value, ast.Constant) or isinstance(node.value, ast.Name):
+        if isinstance(node.value, ast.Name) and node.value.id == '__ret':
             return node
 
         # for complex expressions, extract
