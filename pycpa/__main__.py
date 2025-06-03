@@ -54,13 +54,13 @@ def check_arg(arg, task, result, specification_mods):
 def main(args): 
     aborted = False
 
-
     log.init_printer(args)
 
     for program in args.program:
         if aborted == True:
             break       
 
+        # process program argument
         extension = os.path.splitext(os.path.basename(program))[1]
         if extension == '.yml':
             with open(program, 'r') as file:
@@ -71,24 +71,28 @@ def main(args):
 
         log.printer.log_task(task.program_name, args.config, args.property)
 
+        # read program file
         with open(task.program) as file:
             ast_program = file.read()
 
+
+        # prepare output directory
         output_dir = args.output_directory + '/' + task.program_name + '/'
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
-
+        # write program
         with open(output_dir + '/program.py', 'w') as out_prog:
             out_prog.write(ast_program)
 
-
+        # parse program into ast
         log.printer.log_status('parsing')
         try:
             tree = ast.parse(ast_program)
         except:
             log.printer.log_result(task.program_name, 'SYNTAX_INVALID', str(Verdict.UNKNOWN))
-            continue
+
+        # perform preprocessing on ast
         log.printer.log_status('preprocessing')
         tree = preprocess_ast(tree)
         with open(output_dir + '/program-preprocessed.py', 'w') as out_prog:
@@ -98,15 +102,14 @@ def main(args):
         with open(output_dir + '/astpretty', 'w') as out_file:
             out_file.write(astpretty.pformat(tree, show_offsets=False))
 
-
-        # visualize AST
+        # visualize ast
         astvisitor = ASTVisualizer()
         astvisitor.visit(tree)
         astvisitor.graph.render(output_dir + '/ast')
     
 
+        # compute cfa
         log.printer.log_status('computing CFA')
-        # For testing CFA generation
         CFANode.index = 0  # reset the CFA node indices to produce identical output on re-execution
         cfa_creator = CFACreator()
         cfa_creator.visit(tree)
@@ -114,17 +117,17 @@ def main(args):
         dot = cfa_to_dot([ GraphableCFANode(r) for r in cfa_creator.roots ])
         dot.render(output_dir + '/cfa')
 
+
         result = Result()
 
         log.printer.log_status('running CPA algorithm')
-        algo = None
-
-        # root of ARG
-        arg = None
+        arg = None      # root of ARG
 
         
+        # load specification modules
         specification_mods = [ configs.load_specification(p) for p in args.property ]
 
+        # load cpas for specification
         cpas = []
         for p in specification_mods:
             cpas.extend(p.get_cpas(entry_point=entry_point, cfa_roots=cfa_creator.roots,output_dir=output_dir))
