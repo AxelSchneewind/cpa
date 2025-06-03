@@ -70,7 +70,7 @@ def _expr2smt(node: ast.AST, ssa: Dict[str, int]) -> FNode:
 
             # Ensure consistent types for arithmetic ops, cast if necessary
             if not isinstance(op_type, (ast.Eq, ast.NotEq, ast.And, ast.Or)): # Non-boolean binary ops
-                 # Attempt to cast to BV64 if not already, common for arithmetic
+                 # cast to BV64 if not already, common for arithmetic
                 if left_smt.get_type() != BV64: left_smt = _bv(left_smt)
                 if right_smt.get_type() != BV64: right_smt = _bv(right_smt)
 
@@ -193,10 +193,13 @@ class PredAbsPrecision:
     def __init__(self, preds: dict[CFANode,FNode]):
         self.predicates: dict[CFANode,FNode] = preds
 
-    def __getitem__(self, loc):  
-        return self.predicates[loc]
-    def __contains__(self, loc): 
-        return loc in self.predicates
+    def __getitem__(self, location: CFANode) -> set[FNode]:
+        """Allows dictionary-like access, e.g., precision[cfa_node]."""
+        assert location in self.predicates
+        return self.predicates.get(location, {TRUE()})
+
+    def __contains__(self, location : CFANode) -> bool: 
+        return location in self.predicates
 
     def __iter__(self): 
         return iter(self.predicates)
@@ -221,11 +224,6 @@ class PredAbsPrecision:
         """
         Retrieves all applicable predicates for a given CFA node
         """
-        return self.predicates.get(location, {TRUE()})
-
-    def __getitem__(self, location: CFANode) -> set[FNode]:
-        """Allows dictionary-like access, e.g., precision[cfa_node]."""
-        assert location in self.predicates
         return self.predicates.get(location, {TRUE()})
 
 
