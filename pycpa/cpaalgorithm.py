@@ -105,39 +105,14 @@ class CPAAlgorithm:
 
             log.printer.log_debug(3, f"[CPAAlgorithm DEBUG]   Finished exploring successors of N{e.state_id}. Generated {successors_generated} direct successors.")
 
-
-        if not waitlist: # Double check if error state was the last one processed
-             property_substates_final_check = WrappedAbstractState.get_substates(e.wrapped_state, PropertyState)
-             is_error_state_final_check = any(not s.safe for s in property_substates_final_check)
-             if is_error_state_final_check and not self.result.verdict == Verdict.FALSE:
-                log.printer.log_debug(1, f"[CPAAlgorithm INFO] Error state N{e.state_id} was the last in waitlist: {e.wrapped_state}")
-                self.result.status = Status.OK
-                self.result.verdict = Verdict.FALSE
-                self.result.witness = e 
-                self.abstract_cex_edges = self.get_error_path_edges(entry, e)
-                return
-
-
         log.printer.log_debug(1, f"[CPAAlgorithm DEBUG] Waitlist size: {len(waitlist)}, Reached size: {len(reached)}")
-
-
-        if self.result.verdict == Verdict.FALSE: # Error found by a successor
-            log.printer.log_debug(1, f"[CPAAlgorithm INFO] Exiting run method because an error was found by a successor.")
-            return
 
         if not waitlist and self.result.verdict != Verdict.FALSE:
             log.printer.log_debug(1, "[CPAAlgorithm INFO] Waitlist is empty and no error found. Program is SAFE.")
             self.result.status = Status.OK
             self.result.verdict = Verdict.TRUE
             return
-            
-        log.printer.log_debug(3, f"[CPAAlgorithm DEBUG] End of while loop iteration. Waitlist size: {len(waitlist)}")
 
-        # Final check after loop finishes
-        if self.result.verdict != Verdict.FALSE: # If loop finishes and no error found
-            log.printer.log_debug(3, "[CPAAlgorithm INFO] CPAAlgorithm run finished. Waitlist empty. Program is SAFE.")
-            self.result.status = Status.OK
-            self.result.verdict = Verdict.TRUE
         return
 
 
