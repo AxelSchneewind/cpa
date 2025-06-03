@@ -221,29 +221,28 @@ class PredAbsPrecision:
         """
         Retrieves all applicable predicates for a given CFA node
         """
-        assert location in self.predicates
-        return self.predicates[location]
+        return self.predicates.get(location, {TRUE()})
 
     def __getitem__(self, location: CFANode) -> set[FNode]:
         """Allows dictionary-like access, e.g., precision[cfa_node]."""
         assert location in self.predicates
-        return self.predicates[location]
+        return self.predicates.get(location, {TRUE()})
 
 
     def add_global_predicates(self, new_preds: Iterable[FNode]):
-        """Adds new global predicates. Predicates are unindexed before storing."""
+        """Adds new global predicates"""
         for p in new_preds:
             for location in self.predicates:
                 for p in preds:
-                    self.predicates[location].add(SSA.unindex_predicate(p))
+                    self.predicates[location].add(p)
 
     def add_local_predicates(self, new_preds: dict[CFANode, Iterable[FNode]]):
-        """Adds new predicates to location. SSA-indices have to be made relative to last block head before storing."""
+        """Adds new predicates to location"""
         for location, preds in new_preds.items():
             if location not in self.predicates:
                 self.predicates[location] = set()
             for p in preds:
-                self.predicates[location].add(SSA.unindex_predicate(p))
+                self.predicates[location].add(p)
 
     @staticmethod
     def ssa_from_call(edge: CFAEdge, ssa_indices: Dict[str, int]) -> FNode:
@@ -279,6 +278,7 @@ class PredAbsPrecision:
             assert hasattr(instr, 'target_variable') and instr.target_variable
             returned_value_smt = _expr2smt(expr.value, ssa_indices) # uses current SSA of 'r'
             ret_storage_name = instr.target_variable
+            print(ret_storage_name, '<-', returned_value_smt)
             lhs_return_storage = SSA.ssa(ret_storage_name, SSA.next(ret_storage_name, ssa_indices))
             log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] ssa_from_return: {lhs_return_storage} = {returned_value_smt}")
             return Equals(lhs_return_storage, returned_value_smt)
