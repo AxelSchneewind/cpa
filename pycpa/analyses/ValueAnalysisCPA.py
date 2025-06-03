@@ -194,7 +194,8 @@ class Value:
 
 class ValueState(AbstractState):
     def __init__(self, valuation : dict[str, Value] | None = None):
-        self.valuation = other.valuation if valuation is not None else dict()
+        assert valuation is None or isinstance(valuation, dict)
+        self.valuation = valuation if valuation is not None else dict()
 
     def subsumes(self, other) -> bool:
         return all(
@@ -430,7 +431,7 @@ class ValueTransferRelation(TransferRelation):
         match kind:
             case InstructionType.STATEMENT:
                 v.visit(edge.instruction.expression)
-                successor = ValueState(predecessor)
+                successor = copy.copy(predecessor)
                 v.update(successor.valuation)
                 return [successor]
             case InstructionType.ASSUMPTION:
@@ -445,15 +446,16 @@ class ValueTransferRelation(TransferRelation):
                 passed = True if result.actual else False
                 return [copy.copy(predecessor)] if passed else []
             case InstructionType.CALL:
-                successor = ValueState(predecessor)
+                successor = copy.copy(predecessor)
                 for a,k in zip(edge.instruction.param_names, edge.instruction.arg_names):
+                    assert isinstance(a, str)
                     v = ValueExpressionVisitor(predecessor.valuation)
                     v.lstack.append(a)
                     v.visit(k)
                     v.update(successor.valuation)
                 return [successor]
             case InstructionType.NONDET:
-                successor = ValueState(predecessor)
+                successor = copy.copy(predecessor)
                 successor.valuation.pop(edge.instruction.target_variable, 0)
                 return [successor]
             case _:

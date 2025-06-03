@@ -41,7 +41,7 @@ class PredAbsABEState(AbstractState):
         self.path_ssa_indices = path_ssa_indices
 
     def _instantiate(self) -> FNode:
-        preds = SSA.set_indices(self.predicates, 0)
+        preds = SSA.set_indices(And(list(self.predicates)), 0)
         return And(preds, self.path_formula)
 
     def subsumes(self, other: PredAbsABEState) -> bool:

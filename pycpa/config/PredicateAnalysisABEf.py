@@ -1,4 +1,4 @@
-from pycpa.analyses import PredAbsPrecision, PredAbsABECPA
+from pycpa.analyses import PredAbsPrecision, PredAbsABECPA, IsBlockOperator
 from pycpa.analyses import CompositeCPA
 from pycpa.analyses import LocationCPA
 from pycpa.analyses import StackCPA
@@ -24,5 +24,5 @@ def get_cpas(entry_point=None, cfa_roots=None, output_dir=None, **params):
         with open(output_dir + 'precision_initial.txt', 'w') as f:
             f.write(precision.__str__())
 
-    return [StackCPA(CompositeCPA([LocationCPA(entry_point), PredAbsABECPA(precision, PredAbsPrecision.is_block_head_f)]))]
+    return [StackCPA(CompositeCPA([LocationCPA(entry_point), PredAbsABECPA(precision, IsBlockOperator.is_block_head_f)]))]
 

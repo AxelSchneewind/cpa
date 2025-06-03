@@ -7,8 +7,8 @@ from pycpa.analyses.ValueAnalysisCPA import *
 from pycpa.analyses.StackCPA import * 
 from pycpa.analyses.CompositeCPA import *
 
+from pycpa.analyses.PredAbsABEPrecision import IsBlockOperator
 from pycpa.analyses.PredAbsPrecision import * 
-from pycpa.analyses.PredAbsABEPrecision import * 
 
 from pycpa.analyses.PredAbsCPA import * 
 from pycpa.analyses.PredAbsABECPA import *
