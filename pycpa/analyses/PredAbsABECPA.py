@@ -44,11 +44,13 @@ class PredAbsABEState(AbstractState):
 
     def subsumes(self, other: PredAbsABEState) -> bool:
         # check subset relation of predicates and implication of path formulas (self=>other)
-        lformula = SSA.inc_indices(And(self.predicates), self.path_ssa_indices)
-        rformula = SSA.inc_indices(And(other.predicates), other.path_ssa_indices)
+        lformula = SSA.pad_indices(self.path_formula, self.path_ssa_indices, other.path_ssa_indices)
+        rformula = SSA.pad_indices(other.path_formula, other.path_ssa_indices, self.path_ssa_indices)
+
         return (
             # self => other
-            not is_sat(
+            other.predicates.issubset(self.predicates) 
+            and not is_sat(
                 And(And(self.path_formula, lformula), Not(And(other.path_formula, rformula)))
             )
         )
