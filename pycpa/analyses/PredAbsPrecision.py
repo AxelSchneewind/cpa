@@ -177,8 +177,7 @@ def _expr2smt(node: ast.AST, ssa: Dict[str, int]) -> FNode:
 
 
         case ast.Call(func=ast.Name(id=fname), args=args):
-            call_ret_var_name = f"call_{fname}_ret_{len(ssa)}" # Simple unique name
-            return SSA.ssa(call_ret_var_name, SSA.next(call_ret_var_name, ssa))
+            raise NotImplementedException()
 
 
         case _:
