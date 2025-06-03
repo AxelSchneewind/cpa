@@ -61,6 +61,9 @@ class ValueState(AbstractState):
             ["->".join((k, str(v))) for (k, v) in self.valuation.items()]
         )
 
+    def __copy__(self):
+        return ValueState(self)
+
 
 # In[24]:
 
