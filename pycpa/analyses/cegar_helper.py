@@ -110,10 +110,7 @@ def refine_precision(
         # We need to align this with the locations.
         log.printer.log_debug(1, f"[CEGAR Helper DEBUG] Requesting sequence interpolants for {len(path_formula_conjuncts)} conjuncts.")
         raw_interpolants = interpolator.sequence_interpolant(path_formula_conjuncts)
-        
-        if raw_interpolants is None:
-            log.printer.log_debug(1, "[CEGAR Helper WARN] Interpolator returned None. Cannot refine precision.")
-            return None
+        assert raw_interpolants is not None
 
         # Construct the sequence τ_0, ..., τ_n as per typical CEGAR algorithm
         # τ_0 = True
@@ -187,9 +184,9 @@ def refine_precision(
         log.printer.log_debug(1, f"[CEGAR Helper INFO] Adding new local predicates to precision: { {loc.node_id: preds for loc, preds in new_local_predicates_map.items()} }")
         new_precision = copy.copy(current_precision)
         new_precision.add_local_predicates(new_local_predicates_map)
-        return new_precision
+        return new_precision, interpolants
     else:                           # return old precision
         log.printer.log_debug(1, "[CEGAR Helper INFO] No new non-trivial predicates extracted from interpolants.")
-        return current_precision
+        return current_precision, None
 
 

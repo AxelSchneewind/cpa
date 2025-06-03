@@ -173,7 +173,7 @@ class PredAbsCEGARDriver:
                     # TODO: Store concrete CEX if model was extracted by is_path_feasible
                     return # Real counterexample
 
-                new_precision = cegar_helper.refine_precision(
+                new_precision, interpolants = cegar_helper.refine_precision(
                     current_precision=self.current_precision, # Pass the PredAbsPrecision object
                     abstract_cex_edges=abstract_cex,
                     path_formula_conjuncts=path_formula_conjuncts
@@ -182,10 +182,14 @@ class PredAbsCEGARDriver:
 
                 # old precision is returned if no changes occurred
                 if new_precision is self.current_precision or new_precision == self.current_precision:
-                    self.result.verdict = Verdict.FALSE
+                    self.result.verdict = Verdict.UNKNOWN
                     self.result.status = Status.OK
                     log.printer.log_intermediate_result(self.program_name, str(self.result.status) + '(fixpoint reached)', str(self.result.verdict))
                     return
+
+                assert interpolants is not None, abstract_cex
+                with open(self.task.output_directory + '/interpolants_' + str(i), 'w') as f:
+                    f.write(str(interpolants))
 
                 self.current_precision = new_precision
 
