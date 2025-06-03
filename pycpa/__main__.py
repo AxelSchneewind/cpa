@@ -167,11 +167,11 @@ def main(args):
                         nodeattrs={"style": "filled", "shape": "box", "color": "white"},
                     )
                 dot.render(output_dir + '/arg')
+        # check safety of arg
+        check_arg(arg, task, result, specification_mods)
 
         # print status
         log.printer.log_result(task.program_name, str(result.status), str(result.verdict))
-
-        check_arg(arg, task, result, specification_mods)
 
 
     
