@@ -28,7 +28,7 @@ do
     # check existence
     [ -e $y_file ] || continue
 
-    c_file=$(grep "input_files: '[^']*" "$y_file" | sed "s/input_files: '//" | sed "s/'//" | sed 's/\.i/.c/')
+    c_file=$(grep "input_files: '[^']*" "${y_file}" | sed "s/input_files: '//" | sed "s/'//" | sed 's/\.i/.c/')
     c_file=${y_path}/${c_file}
 
     # check existence
@@ -38,11 +38,11 @@ do
     ([ -n "$(grep -f blacklist-keywords.txt ${c_file})" ]) && continue
     #  && echo "skipping $c_file" && continue
 
-    cp "$y_file" $benchset/
-    cp "$c_file" $benchset/
+    cp -r "$y_file" $benchset/
+    cp -r "$c_file" $benchset/
 
-    sed 's/\.c/.py/' -i $benchset/"$y_name"
-    sed 's/\.i/.py/' -i $benchset/"$y_name"
+    sed 's/\.c/.py/' -i "${benchset}/${y_name}"
+    sed 's/\.i/.py/' -i "${benchset}/${y_name}"
 done
 
 
@@ -55,8 +55,14 @@ do
     prepare_c "$c_file"
     fname=$(basename -s .c "$c_file")
 
+    [ -e "${benchset}/${fname}.py" ] && continue
+
     echo "transpiling $fname"
+
     $VENV_DIR/bin/python c2py "${benchset}/${fname}.c" "${benchset}/${fname}.py" 2> "${benchset}/error_${fname}"
+
+    # 
+    python -m py_compile ${benchset}/${fname}.py || (echo 'invalid syntax' && rm  ${benchset}/${fname}.py)
 
     # 
     [ -n "$(cat $benchset/error_${fname})" ] && echo "error for ${fname}"
