@@ -113,8 +113,6 @@ class PredAbsTransferRelation(TransferRelation):
             trans = expr
         elif kind == InstructionType.CALL or kind == InstructionType.NONDET:
             trans = PredAbsPrecision.ssa_from_call(edge, ssa_indices=ssa_idx)
-        elif kind == InstructionType.RETURN:
-            trans = PredAbsPrecision.ssa_from_return_dynamic(edge, ssa_indices=ssa_idx)
         else:
             trans = TRUE()
 

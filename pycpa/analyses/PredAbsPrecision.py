@@ -267,24 +267,6 @@ class PredAbsPrecision:
         return And(conjuncts) if conjuncts else TRUE()
 
 
-    @staticmethod
-    def ssa_from_return_dynamic(edge: CFAEdge, ssa_indices: Dict[str, int]) -> FNode:
-        ''' ssa from return during runtime, i.e. when target variable is known '''
-        instr = edge.instruction
-        expr = instr.expression # This is an ast.Return
-        log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] ssa_from_return: edge='{edge.label()}', ssa_indices={ssa_indices}, expr={ast.dump(expr) if expr else 'None'}")
-        
-        if  hasattr(instr, 'return_variable') and expr.value:
-            assert hasattr(instr, 'target_variable') and instr.target_variable
-            returned_value_smt = _expr2smt(expr.value, ssa_indices) # uses current SSA of 'r'
-            ret_storage_name = instr.target_variable
-            print(ret_storage_name, '<-', returned_value_smt)
-            lhs_return_storage = SSA.ssa(ret_storage_name, SSA.next(ret_storage_name, ssa_indices))
-            log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] ssa_from_return: {lhs_return_storage} = {returned_value_smt}")
-            return Equals(lhs_return_storage, returned_value_smt)
-
-        log.printer.log_debug(5, "[PredAbsPrecision DEBUG] ssa_from_return: No value returned or no target variable, returning TRUE.")
-        return TRUE() # Return with no value
 
     @staticmethod
     def ssa_from_return(edge: CFAEdge, ssa_indices: Dict[str, int]) -> FNode:

@@ -474,13 +474,6 @@ class ValueTransferRelation(TransferRelation):
                 v.visit(k)
                 v.update(successor.valuation)
             return [successor]
-        elif edge.instruction.kind == InstructionType.RETURN:
-            targetvar = edge.instruction.target_variable
-            returnvar = edge.instruction.return_variable
-            successor  = copy.deepcopy(predecessor)
-            if returnvar and len(returnvar) > 0 and returnvar in predecessor.valuation and targetvar and len(targetvar) > 0:
-                successor.valuation[targetvar] = predecessor.valuation[returnvar]
-            return [successor]
         elif edge.instruction.kind == InstructionType.NONDET:
             successor = ValueState(predecessor)
             successor.valuation.pop(edge.instruction.target_variable, 0)

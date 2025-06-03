@@ -102,9 +102,9 @@ class Instruction:
         return Instruction(expression, kind=InstructionType.REACH_ERROR, **params)
 
     @staticmethod
-    def ret(expression : ast.Return, return_variable : str = '__ret'):
+    def ret(expression : ast.Return):
         assert isinstance(expression, ast.Return)
-        return Instruction(expression, kind=InstructionType.RETURN, return_variable=return_variable)
+        return Instruction(expression, kind=InstructionType.RETURN)
 
     @staticmethod
     def call(expression : ast.Call, declaration : ast.FunctionDef, entry_point : 'CFANode', argnames : List[ast.arg], target_variable : str = '__ret', **params):
@@ -328,7 +328,7 @@ class CFACreator(ast.NodeVisitor):
 
         entry_node = self.node_stack.pop()
         exit_node = CFANode()
-        edge = CFAEdge(entry_node, exit_node, Instruction.ret(node, return_variable=val))
+        edge = CFAEdge(entry_node, exit_node, Instruction.ret(node))
         self.node_stack.append(exit_node)
 
     def _handle_Call_inline(self, call_node : ast.Call, target_variable : str =None):
