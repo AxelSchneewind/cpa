@@ -206,6 +206,16 @@ class PredAbsPrecision:
     def __str__(self):
         return str({ str(n) : str(p) for n,p in self.predicates.items()})
 
+    def __copy__(self):
+        return PredAbsPrecision(
+            copy.copy(self.predicates)
+        )
+
+    def __deepcopy__(self, mem):
+        return PredAbsPrecision(
+            copy.copy(self.predicates)
+        )
+
 
     def get_predicates_for_location(self, location: CFANode) -> set[FNode]:
         """
