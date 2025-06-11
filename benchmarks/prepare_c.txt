@@ -1,0 +1,10 @@
+s/__attribute__\s*(([^)]*))//g
+s/__attribute__\s*([^)]*)//g
+s/__extension__//g
+s/__format//g
+s/__const//g
+s/\s*ERROR:\s*{[^}]*}/reach_error();/
+s/\s*ERROR:\s*.*;/reach_error();/
+s/\s*ERROR:\s*/reach_error();/
+/^\s*#\s*include.*$/d
+
