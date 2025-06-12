@@ -1,0 +1,4 @@
+abort
+exit
+assert
+__assert_fail

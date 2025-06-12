@@ -25,8 +25,10 @@ type_map = {
 }
 
 class Ast2Py:
-    def __init__(self):
-        self.import_file_list=[]
+    def __init__(self, ignore_symbols : set[str]):
+        self.import_file_list  = []
+        self.ignore_symbols = ignore_symbols
+
 
     def import_list(self):
         ret = ''
@@ -72,7 +74,21 @@ class Ast2Py:
 
     def ast2py_one_node(self, n, depth):
         match n:
+            case c_ast.Pragma():
+                # include as comment
+                # self.push_expr('# %s' % str(n))
+                # self.push_newline(depth)
+                return
+
+            case c_ast.FuncDecl():
+                # include as comment
+                # self.push_expr('# %s' % str(n))
+                # self.push_newline(depth)
+                return
             case c_ast.FuncDef():
+                if n.decl.name in self.ignore_symbols:
+                    return
+
                 self.push_newline(depth)
                 self.push_expr(n.body)
                 self.push_newline(depth + 1)
@@ -81,20 +97,32 @@ class Ast2Py:
                 # TODO: translate types to type hints
                 if n.decl.type.args:
                     for i in reversed(n.decl.type.args.params[1:]):
-                        assert isinstance(i, Decl)
+                        if isinstance(i, c_ast.Decl):
+                            if i.init:
+                                self.push_expr(i.init)
+                                self.push_expr('=')
+                            if i.type and i.type.type and len(str(i.type.type)) > 0:
+                                self.push_expr(str(i.type.type))
+                                self.push_expr(':')
+                            self.push_expr(i.name)
+                            self.push_expr(',')
+
+                    i = n.decl.type.args.params[0]
+                    if isinstance(i, c_ast.Decl):
                         if i.init:
                             self.push_expr(i.init)
                             self.push_expr('=')
-                        if i.type and i.type.type:
-                            self.push_expr(i.type.type)
+                        if i.type.type and len(str(i.type.type)) > 0:
+                            self.push_expr(str(i.type.type))
                             self.push_expr(':')
                         self.push_expr(i.name)
-                        self.push_expr(',')
-                    self.push_expr(n.decl.type.args.params[0])
 
                 self.push_expr('def %s (' % n.decl.name)
 
             case c_ast.Typedef():
+                if n.type.declname in self.ignore_symbols:
+                    return
+
                 self.push_expr(n.type.type)
                 self.push_expr(' = ')
                 self.push_expr(n.type.declname)
@@ -143,30 +171,7 @@ class Ast2Py:
                 self.push_expr(selected)
 
             case c_ast.Struct():
-                if n.decls:
-                    name = n.name
-
-                    self.push_newline(depth)
-
-                    # constructor
-                    for d in reversed(n.decls):
-                        self.push_newline(depth + 2)
-                        self.push_expr(d)
-                        self.push_expr('self.')
-                    self.push_newline(depth + 2)
-
-                    self.push_expr('):')
-                    for d in reversed(n.decls):
-                        self.push_expr(' = None')
-                        self.push_expr(d)
-                        self.push_expr(', ')
-
-                    self.push_expr('def __self__(self')
-                    self.push_newline(depth + 1)
-                    self.push_expr(': ')
-                    self.push_expr(name)
-                    self.push_expr('class ')
-                    self.push_newline(depth)
+                self.push_expr(n.name)
 
             case c_ast.TypeDecl():
                 self.push_expr(n.type)
@@ -182,6 +187,9 @@ class Ast2Py:
                 self.push_expr('int')
 
             case c_ast.Decl():
+                if n.name in self.ignore_symbols:
+                    return
+
                 if n.init is not None:
                     self.push_expr(n.init)
                     self.push_expr(' = ')
@@ -191,10 +199,13 @@ class Ast2Py:
                 else:
                     #add char* support
                     if isinstance(n.type, c_ast.PtrDecl) and isinstance(n.type.type, c_ast.TypeDecl) and isinstance(n.type.type.type, c_ast.IdentifierType):
-                        if n.type.type.type.names ==['char']:
-                            ostr =  f'{n.declname} = CharPtr()'
-                            self.import_file_list.append('cpp2py.cpp2py_ctype')
-                            self.push_expr(ostr)
+                        # if n.type.type.type.names ==['char']:
+                        #     ostr =  f'{n.type.declname} = CharPtr()'
+                        #     self.import_file_list.append('cpp2py.cpp2py_ctype')
+                        #     self.push_expr(ostr)
+                        # ignoring pointers
+                        print('Ignoring pointer declaration', file=sys.stderr)
+                        return
                     elif isinstance(n.type, c_ast.ArrayDecl) \
                         and isinstance(n.type.type, c_ast.TypeDecl) and \
                         isinstance(n.type.type.type, c_ast.IdentifierType):
@@ -209,29 +220,39 @@ class Ast2Py:
                             self.push_expr(identifier)
                             self.import_file_list.append('cpp2py.cpp2py_ctype')
                     elif isinstance(n.type, c_ast.Struct):
-                        if n.type.decls:
-                            name = n.type.name
-                            for d in reversed(n.type.decls):
-                                self.push_expr(d.name)
-                                self.push_expr(' = ')
-                                self.push_expr(d.name)
-                                self.push_expr('self.')
-                                self.push_newline(depth + 2)
-        
-                            self.push_expr('):')
-                            for d in reversed(n.type.decls):
-                                self.push_expr(' = None')
-                                self.push_expr(d.type.type)
-                                self.push_expr(' : ')
-                                self.push_expr(d.name)
+                        name = n.type.name
+
+                        self.push_newline(depth)
+
+                        # constructor
+                        for i in reversed(n.type.decls):
+                            self.push_newline(depth + 2)
+                            self.push_expr(i.name)
+                            self.push_expr(' = ')
+                            self.push_expr(i.name)
+                            self.push_expr('self.')
+                        self.push_newline(depth + 2)
+
+                        self.push_expr('):')
+                        for i in reversed(n.type.decls):
+                            if isinstance(i, c_ast.Decl):
+                                if i.init:
+                                    self.push_expr(i.init)
+                                    self.push_expr(' = ')
+                                else:
+                                    self.push_expr(' = None')
+                                if i.type.type and isinstance(i.type.type, (c_ast.Typename)):
+                                    self.push_expr(str(i.type.type))
+                                    self.push_expr(':')
+                                self.push_expr(i.name)
                                 self.push_expr(', ')
-        
-                            self.push_expr('def __self__(self')
-                            self.push_newline(depth + 1)
-                            self.push_expr(': ')
-                            self.push_expr(name)
-                            self.push_expr('class ')
-                            self.push_newline(depth)
+
+                        self.push_expr('def __init__(self')
+                        self.push_newline(depth + 1)
+                        self.push_expr(': ')
+                        self.push_expr(name)
+                        self.push_expr('class ')
+                        self.push_newline(depth)
                     elif isinstance(n.type.type, c_ast.Struct):
                         self.push_expr(n.type.type.name)
                         self.push_expr(': ')
@@ -242,6 +263,10 @@ class Ast2Py:
                         self.push_expr(n.name)
 
             case c_ast.Assignment():
+                if not isinstance(n.lvalue, c_ast.ID):
+                    print('assigment to non-ID lvalue', n.lvalue, file=sys.stderr)
+                    return
+
                 self.push_expr(n.rvalue)
                 self.push_expr(' ')
                 self.push_expr(n.op)
@@ -345,7 +370,7 @@ class Ast2Py:
 
             case c_ast.Case():
                 if all(not isinstance(s, c_ast.Break) for s in n.stmts):
-                    print('Warning: case does not contain a break statement! (code nonequivalent)')
+                    print('Warning: case does not contain a break statement! (code nonequivalent)', file=sys.stderr)
 
                 for s in reversed(n.stmts):
                     self.push_expr(s)
@@ -357,7 +382,7 @@ class Ast2Py:
 
             case c_ast.Default():
                 if all(not isinstance(s, c_ast.Break) for s in n.stmts):
-                    print('Warning: case does not contain break statement!')
+                    print('Warning: case does not contain break statement!', file=sys.stderr)
 
                 for s in reversed(n.stmts):
                     self.push_expr(s)
@@ -368,8 +393,9 @@ class Ast2Py:
 
             # goto unsupported
             case c_ast.Goto():
-                print('encountered goto, ignoring')
+                print('encountered goto, ignoring', file=sys.stderr)
                 self.push_expr('# goto ' + n.name)
+                self.push_expr('pass')
 
             case c_ast.Label():
                 self.push_expr(n.stmt)
@@ -406,9 +432,6 @@ class Ast2Py:
 
             case c_ast.UnaryOp():
                 match n.op:
-                    case '*':
-                        self.push_expr('[0]')
-                        self.push_expr(n.expr)
                     case '!':
                         self.push_expr(n.expr)
                         self.push_expr('not ')
@@ -431,10 +454,16 @@ class Ast2Py:
                     case 'sizeof':
                         self.push_expr('.__sizeof__()')
                         self.push_expr(n.expr)
+                    case '*':
+                        print("Can't handle pointer dereference", n, file=sys.stderr)
                     case _:
-                        print("Unknown UnaryOp", n.op)
+                        print("Unknown UnaryOp", n.op, file=sys.stderr)
 
             case c_ast.FuncCall():
+                if not isinstance(n.name, (c_ast.ID)):
+                    print('call operator on some non-ID node', n.name, file=sys.stderr)
+                    return
+
                 self.push_expr(')')
 
                 if n.args:
@@ -462,14 +491,14 @@ class Ast2Py:
 
             case _:
                 if n is not None:
-                    print('Unknown ast type:', type(n))
-                    print(str(n))
+                    print('Unknown ast type:', type(n), file=sys.stderr)
+                    print(str(n), file=sys.stderr)
                     self.push_newline(depth)
                     self.push_expr('pass')
 
 
 
-def c2py(input_c_file, output_py_file):
+def c2py(input_c_file, output_py_file, ignore_syms):
     # Create the parser and ask to parse the text. parse() will throw
     # a ParseError if there's an error in the code
 
@@ -483,7 +512,7 @@ def c2py(input_c_file, output_py_file):
 
     # add transpiled code
     b=io.StringIO()
-    a2py = Ast2Py()
+    a2py = Ast2Py(ignore_symbols=ignore_syms)
     a2py.ast2py(ast, b)
     py_cont = b.getvalue()
 
@@ -504,11 +533,15 @@ def c2py(input_c_file, output_py_file):
 import sys
 if __name__ == '__main__':
     if len(sys.argv) < 3:
-        print('usage: c2py input.c output.py', file=sys.stderr)
+        print('usage: c2py input.c output.py [ignore-symbols-file]', file=sys.stderr)
         exit(1)
 
     file_in = sys.argv[1]
     file_out = sys.argv[2]
+    ignore_syms = set()
+    if len(sys.argv) > 3:
+        with open(sys.argv[3]) as file_syms:
+            ignore_syms = set(l.strip() for l in file_syms.readlines())
 
-    c2py(file_in, file_out)
+    c2py(file_in, file_out, ignore_syms)
 
