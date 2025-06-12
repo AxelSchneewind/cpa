@@ -197,7 +197,7 @@ class PredAbsABECPA(CPA[PredAbsABEState]):
         return StopSepOperator(PredAbsABEState.subsumes)
 
     def get_merge_operator(self) -> MergeOperator[PredAbsABEState]:
-        return MergeJoinOperator()
+        return MergeSepOperator()
 
     def get_transfer_relation(self) -> TransferRelation[PredAbsABEState]:
         return PredAbsABETransferRelation(self.precision, self.is_block_head)
