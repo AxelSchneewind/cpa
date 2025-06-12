@@ -16,27 +16,29 @@ check-venv:
 MSAT-SRC-DIR=$(wildcard mathsat-*/)
 MSAT-PREFIX=$(shell pwd)/venv/lib/python3.13/site-packages
 
-# checks if the defined paths for msat are correct
-check-msat-path: 
-	@[ -e $(MSAT-PREFIX)/mathsat/python/ ] || (echo 'missing ' $(MSAT-PREFIX)/mathsat/python && exit 1)
-	@[ -e $(MSAT-PREFIX)/mathsat/lib/ ] || (echo 'missing ' $(MSAT-PREFIX)/mathsat/lib && exit 1)
+# checks if the required files for msat exist
+check-msat-files: 
+	@[ -e $(MSAT-PREFIX)/mathsat.py ] || (echo 'missing ' $(MSAT-PREFIX)/mathsat.py && exit 1)
+	@[ -d $(MSAT-PREFIX)/mathsat/ ] || (echo 'missing ' $(MSAT-PREFIX)/mathsat/ && exit 1)
+	@[ -e $(MSAT-PREFIX)/_mathsat.so ] || (echo 'missing ' $(MSAT-PREFIX)/_mathsat.so && exit 1)
 
-# PYTHONPATH::=$(MSAT-PREFIX)/mathsat/python/:$(PYTHONPATH)
+PYTHONPATH::=$(MSAT-PREFIX)/:$(PYTHONPATH)
 LD_LIBRARY_PATH::=$(MSAT-PREFIX)/mathsat/lib:$(LD_LIBRARY_PATH)
 
-
-check-msat: venv check-msat-path
+check-msat: venv check-msat-files
 	PYTHONPATH=$(PYTHONPATH) LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) pysmt-install --check
 
-
+# no idea why this has to be so complicated
+# copies the msat source directory into site-packages (not sure why this is required)
+# copies the msat python file into site-packages
+# copies the msat shared objects file into site-packages
 install-msat: check-venv
 	@echo 'installing mathsat' 
 	cd ${MSAT-SRC-DIR}/python && python setup.py build && cd -
 	rm -rf "${MSAT-PREFIX}"/msat "${MSAT-PREFIX}"/mathsat* "${MSAT-PREFIX}"/lib
-	cp -r "${MSAT-SRC-DIR}/lib/libmathsat.so" "${MSAT-PREFIX}"/
 	cp -r "${MSAT-SRC-DIR}/python/mathsat.py" "${MSAT-PREFIX}"/
 	cp -r "${MSAT-SRC-DIR}/python/build"/lib.*/_mathsat*.so "${MSAT-PREFIX}"/_mathsat.so
-	cp -r "${MSAT-SRC-DIR}" "${MSAT-PREFIX}"/mathsat
+	cp -r "${MSAT-SRC-DIR}/" "${MSAT-PREFIX}"/mathsat
 	PYTHONPATH=$(PYTHONPATH) LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) pysmt-install --check
 
 
@@ -72,7 +74,7 @@ generate-benchmarks: patch-cpp2py cpp2py.py
 
 ########################### EXAMPLE TASK EXECUTION ############################
 
-run-examples-%: check-msat-path
+run-examples-%: check-msat-files
 	@echo 'testing $* on example programs'
 	@${PYTHON} -m pycpa -p unreach-call -c $* --compact --max-iterations 600 test_progs/*.yml test_progs/*.py -o out/$* 
 
@@ -157,10 +159,10 @@ benchexec-test-tooldef: ${TOOLDEF-FILE}
 
 
 # Run experiments
-run-demo-exp: check-output-exist ${TOOLDEF-FILE} check-msat-path check-venv
+run-demo-exp: check-output-exist ${TOOLDEF-FILE} check-msat-files check-venv
 	${BENCHEXEC-CALL} "${BENCHDEFS-PATH}/pycpa-demo.xml"
 
-run-medium-exp: check-output-exist ${TOOLDEF-FILE} check-msat-path check-venv
+run-medium-exp: check-output-exist ${TOOLDEF-FILE} check-msat-files check-venv
 	${BENCHEXEC-CALL} "${BENCHDEFS-PATH}/pycpa-medium.xml"
 
 # Generate tables from the experiments
