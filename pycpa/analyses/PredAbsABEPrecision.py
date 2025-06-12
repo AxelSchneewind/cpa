@@ -21,7 +21,7 @@ from pycpa.analyses.ssa_helper import SSA
 
 class IsBlockOperator:
     @staticmethod
-    def is_block_head_fl(node: CFANode, edge : CFAEdge) -> bool:
+    def is_block_head_lf(node: CFANode, edge : CFAEdge) -> bool:
         """branches and calls are block heads
         """
         kind = edge.instruction.kind

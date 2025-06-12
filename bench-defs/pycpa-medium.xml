@@ -5,6 +5,10 @@
     <propertyfile>../benchmarks/properties/unreach-call.prp</propertyfile>
   
 
+    <rundefinition name="Value Analysis">
+      <option name="--config">ValueAnalysis</option>
+    </rundefinition>
+
     <rundefinition name="Formula Analysis">
       <option name="--config">FormulaAnalysis</option>
     </rundefinition>
@@ -13,16 +17,16 @@
       <option name="--config">PredicateAnalysis</option>
     </rundefinition>
 
-    <rundefinition name="Predicate Analysis ABE bf">
-      <option name="--config">PredicateAnalysisABEbf</option>
+    <rundefinition name="Predicate Analysis ABE lf">
+      <option name="--config">PredicateAnalysisABElf</option>
     </rundefinition>
 
     <rundefinition name="Predicate Analysis CEGAR">
       <option name="--config">PredicateAnalysisCEGAR</option>
     </rundefinition>
 
-    <rundefinition name="Predicate Analysis CEGAR ABEbf">
-      <option name="--config">PredicateAnalysisCEGARABEbf</option>
+    <rundefinition name="Predicate Analysis CEGAR ABElf">
+      <option name="--config">PredicateAnalysisCEGARABElf</option>
     </rundefinition>
 
   

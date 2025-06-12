@@ -38,12 +38,14 @@ from pycpa import log
 class PredAbsCEGARDriver:
     def __init__(self,
                  entry_node: CFANode,
-                 cfa_roots: list[CFANode], # For initial precision
+                 cfa_roots: list[CFANode],
                  cpa_task: Task,
-                 cpa_result: Result, # To store final result
+                 cpa_result: Result,
                  specification_cpas : list[CPA],
                  max_refinements: int = 10,
-                 initial_precision: Optional[PredAbsPrecision] = None):
+                 initial_precision: Optional[PredAbsPrecision] = None,
+                 abe_blk=None   # block operator (TODO: find a more elegant way to do this)
+                 ):
 
         self.program_name = cpa_task.program
         log.printer.log_debug(1, f"\n[CEGAR Driver INFO] Initializing PredAbsCEGARDriver for '{self.program_name}'.")
@@ -56,6 +58,7 @@ class PredAbsCEGARDriver:
         self.specification_cpas = specification_cpas
 
         self.max_refinements: int = max_refinements
+        self.abe_blk = abe_blk
         
         if initial_precision:
             self.current_precision: PredAbsPrecision = initial_precision
@@ -77,7 +80,11 @@ class PredAbsCEGARDriver:
     def _build_cpa_stack(self) -> ARGCPA:
         """Builds the CPA stack with the current precision."""
         # Ensure PredAbsCPA uses the most up-to-date precision
-        self.pred_abs_cpa = PredAbsABECPA(self.current_precision, IsBlockOperator.is_block_head_fl)
+        if self.abe_blk:
+            self.pred_abs_cpa = PredAbsABECPA(self.current_precision, abe_blk)
+        else: 
+            self.pred_abs_cpa = PredAbsCPA(self.current_precision)
+
         log.printer.log_debug(1, f"[CEGAR Driver DEBUG]   PredAbsCPA created with precision: {self.current_precision}")
 
         location_cpa = LocationCPA(cfa_root=self.entry_node)

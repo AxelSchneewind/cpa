@@ -8,7 +8,7 @@
     <column title="memory" sourceUnit="B" displayUnit="MB"/>
   </result>
 
-  <result filename="../results/pycpa-demo.????-??-??_??-??-??.results.Predicate Analysis ABE bf.demo.xml.bz2">
+  <result filename="../results/pycpa-demo.????-??-??_??-??-??.results.Predicate Analysis ABE lf.demo.xml.bz2">
     <column title="status"/>
     <column title="cputime"/>
     <column title="memory" sourceUnit="B" displayUnit="MB"/>
@@ -20,7 +20,7 @@
     <column title="memory" sourceUnit="B" displayUnit="MB"/>
   </result>
 
-  <result filename="../results/pycpa-demo.????-??-??_??-??-??.results.Predicate Analysis CEGAR ABEbf.demo.xml.bz2">
+  <result filename="../results/pycpa-demo.????-??-??_??-??-??.results.Predicate Analysis CEGAR ABE lf.demo.xml.bz2">
     <column title="status"/>
     <column title="cputime"/>
     <column title="memory" sourceUnit="B" displayUnit="MB"/>
