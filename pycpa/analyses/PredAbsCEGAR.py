@@ -81,7 +81,7 @@ class PredAbsCEGARDriver:
         """Builds the CPA stack with the current precision."""
         # Ensure PredAbsCPA uses the most up-to-date precision
         if self.abe_blk:
-            self.pred_abs_cpa = PredAbsABECPA(self.current_precision, abe_blk)
+            self.pred_abs_cpa = PredAbsABECPA(self.current_precision, self.abe_blk)
         else: 
             self.pred_abs_cpa = PredAbsCPA(self.current_precision)
 
@@ -123,14 +123,14 @@ class PredAbsCEGARDriver:
             iteration_result = Result() 
             algo = CPAAlgorithm(cpa=current_arg_cpa_config,
                                 specifications=self.specification_cpas, # e.g. [PropertyCPA_instance]
-                                task=self.task, # Use the main task
-                                result=iteration_result) # Algo updates this iteration_result
+                                task=self.task, 
+                                result=iteration_result)
 
             # 2. Run the CPAAlgorithm
             # ARGCPA.get_initial_state() creates the root ARGState
             self.initial_arg_state: ARGState = current_arg_cpa_config.get_initial_state()
             log.printer.log_debug(5, f"[CEGAR Driver INFO] Running CPAAlgorithm for iteration {i + 1}...")
-            algo.run(self.initial_arg_state) # Algorithm updates iteration_result
+            algo.run(self.initial_arg_state)
 
             with open(self.task.output_directory + '/precision_' + str(i), 'w') as f:
                 f.write(str(self.current_precision))
@@ -146,24 +146,26 @@ class PredAbsCEGARDriver:
             # 3. Check Algorithm's Result for this iteration
             log.printer.log_debug(1, f"[CEGAR Driver INFO] CPAAlgorithm finished. Iteration Verdict: {iteration_result.verdict}, Status: {iteration_result.status}")
 
+            # Program is safe
             if iteration_result.verdict == Verdict.TRUE:
-                self.result.verdict = Verdict.TRUE # Update main result
+                self.result.verdict = Verdict.TRUE
                 self.result.status = Status.OK
                 log.printer.log_intermediate_result(self.program_name, str(self.result.status), str(self.result.verdict))
-                return # Program is safe
+                return
 
+            # Timeout
             if iteration_result.status == Status.TIMEOUT:
                 self.result.verdict = Verdict.UNKNOWN
                 self.result.status = Status.TIMEOUT
                 log.printer.log_intermediate_result(self.program_name, str(self.result.status), str(self.result.verdict))
-                return # Timeout
+                return
 
+            # Abstract counterexample found
             if iteration_result.verdict == Verdict.FALSE:
-                # Abstract counterexample found by the algorithm
                 abstract_cex: list[CFAEdge] = algo.abstract_cex_edges
                 assert abstract_cex
                 
-                # 4. Check Feasibility of the Abstract CEX
+                # Check Feasibility of the Abstract CEX
                 is_feasible, path_formula_conjuncts = cegar_helper.is_path_feasible(abstract_cex)
 
                 log.printer.log_debug(1, f"[CEGAR Driver INFO] {'feasible' if is_feasible else 'infeasible' } Abstract counterexample found with {len(abstract_cex)} edges.")

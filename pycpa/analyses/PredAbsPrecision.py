@@ -218,6 +218,9 @@ class PredAbsPrecision:
             copy.copy(self.predicates)
         )
 
+    def __eq__(self, other):
+        return self.predicates == other.predicates
+
 
     def get_predicates_for_location(self, location: CFANode) -> set[FNode]:
         """

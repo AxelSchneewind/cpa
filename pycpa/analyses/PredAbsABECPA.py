@@ -80,7 +80,7 @@ class PredAbsABEState(AbstractState):
             copy.copy(self.path_ssa_indices)
         )
 
-    def __copy__(self, memo):
+    def __copy__(self):
         return PredAbsABEState(
             copy.copy(self.predicates),
             self.abstraction_location,
@@ -172,8 +172,9 @@ class MergeJoinOperator(MergeOperator[PredAbsABEState]):
         # take disjunction of path formulas
         e_path  = SSA.pad_indices(e.path_formula, e.path_ssa_indices, eprime.path_ssa_indices)
         ep_path = SSA.pad_indices(eprime.path_formula, eprime.path_ssa_indices, e.path_ssa_indices)
-        eprime.path_formula = Or(e_path, ep_path)
-        return eprime
+        result = copy.copy(eprime)
+        result.path_formula = Or(e_path, ep_path)
+        return result
 
 
 # --------------------------------------------------------------------------- #
