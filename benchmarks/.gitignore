@@ -1,0 +1,9 @@
+*/error_*
+*/*.c
+*/*.py
+*/*.yml
+*/*.prp
+*/*.prp.license
+*.set
+tmp_cprep.c
+sv-benchmarks/
