@@ -1,6 +1,5 @@
 pip
 astpretty
-cpp2py
 graphviz  
 pycparser
 wheel

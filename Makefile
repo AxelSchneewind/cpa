@@ -40,18 +40,6 @@ install-msat: check-venv
 	PYTHONPATH=$(PYTHONPATH) LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) pysmt-install --check
 
 
-# the cpp2py required for benchmark generation seems to be abandoned and has bugs
-# use this target to use a (partially) fixed version supplied here
-# Note: this still does not support e.g. goto
-.phony: path-cpp2py
-patch-cpp2py: cpp2py.py
-	@echo 'patching cpp2py'
-	@cp cpp2py.py ./venv/lib/python3.13/site-packages/cpp2py/cpp2py.py
-
-
-
-
-
 ############################ BENCHMARK GENERATION ##############################
 
 # helper targets for benchmark generation
