@@ -9,8 +9,8 @@ properties/: sv-benchmarks/c/properties/
 .phony: ReachSafety-%.stats
 ReachSafety-%.stats: 
 	@echo "ReachSafety-$*: "
-	@echo "   $(shell echo ReachSafety-$*/*.py | wc -w) tasks"
-	@echo "   $(shell echo ReachSafety-$*/error_* | wc -w) of the programs could not be transpiled"
+	@echo "   $(shell echo ReachSafety-$*/*.py | wc -w) programs successfully transpiled"
+	@echo "   $(shell echo ReachSafety-$*/error_* | wc -w) programs could not be transpiled"
 
 # clean a benchmark set
 .phony: ReachSafety-%.clean
@@ -30,3 +30,6 @@ all: $(REACHSAFETY)
 
 .phony: clean
 clean: $(patsubst %/,%.clean,$(REACHSAFETY))
+
+.phony: stats
+stats: $(patsubst %/,%.stats,$(REACHSAFETY))
