@@ -101,8 +101,8 @@ class Ast2Py:
                             if i.init:
                                 self.push_expr(i.init)
                                 self.push_expr('=')
-                            if i.type and i.type.type and len(str(i.type.type)) > 0:
-                                self.push_expr(str(i.type.type))
+                            if i.type and i.type.type and isinstance(i.type.type, (c_ast.Typename)):
+                                self.push_expr(i.type.type)
                                 self.push_expr(':')
                             self.push_expr(i.name)
                             self.push_expr(',')
@@ -112,8 +112,8 @@ class Ast2Py:
                         if i.init:
                             self.push_expr(i.init)
                             self.push_expr('=')
-                        if i.type.type and len(str(i.type.type)) > 0:
-                            self.push_expr(str(i.type.type))
+                        if i.type and i.type.type and isinstance(i.type.type, (c_ast.Typename)):
+                            self.push_expr(i.type.type)
                             self.push_expr(':')
                         self.push_expr(i.name)
 
@@ -222,30 +222,36 @@ class Ast2Py:
                     elif isinstance(n.type, c_ast.Struct):
                         name = n.type.name
 
+
                         self.push_newline(depth)
 
                         # constructor
-                        for i in reversed(n.type.decls):
-                            self.push_newline(depth + 2)
-                            self.push_expr(i.name)
-                            self.push_expr(' = ')
-                            self.push_expr(i.name)
-                            self.push_expr('self.')
-                        self.push_newline(depth + 2)
-
-                        self.push_expr('):')
-                        for i in reversed(n.type.decls):
-                            if isinstance(i, c_ast.Decl):
-                                if i.init:
-                                    self.push_expr(i.init)
-                                    self.push_expr(' = ')
-                                else:
-                                    self.push_expr(' = None')
-                                if i.type.type and isinstance(i.type.type, (c_ast.Typename)):
-                                    self.push_expr(str(i.type.type))
-                                    self.push_expr(':')
+                        if n.type.decls:
+                            for i in reversed(n.type.decls):
+                                self.push_newline(depth + 2)
                                 self.push_expr(i.name)
-                                self.push_expr(', ')
+                                self.push_expr(' = ')
+                                self.push_expr(i.name)
+                                self.push_expr('self.')
+                            self.push_newline(depth + 2)
+
+                            self.push_expr('):')
+                            for i in reversed(n.type.decls):
+                                if isinstance(i, c_ast.Decl):
+                                    if i.init:
+                                        self.push_expr(i.init)
+                                        self.push_expr(' = ')
+                                    else:
+                                        self.push_expr(' = None')
+                                    if i.type.type and isinstance(i.type.type, (c_ast.Typename)):
+                                        self.push_expr(i.type.type)
+                                        self.push_expr(':')
+                                    self.push_expr(i.name)
+                                    self.push_expr(', ')
+                        else:
+                            self.push_expr('pass')
+                            self.push_newline(depth + 2)
+                            self.push_expr('):')
 
                         self.push_expr('def __init__(self')
                         self.push_newline(depth + 1)

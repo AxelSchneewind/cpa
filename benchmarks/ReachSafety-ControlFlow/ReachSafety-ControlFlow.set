@@ -1,0 +1,5 @@
+ntdrivers-simplified/*.yml
+openssl-simplified/*.yml
+locks/*.yml
+ntdrivers/*.yml
+openssl/*.yml
