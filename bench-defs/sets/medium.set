@@ -1,1 +1,1 @@
-../../benchmarks/Test/*.yml
+../../benchmarks/ReachSafety-*/*.yml
