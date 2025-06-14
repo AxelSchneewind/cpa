@@ -37,6 +37,33 @@ class CFANode:
         return a
 
 
+class TraverseCFA:
+    @staticmethod
+    def bfs_edges(root: CFANode):
+        waitlist : set[CFANode] = set()
+        waitlist.add(root)
+
+        while len(waitlist) > 0:
+            n = waitlist.pop()
+            for e in n.leaving_edges:
+                yield e
+
+            # collect successors
+            waitlist.update({e.successor for e in n.leaving_edges})
+
+    @staticmethod
+    def bfs(root: CFANode):
+        waitlist : set[CFANode] = set()
+        waitlist.add(root)
+
+        while len(waitlist) > 0:
+            n = waitlist.pop()
+            yield n
+
+            # collect successors
+            waitlist.update({e.successor for e in n.leaving_edges})
+            
+
 
 class InstructionType(Enum):
     STATEMENT = 1,

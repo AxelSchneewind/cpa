@@ -1,4 +1,4 @@
-from pycpa.analyses import PredAbsPrecision, PredAbsABECPA, IsBlockOperator
+from pycpa.analyses import PredAbsPrecision, PredAbsABECPA, IsBlockOperator, compute_block_heads
 from pycpa.analyses import CompositeCPA
 from pycpa.analyses import LocationCPA
 from pycpa.analyses import StackCPA
@@ -24,9 +24,10 @@ def get_cpas(entry_point=None, cfa_roots=None, output_dir=None, **params):
         with open(output_dir + 'precision_initial.txt', 'w') as f:
             f.write(precision.__str__())
 
-    heads = { IsBlockOperator.is_block_head_f(n) for n in TraverseCFA.bfs(r) for r in cfa_roots }
+    heads = compute_block_heads(cfa_roots, IsBlockOperator.is_block_head_f)
     if output_dir:
         with open(output_dir + 'block_heads.txt', 'w') as f:
-            f.write(heads.__str__())
+            f.write(str({ h.node_id for h in heads }))
+
     return [StackCPA(CompositeCPA([LocationCPA(entry_point), PredAbsABECPA(precision, heads)]))]
 

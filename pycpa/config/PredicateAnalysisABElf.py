@@ -5,7 +5,12 @@ from pycpa.analyses import StackCPA
 from pycpa.analyses import ARGCPA
 from pycpa.analyses import ValueAnalysisCPA
 
+from pycpa.cfa import TraverseCFA
+
+from pycpa.analysis import IsBlockOperator, compute_block_heads
+
 import pprint
+import copy
 
 """
 Configuration for running Predicate Analysis with ABE and 
@@ -24,9 +29,10 @@ def get_cpas(entry_point=None, cfa_roots=None, output_dir=None, **params):
         with open(output_dir + 'precision_initial.txt', 'w') as f:
             f.write(precision.__str__())
 
-    heads = { IsBlockOperator.is_block_head_f(n) for n in TraverseCFA.bfs(r) for r in cfa_roots }
+    heads = compute_block_heads(cfa_roots, IsBlockOperator.is_block_head_lf)
     if output_dir:
         with open(output_dir + 'block_heads.txt', 'w') as f:
-            f.write(heads.__str__())
+            f.write(str({ h.node_id for h in heads }))
+
     return [StackCPA(CompositeCPA([LocationCPA(entry_point), PredAbsABECPA(precision, heads)]))]
 

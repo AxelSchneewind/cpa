@@ -14,24 +14,10 @@ from pysmt.fnode   import FNode
 
 from pycpa.analyses import PredAbsPrecision
 
-from pycpa.cfa import CFANode, CFAEdge, InstructionType
+from pycpa.cfa import CFANode, CFAEdge, InstructionType, TraverseCFA
 
 from pycpa.analyses.ssa_helper import SSA
 
-
-class TraverseCFA:
-    @staticmethod
-    def bfs(root: CFANode):
-        waitlist : set[CFANode] = set()
-        waitlist.add(root)
-
-        while len(waitlist) > 0:
-            n = waitlist.pop()
-            yield n
-
-            # collect successors
-            waitlist.update({e.successor for e in n.leaving_edges})
-            
 
 
 class IsBlockOperator:
@@ -53,18 +39,18 @@ class IsBlockOperator:
         return root_seen > 1
             
     @staticmethod
-    def is_block_head_lf(node: CFANode, edge: CFAEdge) -> bool:
+    def is_block_head_lf(edge : CFAEdge) -> bool:
         """loop heads and calls are block heads"""
         kind = edge.instruction.kind
         match kind:
             case InstructionType.CALL | InstructionType.RETURN:
                 return True
             case InstructionType.ASSUMPTION:
-                return IsBlockOperator.is_loop_head(node)
+                return IsBlockOperator.is_loop_head(edge.successor)
         return False
 
     @staticmethod
-    def is_block_head_f(node: CFANode, edge: CFAEdge) -> bool:
+    def is_block_head_f(edge : CFAEdge) -> bool:
         """calls and returns are block heads"""
         kind = edge.instruction.kind
         match kind:
@@ -75,7 +61,7 @@ class IsBlockOperator:
         return False
 
     @staticmethod
-    def is_block_head_bf(node: CFANode, edge: CFAEdge) -> bool:
+    def is_block_head_bf(edge : CFAEdge) -> bool:
         """branches and calls are block heads"""
         kind = edge.instruction.kind
         match kind:
@@ -84,3 +70,11 @@ class IsBlockOperator:
             case _:
                 pass
         return False
+
+
+
+def compute_block_heads(cfa_roots : set[CFANode], blk : Callable[[CFAEdge], bool]):
+    heads = set()
+    for r in cfa_roots:
+        heads.update({ e.predecessor for e in TraverseCFA.bfs_edges(r) if blk(e) })
+    return heads

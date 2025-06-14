@@ -95,7 +95,7 @@ class PredAbsABEState(AbstractState):
 class PredAbsABETransferRelation(TransferRelation):
     """
     """
-    def __init__(self, precision: PredAbsPrecision, block_heads : set[CFANode]) -> None:
+    def __init__(self, precision: PredAbsPrecision, block_heads : set[CFAEdge]) -> None:
         self.precision = precision
         self.block_heads = block_heads
 
@@ -115,7 +115,9 @@ class PredAbsABETransferRelation(TransferRelation):
         abstraction_location = predecessor.abstraction_location
 
         # check if successor node is head
-        is_block_head = edge.predecessor in self.block_heads
+        is_block_head = (
+            edge in self.block_heads
+        )
 
         kind = edge.instruction.kind
         if   kind == InstructionType.STATEMENT:
@@ -181,7 +183,7 @@ class MergeJoinOperator(MergeOperator[PredAbsABEState]):
 # CPA wrapper
 # --------------------------------------------------------------------------- #
 class PredAbsABECPA(CPA[PredAbsABEState]):
-    def __init__(self, initial_precision : PredAbsPrecision, block_heads : set[CFANode]):
+    def __init__(self, initial_precision : PredAbsPrecision, block_heads : set[CFAEdge]):
         self.precision = initial_precision
         self.block_heads = block_heads
 
