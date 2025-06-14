@@ -24,5 +24,9 @@ def get_cpas(entry_point=None, cfa_roots=None, output_dir=None, **params):
         with open(output_dir + 'precision_initial.txt', 'w') as f:
             f.write(precision.__str__())
 
-    return [StackCPA(CompositeCPA([LocationCPA(entry_point), PredAbsABECPA(precision, IsBlockOperator.is_block_head_lf)]))]
+    heads = { IsBlockOperator.is_block_head_f(n) for n in TraverseCFA.bfs(r) for r in cfa_roots }
+    if output_dir:
+        with open(output_dir + 'block_heads.txt', 'w') as f:
+            f.write(heads.__str__())
+    return [StackCPA(CompositeCPA([LocationCPA(entry_point), PredAbsABECPA(precision, heads)]))]
 

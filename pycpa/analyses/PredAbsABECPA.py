@@ -95,9 +95,9 @@ class PredAbsABEState(AbstractState):
 class PredAbsABETransferRelation(TransferRelation):
     """
     """
-    def __init__(self, precision: PredAbsPrecision, is_block_head) -> None:
+    def __init__(self, precision: PredAbsPrecision, block_heads : set[CFANode]) -> None:
         self.precision = precision
-        self.is_block_head = is_block_head
+        self.block_heads = block_heads
 
     def get_abstract_successors(self, predecessor: AbstractState) -> List[PredAbsABEState]:
         raise NotImplementedError
@@ -115,7 +115,7 @@ class PredAbsABETransferRelation(TransferRelation):
         abstraction_location = predecessor.abstraction_location
 
         # check if successor node is head
-        is_block_head = self.is_block_head(edge.predecessor, edge)
+        is_block_head = edge.predecessor in self.block_heads
 
         kind = edge.instruction.kind
         if   kind == InstructionType.STATEMENT:
@@ -181,9 +181,9 @@ class MergeJoinOperator(MergeOperator[PredAbsABEState]):
 # CPA wrapper
 # --------------------------------------------------------------------------- #
 class PredAbsABECPA(CPA[PredAbsABEState]):
-    def __init__(self, initial_precision : PredAbsPrecision, is_block_head : Callable[[CFANode, CFAEdge], bool]):
+    def __init__(self, initial_precision : PredAbsPrecision, block_heads : set[CFANode]):
         self.precision = initial_precision
-        self.is_block_head = is_block_head
+        self.block_heads = block_heads
 
     def get_initial_state(self) -> PredAbsABEState:
         return PredAbsABEState(
@@ -200,6 +200,6 @@ class PredAbsABECPA(CPA[PredAbsABEState]):
         return MergeSepOperator()
 
     def get_transfer_relation(self) -> TransferRelation[PredAbsABEState]:
-        return PredAbsABETransferRelation(self.precision, self.is_block_head)
+        return PredAbsABETransferRelation(self.precision, self.block_heads)
 
 

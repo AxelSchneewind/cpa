@@ -23,5 +23,5 @@ def get_cpas(entry_point=None, cfa_roots=None, output_dir=None, **params):
         with open(output_dir + 'precision_initial.txt', 'w') as f:
             f.write(precision.__str__())
 
-    return [StackCPA(CompositeCPA([LocationCPA(entry_point), PredAbsABECPA(precision, lambda s,x : False)]))]
+    return [StackCPA(CompositeCPA([LocationCPA(entry_point), PredAbsABECPA(precision, set())]))]
 

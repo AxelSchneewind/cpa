@@ -44,7 +44,7 @@ class PredAbsCEGARDriver:
                  specification_cpas : list[CPA],
                  max_refinements: int = 10,
                  initial_precision: Optional[PredAbsPrecision] = None,
-                 abe_blk=None   # block operator (TODO: find a more elegant way to do this)
+                 abe_blk : set[CFANode] =None   # block operator (TODO: find a more elegant way to do this)
                  ):
 
         self.program_name = cpa_task.program
