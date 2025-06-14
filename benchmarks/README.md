@@ -2,17 +2,24 @@
 
 This directory contains scripts to generate benchmark programs in python.
 
-## Setup
+It provides subdirectories for the following benchmark sets
+- ReachSafety-BitVectors 
+- ReachSafety-Combinations 
+- ReachSafety-ControlFlow 
+- ReachSafety-ECA 
+- ReachSafety-Hardness 
+- ReachSafety-Hardware 
+- ReachSafety-Sequentialized 
+- ReachSafety-XCSP
 
-The virtual environment for python has to be set up by using the Makefile from the base directory.
+To generate one, simply run
+```sh
+make ReachSafety-SELECTION/
+```
+
+## Setup
 
 The sv-benchmark submodule has to be made available.
 
 ## Generating benchmarks
-
-Simply use
-```sh
-./transpile-set.sh ReachSafety-Loops.set
-```
-to generate python files from the c files corresponding to the example set.
 
