@@ -1,4 +1,4 @@
-from pycpa.analyses import PredAbsPrecision, PredAbsABECPA, IsBlockOperator
+from pycpa.analyses import PredAbsPrecision, PredAbsABECPA, IsBlockOperator, compute_block_heads
 from pycpa.analyses import CompositeCPA
 from pycpa.analyses import LocationCPA
 from pycpa.analyses import StackCPA
@@ -6,8 +6,6 @@ from pycpa.analyses import ARGCPA
 from pycpa.analyses import ValueAnalysisCPA
 
 from pycpa.cfa import TraverseCFA
-
-from pycpa.analysis import IsBlockOperator, compute_block_heads
 
 import pprint
 import copy
