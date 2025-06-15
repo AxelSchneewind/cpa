@@ -44,8 +44,9 @@ clean:
 # if invalid: reason in error_[filename]
 .phony: %.py.check
 %.py.check:
-	@([ ! -s $(*F).py ] || (python -m py_compile $(*F).py 2> error_$(*F)))
-	@([ ! -e error_$(*F) ] || ([ -s $(*F).py ] || rm -f error_$(*F)))
+	@[ ! -s $(*F).py ]    || python -m py_compile $(*F).py 2> error_$(*F) || echo 'invalid program' 
+	@[ ! -e error_$(*F) ] || ([ -s error_$(*F) ] || rm -f error_$(*F))
+	@[ ! -e $(*F).py ]    || ([ -s $(*F).py ] || rm -f $(*F).py)
 
 
 # checks that the referenced program file exists
@@ -94,8 +95,7 @@ MAKE_REC=$(MAKE) --file=../benchset.mk
 	@[ -s "$(*F).c" ] || (echo "   $(*F).c missing"; exit 0)
 	@$(MAKE_REC) $*.c.check || exit 0
 	@$(MAKE_REC) $*.c.prepare || exit 0
-	@$(MAKE_REC) $*.c.transpile
-	@$(MAKE_REC) $(*F).py.check || (rm -f $(*F).*; exit 0)
+	@$(MAKE_REC) $*.c.transpile $(*F).py.check || (rm -f $(*F).*; exit 0)
 	@echo "$(*F): success"
 
 
