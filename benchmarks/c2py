@@ -502,8 +502,6 @@ class Ast2Py:
                     self.push_newline(depth)
                     self.push_expr('pass')
 
-
-
 def c2py(input_c_file, output_py_file, ignore_syms):
     # Create the parser and ask to parse the text. parse() will throw
     # a ParseError if there's an error in the code
@@ -550,4 +548,14 @@ if __name__ == '__main__':
             ignore_syms = set(l.strip() for l in file_syms.readlines())
 
     c2py(file_in, file_out, ignore_syms)
+
+    exit_code = 1
+    try: 
+        with open(file_out, 'r') as f:
+            ast.parse(f.read())
+        exit_code = 0
+    except:
+        pass
+
+    exit(exit_code)
 
