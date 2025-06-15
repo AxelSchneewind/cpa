@@ -16,6 +16,10 @@ check-venv:
 MSAT-SRC-DIR=$(wildcard mathsat-*/)
 MSAT-PREFIX=$(shell pwd)/venv/lib/python3.13/site-packages
 
+# check that source files for mathsat exist
+check-msat-source: 
+	@([ -n "$(MSAT-SRC-DIR)" ] && [ -d "$(MSAT-SRC-DIR)" ]) || (echo 'missing mathsat source files (please place the extracted mathsat archive into this directory)'; exit 1)
+
 # checks if the required files for msat exist
 check-msat-files: 
 	@[ -e $(MSAT-PREFIX)/mathsat.py ] || (echo 'missing ' $(MSAT-PREFIX)/mathsat.py && exit 1)
@@ -32,7 +36,7 @@ check-msat: venv check-msat-files
 # copies the msat source directory into site-packages (not sure why this is required)
 # copies the msat python file into site-packages
 # copies the msat shared objects file into site-packages
-install-msat: check-venv
+install-msat: check-venv check-msat-source
 	@echo 'installing mathsat' 
 	cd ${MSAT-SRC-DIR}/python && python setup.py build && cd -
 	rm -rf "${MSAT-PREFIX}"/msat "${MSAT-PREFIX}"/mathsat* "${MSAT-PREFIX}"/lib
@@ -181,5 +185,5 @@ test: check-venv
 	python -m pycpa.test
 
 run-bad: 
-	${PYTHON} -m pycpa --compact -p unreach-call -o out-bad -c PredicateAnalysisABEbf --max-iterations 300 test_progs/absolutely_trivial_*.py 
+	${PYTHON} -m pycpa --compact -p unreach-call -o out-bad -c PredicateAnalysisABElf --max-iterations 300 test_progs/*.yml
 
