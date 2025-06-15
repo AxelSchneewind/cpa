@@ -39,41 +39,79 @@
   </result>
 
 
-  <result filename="../results/pycpa-medium.????-??-??_??-??-??.results.Predicate Analysis.medium.xml.bz2">
+  <result filename="../results/pycpa-medium.????-??-??_??-??-??.results.Predicate Analysis.ReachSafety-BitVectors.xml.bz2">
     <column title="status"/>
     <column title="cputime"/>
     <column title="memory" sourceUnit="B" displayUnit="MB"/>
   </result>
 
-  <result filename="../results/pycpa-medium.????-??-??_??-??-??.results.Predicate Analysis ABE lf.medium.xml.bz2">
+  <result filename="../results/pycpa-medium.????-??-??_??-??-??.results.Predicate Analysis ABE lf.ReachSafety-BitVectors.xml.bz2">
     <column title="status"/>
     <column title="cputime"/>
     <column title="memory" sourceUnit="B" displayUnit="MB"/>
   </result>
 
-  <result filename="../results/pycpa-medium.????-??-??_??-??-??.results.Predicate Analysis CEGAR.medium.xml.bz2">
+  <result filename="../results/pycpa-medium.????-??-??_??-??-??.results.Predicate Analysis CEGAR.ReachSafety-BitVectors.xml.bz2">
     <column title="status"/>
     <column title="cputime"/>
     <column title="memory" sourceUnit="B" displayUnit="MB"/>
   </result>
 
-  <result filename="../results/pycpa-medium.????-??-??_??-??-??.results.Predicate Analysis CEGAR ABE lf.medium.xml.bz2">
+  <result filename="../results/pycpa-medium.????-??-??_??-??-??.results.Predicate Analysis CEGAR ABE lf.ReachSafety-BitVectors.xml.bz2">
     <column title="status"/>
     <column title="cputime"/>
     <column title="memory" sourceUnit="B" displayUnit="MB"/>
   </result>
 
-  <result filename="../results/pycpa-medium.????-??-??_??-??-??.results.Value Analysis.medium.xml.bz2">
+  <result filename="../results/pycpa-medium.????-??-??_??-??-??.results.Value Analysis.ReachSafety-BitVectors.xml.bz2">
     <column title="status"/>
     <column title="cputime"/>
     <column title="memory" sourceUnit="B" displayUnit="MB"/>
   </result>
 
-  <result filename="../results/pycpa-medium.????-??-??_??-??-??.results.Formula Analysis.medium.xml.bz2">
+  <result filename="../results/pycpa-medium.????-??-??_??-??-??.results.Formula Analysis.ReachSafety-BitVectors.xml.bz2">
     <column title="status"/>
     <column title="cputime"/>
     <column title="memory" sourceUnit="B" displayUnit="MB"/>
   </result>
+
+
+  <result filename="../results/pycpa-medium.????-??-??_??-??-??.results.Predicate Analysis.ReachSafety-Combinations.xml.bz2">
+    <column title="status"/>
+    <column title="cputime"/>
+    <column title="memory" sourceUnit="B" displayUnit="MB"/>
+  </result>
+
+  <result filename="../results/pycpa-medium.????-??-??_??-??-??.results.Predicate Analysis ABE lf.ReachSafety-Combinations.xml.bz2">
+    <column title="status"/>
+    <column title="cputime"/>
+    <column title="memory" sourceUnit="B" displayUnit="MB"/>
+  </result>
+
+  <result filename="../results/pycpa-medium.????-??-??_??-??-??.results.Predicate Analysis CEGAR.ReachSafety-Combinations.xml.bz2">
+    <column title="status"/>
+    <column title="cputime"/>
+    <column title="memory" sourceUnit="B" displayUnit="MB"/>
+  </result>
+
+  <result filename="../results/pycpa-medium.????-??-??_??-??-??.results.Predicate Analysis CEGAR ABE lf.ReachSafety-Combinations.xml.bz2">
+    <column title="status"/>
+    <column title="cputime"/>
+    <column title="memory" sourceUnit="B" displayUnit="MB"/>
+  </result>
+
+  <result filename="../results/pycpa-medium.????-??-??_??-??-??.results.Value Analysis.ReachSafety-Combinations.xml.bz2">
+    <column title="status"/>
+    <column title="cputime"/>
+    <column title="memory" sourceUnit="B" displayUnit="MB"/>
+  </result>
+
+  <result filename="../results/pycpa-medium.????-??-??_??-??-??.results.Formula Analysis.ReachSafety-Combinations.xml.bz2">
+    <column title="status"/>
+    <column title="cputime"/>
+    <column title="memory" sourceUnit="B" displayUnit="MB"/>
+  </result>
+
 
 
 </table>
