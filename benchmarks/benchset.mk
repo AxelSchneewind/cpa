@@ -7,6 +7,10 @@
 # Instead, we have target patterns that get the original task 
 # and generate the respective files from that.
 
+# output formatting
+FORMAT_STATUS=column -s ':' -C program,width=60,left -C status,right,width=20 --table -d
+
+
 # has to be set when invoking main target of this makefile
 # SV-BENCH-DIR=
 .phony: check-sv-bench-dir
@@ -71,7 +75,7 @@ clean:
 # prints status after transpilation
 .phony: %.yml.status
 %.yml.status:
-	@[ -s $(*F).yml ] && echo '$*: success' || echo '$*: failure (see error_$(*F))'
+	@([ -s $(*F).yml ] && echo '$(*F):success' || echo '$(*F):failure') | $(FORMAT_STATUS)
 
 # prepares a c file for transpilation
 .phony: %.c.prepare
@@ -93,8 +97,8 @@ MAKE_REC=$(MAKE) --file=../benchset.mk
 .phony: %.yml.setup 
 %.yml.setup:
 	@$(MAKE_REC) $*.yml.get
-	@[   -s "$*.yml"   ] || (echo '$(*F): task missing'; exit 0)
-	@[ ! -s "$(*F).py" ] || (echo '$(*F): already exists'; exit 0)
+	@[   -s "$*.yml"   ] || (echo '$(*F):task missing' | $(FORMAT_STATUS); exit 0)
+	@[ ! -s "$(*F).py" ] || (echo '$(*F):already exists' | $(FORMAT_STATUS); exit 0)
 	@$(MAKE_REC) $*.yml.check $*.yml.getprogram $*.yml.setprogram
 	@[ -s "$(*F).c" ] || (echo "   $(*F).c missing"; exit 0)
 	@$(MAKE_REC) $*.c.check $*.c.prepare $*.c.transpile

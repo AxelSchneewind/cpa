@@ -1,4 +1,7 @@
 
+# output formatting
+FORMAT_STATUS=column -s ':' -C program,width=60,left -C status,right,width=20 --table -d
+
 sv-benchmarks/c/properties/:
 	@[ -d $@ ] || (echo '$@ does not exist, maybe you forgot to checkout the submodule?' && exit 1)
 
@@ -16,8 +19,8 @@ ReachSafety-%.stats:
 .phony: ReachSafety-%.list
 ReachSafety-%.list: 
 	@echo "ReachSafety-$*: "
-	@echo -e " $(foreach name,$(patsubst ReachSafety-$*/%.yml,%,$(wildcard ReachSafety-$*/*.yml)),$(name):success\n)"     | column -s ':' -t -N program,status
-	@echo -e " $(foreach name,$(patsubst ReachSafety-$*/error_%,%,$(wildcard ReachSafety-$*/error_*)),$(name):failure\n)" | column -s ':' -t -N program,status
+	@echo -e " $(foreach name,$(patsubst ReachSafety-$*/%.yml,%,$(wildcard ReachSafety-$*/*.yml)),$(name):success\n)"     | $(FORMAT_STATUS)
+	@echo -e " $(foreach name,$(patsubst ReachSafety-$*/error_%,%,$(wildcard ReachSafety-$*/error_*)),$(name):failure\n)" | $(FORMAT_STATUS)
 
 # clean a benchmark set
 .phony: ReachSafety-%.clean
