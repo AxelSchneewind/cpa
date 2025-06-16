@@ -8,7 +8,7 @@
 # and generate the respective files from that.
 
 # output formatting
-FORMAT_STATUS=column -s ':' -C program,width=60,left -C status,right,width=20 --table -d
+FORMAT_STATUS=column -s ':' -C name=program,width=60,left -C name=status,right,width=20 --table -d
 
 
 # has to be set when invoking main target of this makefile

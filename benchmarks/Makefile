@@ -1,6 +1,6 @@
 
 # output formatting
-FORMAT_STATUS=column -s ':' -C program,width=60,left -C status,right,width=20 --table -d
+FORMAT_STATUS=column -s ':' -C name=program,width=60,left -C name=status,right,width=20 --table -d
 
 sv-benchmarks/c/properties/:
 	@[ -d $@ ] || (echo '$@ does not exist, maybe you forgot to checkout the submodule?' && exit 1)
