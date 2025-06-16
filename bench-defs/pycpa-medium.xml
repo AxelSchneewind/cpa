@@ -34,28 +34,29 @@
       <includesfile>sets/demo.set</includesfile>
     </tasks>
 
+
     <tasks name='ReachSafety-BitVectors'>
-	    <includesfile>ReachSafety-BitVectors.set</includesfile></tasks>
+        <includesfile>sets/ReachSafety-BitVectors.set</includesfile></tasks>
     <tasks name='ReachSafety-Combinations'>
-	    <includesfile>ReachSafety-Combinations.set</includesfile>
+        <includesfile>sets/ReachSafety-Combinations.set</includesfile>
     </tasks>
     <tasks name='ReachSafety-ControlFlow'>
-	    <includesfile>ReachSafety-ControlFlow.set</includesfile>
+        <includesfile>sets/ReachSafety-ControlFlow.set</includesfile>
     </tasks>
     <tasks name='ReachSafety-ECA'>
-	    <includesfile>ReachSafety-ECA.set</includesfile>
+        <includesfile>sets/ReachSafety-ECA.set</includesfile>
     </tasks>
     <tasks name='ReachSafety-Hardness'>
-	    <includesfile>ReachSafety-Hardness.set</includesfile>
+        <includesfile>sets/ReachSafety-Hardness.set</includesfile>
     </tasks>
     <tasks name='ReachSafety-Hardware'>
-	    <includesfile>ReachSafety-Hardware.set</includesfile>
+        <includesfile>sets/ReachSafety-Hardware.set</includesfile>
     </tasks>
     <tasks name='ReachSafety-Sequentialized'>
-	    <includesfile>ReachSafety-Sequentialized.set</includesfile>
+        <includesfile>sets/ReachSafety-Sequentialized.set</includesfile>
     </tasks>
     <tasks name='ReachSafety-XCSP'>
-	    <includesfile>ReachSafety-XCSP.set</includesfile>
+        <includesfile>sets/ReachSafety-XCSP.set</includesfile>
     </tasks>
   
 
