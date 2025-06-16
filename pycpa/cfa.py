@@ -225,8 +225,6 @@ class CFAEdge:
             return str(self.instruction.expression.lineno) + ': ' + self.instruction.declaration.name.strip() + '()'
         elif self.instruction.kind == InstructionType.REACH_ERROR:
             return str(self.instruction.expression.lineno) + ': ' + 'reacherror()'
-        elif self.instruction.kind == InstructionType.BUILTIN:
-            return str(self.instruction.expression.lineno) + ': ' + ast.unparse(self.instruction.expression).strip()
         elif self.instruction.kind == InstructionType.RETURN:
             return str(self.instruction.expression.lineno) + ': ' + ast.unparse(self.instruction.expression).strip()
         else:
