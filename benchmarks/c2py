@@ -16,6 +16,8 @@ def write_one_line(buf, depth):
     return f'{tab:.{depth}}{buf}\n'
 
 
+# TODO: support literals with f
+
 # how to map c types to python types
 type_map = {
     'bool'     : 'bool',
@@ -95,7 +97,6 @@ class Ast2Py:
                 self.push_newline(depth + 1)
                 self.push_expr('):')
 
-                # TODO: translate types to type hints
                 if n.decl.type.args:
                     for i in reversed(n.decl.type.args.params[1:]):
                         if isinstance(i, c_ast.Decl):
@@ -121,12 +122,12 @@ class Ast2Py:
                 self.push_expr('def %s (' % n.decl.name)
 
             case c_ast.Typedef():
-                if n.type.declname in self.ignore_symbols:
+                if n.name in self.ignore_symbols:
                     return
 
-                self.push_expr(n.type.type)
+                self.push_expr(n.type)
                 self.push_expr(' = ')
-                self.push_expr(n.type.declname)
+                self.push_expr(n.name)
 
             # TODO: initlist
 
@@ -152,12 +153,16 @@ class Ast2Py:
 
             case c_ast.Constant():
                 py_constant = str(n.value)
-                if re.match(r'^0+x', py_constant): # hex
-                    pass
-                elif re.match(r'^0+[^.]', py_constant): # octal
-                    py_constant = re.sub(r'^0+[^x]',  '0o', py_constant)
 
-                py_constant = re.sub(r'[ULul]+$', '', py_constant)
+                pref = re.match(r'^[^1-9]*', py_constant)
+                if re.match(r'^0+x', pref.string): # hex
+                    py_constant = re.sub(r'[ULulFf]+$', '', py_constant)
+                elif re.match(r'^0+', pref.string): # octal
+                    py_constant = re.sub(r'^0+[^x]', '0o', py_constant)
+                    py_constant = re.sub(r'[ULul]+$', '', py_constant)
+                else:
+                    py_constant = re.sub(r'[ULulFf]+$', '', py_constant)
+
                 if len(py_constant) == 0 or py_constant == '0o':
                     py_constant = '0'
                 self.push_expr(py_constant)
@@ -209,7 +214,7 @@ class Ast2Py:
                         return
                     elif isinstance(n.type, c_ast.ArrayDecl) \
                         and isinstance(n.type.type, c_ast.TypeDecl) and \
-                        isinstance(n.type.type.type, c_ast.IdentifierType):
+                        isinstance(n.type.type.type, (c_ast.IdentifierType, c_ast.Typename)):
                             identifier = n.type.type.declname
                             typ = n.type.type.type
                             dim = n.type.dim
@@ -219,10 +224,8 @@ class Ast2Py:
                             self.push_expr(typ)
                             self.push_expr(' = [ ')
                             self.push_expr(identifier)
-                            self.import_file_list.append('cpp2py.cpp2py_ctype')
                     elif isinstance(n.type, c_ast.Struct):
                         name = n.type.name
-
 
                         self.push_newline(depth)
 
@@ -260,14 +263,56 @@ class Ast2Py:
                         self.push_expr(name)
                         self.push_expr('class ')
                         self.push_newline(depth)
-                    elif isinstance(n.type.type, c_ast.Struct):
-                        self.push_expr(n.type.type.name)
+                    elif isinstance(n.type, c_ast.FuncDecl):
+                        # ignore function declarations
+                        pass
+                    elif isinstance(n.type, c_ast.Union):
+                        name = n.type.name
+                        self.push_newline(depth)
+
+                        # add keyword-based constructor
+                        self.push_expr('setattr(self, k, kwargs[k])')
+                        self.push_newline(depth + 3)
+                        self.push_expr('for k in kwargs:')
+                        self.push_newline(depth + 2)
+                        self.push_expr('def __init__(self, **kwargs):')
+                        self.push_newline(depth + 1)
                         self.push_expr(': ')
-                        self.push_expr(n.name)
-                    else:
+                        self.push_expr(name)
+                        self.push_expr('class ')
+                        self.push_newline(depth)
+
+                        # declare all types
+                        if n.type.decls:
+                            for i in reversed(n.type.decls):
+                                if isinstance(i, c_ast.Decl):
+                                    self.push_expr(i)
+                            self.push_newline(depth)
+
+                    elif isinstance(n.type, c_ast.Enum):
+                        name = n.type.name
+                        self.push_newline(depth)
+
+                        # constructor
+                        if n.type.values:
+                            for i in reversed(n.type.values.enumerators):
+                                self.push_newline(depth + 1)
+                                self.push_expr(i.value)
+                                self.push_expr(' = ')
+                                self.push_expr(i.name)
+                            self.push_newline(depth + 1)
+                        else:
+                            self.push_expr('pass')
+                            self.push_newline(depth + 1)
+
+                        self.push_expr(': ')
+                        self.push_expr(name)
+                        self.push_expr('class ')
+                        self.push_newline(depth)
+                    elif isinstance(n.type, c_ast.TypeDecl):
                         self.push_expr(n.type.type)
-                        self.push_expr(': ')
-                        self.push_expr(n.name)
+                    else:
+                        print('unsupported declaration type: ', str(n), file=sys.stderr)
 
             case c_ast.Assignment():
                 if not isinstance(n.lvalue, c_ast.ID):
@@ -288,7 +333,7 @@ class Ast2Py:
 
             case c_ast.ArrayRef():
                 self.push_expr(']')
-                self.push_expr(n.subscript.value)
+                self.push_expr(n.subscript)
                 self.push_expr('[')
                 self.push_expr(n.name)
 
@@ -496,6 +541,9 @@ class Ast2Py:
                 self.push_expr('(')
                 self.push_expr(n.to_type)
 
+            case c_ast.Union() | c_ast.Enum():
+                self.push_expr(n.name)
+
             case _:
                 if n is not None:
                     print('Unknown ast type:', type(n), file=sys.stderr)
@@ -511,14 +559,14 @@ def c2py(input_c_file, output_py_file, ignore_syms):
 
     start_line=0
     parser = c_parser.CParser()
-    ast = parser.parse(text, filename=input_c_file)
+    input_ast = parser.parse(text, filename=input_c_file)
 
     f = open(output_py_file ,'w')
 
     # add transpiled code
     b=io.StringIO()
     a2py = Ast2Py(ignore_symbols=ignore_syms)
-    a2py.ast2py(ast, b)
+    a2py.ast2py(input_ast, b)
     py_cont = b.getvalue()
 
     # add required imports
