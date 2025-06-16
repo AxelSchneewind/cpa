@@ -16,7 +16,7 @@
     <option name="--config">PredicateAnalysis</option>
   </rundefinition>
 
-  <rundefinition name="Predicate Analysis ABE lf">
+  <rundefinition name="Predicate Analysis ABElf">
     <option name="--config">PredicateAnalysisABElf</option>
   </rundefinition>
 
