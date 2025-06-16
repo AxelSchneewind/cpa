@@ -44,8 +44,7 @@ class ASTPreprocessor(StatementExtractor):
         return self.extract_expression(node)
     def visit_BoolOp(self, node):
         if not self.extract_expr:
-            node.left  = self.recurse(node.left, extract_call=True)
-            node.right = self.recurse(node.right, extract_call=True)
+            node.values  = [ self.recurse(v, extract_call=True) for v in node.values]
             return node
         return self.extract_expression(node)
     def visit_Compare(self, node):
