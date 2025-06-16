@@ -177,7 +177,7 @@ def _expr2smt(node: ast.AST, ssa: Dict[str, int]) -> FNode:
 
 
         case ast.Call(func=ast.Name(id=fname), args=args):
-            raise NotImplementedException()
+            raise NotImplementedError()
 
 
         case _:
