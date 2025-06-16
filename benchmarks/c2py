@@ -202,9 +202,10 @@ class Ast2Py:
                 if name in self.ignore_symbols:
                     return
 
-                if n.init is not None:
-                    self.push_expr(n.init)
-                    self.push_expr(' = ')
+                if isinstance(n.type, c_ast.TypeDecl) and isinstance(n.type.type, (c_ast.IdentifierType, c_ast.Typename)):
+                    if n.init is not None:
+                        self.push_expr(n.init)
+                        self.push_expr(' = ')
                     self.push_expr(n.type.type)
                     self.push_expr(' : ')
                     self.push_expr(name)
