@@ -2,6 +2,7 @@
 
 from pycpa import configs
 
+from pycpa.ast import ASTChecker
 from pycpa.preprocessor import preprocess_ast
 from pycpa.cfa import *
 from pycpa.cpa import *
@@ -91,12 +92,18 @@ def main(args):
             tree = ast.parse(ast_program)
         except:
             log.printer.log_result(task.program_name, 'SYNTAX_INVALID', str(Verdict.UNKNOWN))
+            continue
 
         # perform preprocessing on ast
         log.printer.log_status('preprocessing')
         tree = preprocess_ast(tree)
         with open(output_dir + '/program-preprocessed.py', 'w') as out_prog:
             out_prog.write(ast.unparse(tree))
+        try:
+            ASTChecker().visit(tree)
+        except:
+            log.printer.log_result(task.program_name, 'SYNTAX_INVALID', str(Verdict.UNKNOWN))
+            continue
 
         # prettyprint ast
         with open(output_dir + '/astpretty', 'w') as out_file:
