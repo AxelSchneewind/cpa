@@ -1,5 +1,6 @@
 */error_*
 */*.c
+*/*.c.prepared
 */*.py
 */*.yml
 */*.prp

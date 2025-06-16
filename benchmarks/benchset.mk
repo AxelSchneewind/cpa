@@ -30,36 +30,21 @@ clean:
 	rm -f *.py *.c *.yml *.cil error_*
 
 
-# copy the file (from the target stem) to this directory
+# checks that the referenced program file for a task exists and gets the files
 .phony: %.yml.get
-%.yml.get:
-	@cp -f $*.yml . || echo '$* does not exist'
-.phony: %.c.get
-%.c.get:
-	@cp -f $*.c .   || echo '$* does not exist'
+%.yml.get: %.yml
+	@cprog=$(*D)/$$(grep "input_files: .*" "$*.yml" | sed "s/input_files: //" | sed "s/'//g") \
+	 && [ -s $$cprog ] && (cp -f $*.yml . ; cp -f $$cprog $(*F).c)
 
 # checks if a c program can be transpiled (i.e. does not contain blacklisted keywords)
 .phony: %.c.check
 %.c.check:
 	@$(shell grep -F -f ../blacklist-keywords.txt $(*F).c > error_$(*F))
 
-
-# checks that the referenced program file exists
-.phony: %.yml.check
-%.yml.check:
-	@cprog=$(*D)/$$(grep "input_files: .*" "$(*F).yml" | sed "s/input_files: //" | sed "s/'//g") \
-	 && ([ -s $$cprog ] || (rm $(*F).yml ; exit 0))
-
-# gets a program file for a task (requires stem to be full path)
-.phony: %.yml.getprogram
-%.yml.getprogram:
-	@cprog=$(*D)/$$(grep "input_files: .*" "$(*F).yml" | sed "s/input_files: //" | sed "s/'//g") \
-	 && ([ ! -e $$cprog ] || cp -f $$cprog "$(*F).c")
-
 # adjusts the program name for a task (given by relative path)
 # ensures that task and program files have the same base name
 .phony: %.yml.setprogram
-%.yml.setprogram:
+%.yml.setprogram: %.c
 	@sed 's/input_files\s*:.*/input_files: $(*F).py/' -i $(*F).yml
 
 # cleans up empty files after transpilation
@@ -67,10 +52,11 @@ clean:
 # ensures that if NAME.py does not exist or is non-empty, then NAME.yml does not exist
 .phony: %.yml.cleanup
 %.yml.cleanup:
-	@[ ! -e error_$(*F) ] || ([ -s error_$(*F) ] || rm -f error_$(*F))
-	@[ ! -e error_$(*F) ] || rm -f $(*F).yml
-	@[ ! -e $(*F).py ]    || ([ -s $(*F).py ] || rm -f $(*F).py)
-	@[ -e $(*F).py ]      || rm -f $(*F).yml
+	@[ ! -e error_$(*F) ]      || ([ -s error_$(*F) ] || rm -f error_$(*F))
+	@[ ! -e error_$(*F) ]      || rm -f $(*F).yml
+	@[ ! -e $(*F).py ]         || ([ -s $(*F).py ] || rm -f $(*F).py)
+	@[ -e $(*F).py ]           || rm -f $(*F).yml
+	@[ ! -e $(*F).c.prepared ] || rm -f $(*F).c.prepared
 
 # prints status after transpilation
 .phony: %.yml.status
@@ -78,14 +64,12 @@ clean:
 	@([ -s $(*F).yml ] && echo '$(*F):success' || echo '$(*F):failure') | $(FORMAT_STATUS)
 
 # prepares a c file for transpilation
-.phony: %.c.prepare
-%.c.prepare: 
-	@sed -f ../prepare_c.txt -i "$(*F).c"
+%.c.prepared: %.c
+	@sed -f ../prepare_c.txt "$(*F).c" > $(*F).c.prepared
 
 # transpiles a c file to python
-.phony: %.c.transpile
-%.c.transpile: 
-	@../transpile.sh "$(*F).c" ../ignore-symbols.txt 2> error_$(*F) 
+%.py: %.c.prepared
+	@../transpile.sh "$(*F).c.prepared" "$(*F).py" ../ignore-symbols.txt 2> error_$(*F) 
 
 # command for recursively invoking make
 MAKE_REC=$(MAKE) --file=../benchset.mk
@@ -97,11 +81,11 @@ MAKE_REC=$(MAKE) --file=../benchset.mk
 .phony: %.yml.setup 
 %.yml.setup:
 	@$(MAKE_REC) $*.yml.get
-	@[   -s "$*.yml"   ] || (echo '$(*F):task missing' | $(FORMAT_STATUS); exit 0)
+	@[   -s "$*.yml"   ] || (echo '$(*F):task missing/invalid' | $(FORMAT_STATUS); exit 0)
 	@[ ! -s "$(*F).py" ] || (echo '$(*F):already exists' | $(FORMAT_STATUS); exit 0)
-	@$(MAKE_REC) $*.yml.check $*.yml.getprogram $*.yml.setprogram
-	@[ -s "$(*F).c" ] || (echo "   $(*F).c missing"; exit 0)
-	@$(MAKE_REC) $*.c.check $*.c.prepare $*.c.transpile
+	@$(MAKE_REC) $*.c $*.yml.setprogram $*.c.check
+	@[ -s "$(*F).c" ] || (echo "   $(*F).c missing or invalid"; exit 0)
+	@$(MAKE_REC) $*.py
 	@$(MAKE_REC) $(*F).yml.cleanup $(*F).yml.status
 
 
