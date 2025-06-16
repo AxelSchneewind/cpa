@@ -37,16 +37,7 @@ clean:
 # checks if a c program can be transpiled (i.e. does not contain blacklisted keywords)
 .phony: %.c.check
 %.c.check:
-	@[ -z "$$(grep -f ../blacklist-keywords.txt $(*F).c)" ] || exit 0
-
-
-# checks if a python file is valid syntactically
-# if invalid: reason in error_[filename]
-.phony: %.py.check
-%.py.check:
-	@[ ! -s $(*F).py ]    || python -m py_compile $(*F).py 2> error_$(*F) || echo 'invalid program' 
-	@[ ! -e error_$(*F) ] || ([ -s error_$(*F) ] || rm -f error_$(*F))
-	@[ ! -e $(*F).py ]    || ([ -s $(*F).py ] || rm -f $(*F).py)
+	@$(shell grep -f ../blacklist-keywords.txt $(*F).c > error_$(*F))
 
 
 # checks that the referenced program file exists
@@ -67,6 +58,21 @@ clean:
 %.yml.setprogram:
 	@sed 's/input_files\s*:.*/input_files: $(*F).py/' -i $(*F).yml
 
+# cleans up empty files after transpilation
+# ensures that if error_NAME exists and is non-empty, then NAME.yml does not exist
+# ensures that if NAME.py does not exist or is non-empty, then NAME.yml does not exist
+.phony: %.yml.cleanup
+%.yml.cleanup:
+	@[ ! -e error_$(*F) ] || ([ -s error_$(*F) ] || rm -f error_$(*F))
+	@[ ! -e error_$(*F) ] || rm -f $(*F).yml
+	@[ ! -e $(*F).py ]    || ([ -s $(*F).py ] || rm -f $(*F).py)
+	@[ -e $(*F).py ]      || rm -f $(*F).yml
+
+# prints status after transpilation
+.phony: %.yml.status
+%.yml.status:
+	@[ -s $(*F).yml ] && echo '$*: success' || echo '$*: failure (see error_$(*F))'
+
 # prepares a c file for transpilation
 .phony: %.c.prepare
 %.c.prepare: 
@@ -75,7 +81,7 @@ clean:
 # transpiles a c file to python
 .phony: %.c.transpile
 %.c.transpile: 
-	@../transpile.sh "$(*F).c" ../ignore-symbols.txt
+	@../transpile.sh "$(*F).c" ../ignore-symbols.txt 2> error_$(*F) 
 
 # command for recursively invoking make
 MAKE_REC=$(MAKE) --file=../benchset.mk
@@ -87,16 +93,12 @@ MAKE_REC=$(MAKE) --file=../benchset.mk
 .phony: %.yml.setup 
 %.yml.setup:
 	@$(MAKE_REC) $*.yml.get
-	@[ -s "$*.yml" ]     || (echo '$(*F): task missing'; exit 0)
+	@[   -s "$*.yml"   ] || (echo '$(*F): task missing'; exit 0)
 	@[ ! -s "$(*F).py" ] || (echo '$(*F): already exists'; exit 0)
-	@$(MAKE_REC) $*.yml.check || exit 0
-	@$(MAKE_REC) $*.yml.getprogram || exit 0
-	@$(MAKE_REC) $*.yml.setprogram || exit 0
+	@$(MAKE_REC) $*.yml.check $*.yml.getprogram $*.yml.setprogram
 	@[ -s "$(*F).c" ] || (echo "   $(*F).c missing"; exit 0)
-	@$(MAKE_REC) $*.c.check || exit 0
-	@$(MAKE_REC) $*.c.prepare || exit 0
-	@$(MAKE_REC) $*.c.transpile $(*F).py.check || (rm -f $(*F).*; exit 0)
-	@echo "$(*F): success"
+	@$(MAKE_REC) $*.c.check $*.c.prepare $*.c.transpile
+	@$(MAKE_REC) $(*F).yml.cleanup $(*F).yml.status
 
 
 
