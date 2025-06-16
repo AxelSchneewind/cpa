@@ -1,22 +1,19 @@
 ########################### VIRTUAL ENVIRONMENT ###############################
 
-# venv is required for benchmark generation
-venv: 
-	@echo 'setting up the virtual environment'
-	python -m venv venv
-	./venv/bin/pip install -r requirements.txt
-	
-	@echo 'downloading and installing MathSAT...'
+PYVER := $(shell [ -f venv/bin/python ] && ./venv/bin/python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+
+mathsat-5.6.11-linux-x86_64.tar.gz:
+	@echo 'downloading MathSAT...'
 	wget -q https://mathsat.fbk.eu/release/mathsat-5.6.11-linux-x86_64.tar.gz -O mathsat-5.6.11-linux-x86_64.tar.gz
 	tar -xzf mathsat-5.6.11-linux-x86_64.tar.gz
 
+mathsat-install: mathsat-5.6.11-linux-x86_64.tar.gz
 	@echo 'building MathSAT python bindings...'
 	# This command builds the required _mathsat*.so file
 	(cd mathsat-5.6.11-linux-x86_64/python && ../../venv/bin/python setup.py build_ext)
 
 	@echo 'copying MathSAT files into virtual environment...'
-	PYVER=$$(./venv/bin/python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')") && \
-	MSAT_CUSTOM_PATH=venv/lib/python$${PYVER}/site-packages/mathsat && \
+	MSAT_CUSTOM_PATH=venv/lib/python$(PYVER)/site-packages/mathsat && \
 	MSAT_PYTHON_PATH=$${MSAT_CUSTOM_PATH}/python && \
 	mkdir -p $${MSAT_PYTHON_PATH} && \
 	cp mathsat-5.6.11-linux-x86_64/python/mathsat.py $${MSAT_PYTHON_PATH}/ && \
@@ -26,13 +23,20 @@ venv:
 	echo 'export PYTHONPATH=$$PYTHONPATH:$$VIRTUAL_ENV/lib/python'$${PYVER}'/site-packages/mathsat/python' >> venv/bin/activate
 	@echo 'MathSAT setup complete.'
 
+# venv is required for benchmark generation
+venv: 
+	@echo 'setting up the virtual environment'
+	python -m venv venv
+	./venv/bin/pip install -r requirements.txt
+	$(MAKE) mathsat-install
+	
+
 check-venv:
 	@[ ! -z "$(VIRTUAL_ENV)" ] || (echo -e 'use \n  source venv/bin/activate\nto activate' && exit 1)
 
 
 ##################################### MSAT ####################################
 # Dynamically determine the python version and site-packages path
-PYVER := $(shell [ -f venv/bin/python ] && ./venv/bin/python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
 MSAT-PREFIX=$(shell pwd)/venv/lib/python$(PYVER)/site-packages
 
 check-msat-files: 
@@ -127,9 +131,7 @@ table-generator = table-generator
 TABLE-GENERATOR-ARGS = -f html --no-diff -c -o ${ABS-OUTPUT-PATH}/
 TABLE-GENERATOR-CALL = ${table-generator} ${TABLE-GENERATOR-ARGS}
 
-PYTHON = PYTHONPATH=$(PYTHONPATH) LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) python
-export PATH::=${BASE-PATH}/benchexec/bin/:${BASE-PATH}/pycpa/:$(PATH)
-export PYTHONPATH::=${BASE-PATH}/benchexec/:$(PYTHONPATH)
+PYTHON = python
 
 default:
 	@echo "Please specify a make target!"
@@ -154,7 +156,7 @@ check-output-exist:
 clean-results:
 	@rm -rf ${ABS-OUTPUT-PATH}
 
-TOOLDEF-FILE=benchexec/benchexec/tools/pycpa.py
+TOOLDEF-FILE=venv/lib/python$(PYVER)/site-packages/benchexec/tools/pycpa.py
 ${TOOLDEF-FILE}:
 	cp pycpa-tooldef.py ${TOOLDEF-FILE}
 

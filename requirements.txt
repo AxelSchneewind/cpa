@@ -7,3 +7,4 @@ pysmt
 setuptools
 pyyaml
 astpretty
+benchexec
