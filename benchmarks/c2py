@@ -401,7 +401,6 @@ class Ast2Py:
                 self.push_expr('while ')
 
                 if n.init:
-                    print(n.init)
                     self.push_newline(depth)
                     self.push_expr(n.init)
 
