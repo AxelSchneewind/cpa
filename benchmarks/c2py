@@ -6,9 +6,10 @@
 from pycparser import c_parser
 from pycparser import c_ast
 import pycparser
-import io
 
+import io
 import re
+import ast
 
 tab = '\t'
 def write_one_line(buf, depth):
@@ -535,6 +536,8 @@ def c2py(input_c_file, output_py_file, ignore_syms):
 
 
 import sys
+
+
 if __name__ == '__main__':
     if len(sys.argv) < 3:
         print('usage: c2py input.c output.py [ignore-symbols-file]', file=sys.stderr)
@@ -554,8 +557,10 @@ if __name__ == '__main__':
         with open(file_out, 'r') as f:
             ast.parse(f.read())
         exit_code = 0
-    except:
-        pass
+    except BaseException as x:
+        print('Could not generate valid python program:', file=sys.stderr)
+        print(x, file=sys.stderr)
+        exit_code = 1
 
     exit(exit_code)
 
