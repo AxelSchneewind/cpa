@@ -27,54 +27,62 @@ class IsBlockOperator:
             Perform BFS to check if given node can be reached again
         """
         root_seen = 0
-        for n in TraverseCFA.bfs(root):
-            if n == root:
-                root_seen += 1
+        for e in TraverseCFA.bfs_edges(root):
+            if e.successor == root:
+                return True
 
             # found node with smaller location, therefore root is not loop head
-            if n.node_id < root.node_id:
+            if e.successor.node_id < root.node_id:
                 return False
             
         # check if root has been seen more than once
         return root_seen > 1
             
     @staticmethod
-    def is_block_head_lf(edge : CFAEdge) -> bool:
+    def is_block_head_lf(node : CFANode) -> bool:
         """loop heads and calls are block heads"""
-        kind = edge.instruction.kind
-        match kind:
-            case InstructionType.CALL | InstructionType.RETURN:
-                return True
-            case InstructionType.ASSUMPTION:
-                return IsBlockOperator.is_loop_head(edge.successor)
+
+        if len(node.entering_edges) == 0 or len(node.leaving_edges) == 0:
+            return True
+
+        if any(e.instruction.kind == InstructionType.CALL for e in node.leaving_edges):
+            return True
+
+        if IsBlockOperator.is_loop_head(node):
+            return True
+
         return False
 
     @staticmethod
-    def is_block_head_f(edge : CFAEdge) -> bool:
+    def is_block_head_f(node : CFANode) -> bool:
         """calls and returns are block heads"""
-        kind = edge.instruction.kind
-        match kind:
-            case InstructionType.CALL | InstructionType.RETURN:
-                return True
-            case _:
-                pass
+
+        if len(node.entering_edges) == 0 or len(node.leaving_edges) == 0:
+            return True
+
+        if any(e.instruction.kind == InstructionType.CALL for e in node.leaving_edges):
+            return True
+
         return False
 
     @staticmethod
-    def is_block_head_bf(edge : CFAEdge) -> bool:
+    def is_block_head_bf(node : CFANode) -> bool:
         """branches and calls are block heads"""
-        kind = edge.instruction.kind
-        match kind:
-            case InstructionType.CALL | InstructionType.RETURN | InstructionType.ASSUMPTION:
-                return True
-            case _:
-                pass
+
+        if len(node.entering_edges) == 0 or len(node.leaving_edges) == 0:
+            return True
+
+        if any(e.instruction.kind == InstructionType.CALL for e in node.leaving_edges):
+            return True
+
+        if any(e.instruction.kind == InstructionType.ASSUMPTION for e in node.leaving_edges):
+            return True
+
         return False
 
 
-
-def compute_block_heads(cfa_roots : set[CFANode], blk : Callable[[CFAEdge], bool]):
+def compute_block_heads(cfa_roots : set[CFANode], blk : Callable[[CFANode], bool]):
     heads = set()
     for r in cfa_roots:
-        heads.update({ e.predecessor for e in TraverseCFA.bfs_edges(r) if blk(e) })
+        heads.update({ n for n in TraverseCFA.bfs(r) if blk(n) })
     return heads

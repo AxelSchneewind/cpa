@@ -43,10 +43,17 @@ class TraverseCFA:
         waitlist : set[CFANode] = set()
         waitlist.add(root)
 
+        seen : set[CFANode] = set()
+
         while len(waitlist) > 0:
             n = waitlist.pop()
+
+            if n in seen:
+                continue
+
             for e in n.leaving_edges:
                 yield e
+            seen.add(n)
 
             # collect successors
             waitlist.update({e.successor for e in n.leaving_edges})
@@ -56,9 +63,16 @@ class TraverseCFA:
         waitlist : set[CFANode] = set()
         waitlist.add(root)
 
+        seen : set[CFANode] = set()
+
         while len(waitlist) > 0:
             n = waitlist.pop()
+
+            if n in seen:
+                continue
+
             yield n
+            seen.add(n)
 
             # collect successors
             waitlist.update({e.successor for e in n.leaving_edges})
