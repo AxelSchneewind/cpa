@@ -41,7 +41,7 @@ clean:
 # checks if a c program can be transpiled (i.e. does not contain blacklisted keywords)
 .phony: %.c.check
 %.c.check:
-	@$(shell grep -f ../blacklist-keywords.txt $(*F).c > error_$(*F))
+	@$(shell grep -F -f ../blacklist-keywords.txt $(*F).c > error_$(*F))
 
 
 # checks that the referenced program file exists
