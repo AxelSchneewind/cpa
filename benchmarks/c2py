@@ -377,12 +377,17 @@ class Ast2Py:
             case c_ast.For():
                 self.push_newline(depth)
 
-                if n.next is not None:
+                if n.next is None and n.stmt is None:
+                    self.push_expr('pass')
+                    self.push_newline(depth + 1)
+
+                if n.next:
                     self.push_expr(n.next)
                     self.push_newline(depth + 1)
 
-                self.push_expr(n.stmt)
-                self.push_newline(depth + 1)
+                if n.stmt:
+                    self.push_expr(n.stmt)
+                    self.push_newline(depth + 1)
 
                 self.push_expr(':')
                 if n.cond:
@@ -390,9 +395,13 @@ class Ast2Py:
                 else:
                     self.push_expr('True')
                 self.push_expr('while ')
-                self.push_newline(depth)
 
-                self.push_expr(n.init)
+                if n.init:
+                    print(n.init)
+                    self.push_newline(depth)
+                    self.push_expr(n.init)
+
+                self.push_newline(depth)
                 
             case c_ast.If():
                 if n.iffalse:
