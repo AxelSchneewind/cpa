@@ -20,35 +20,53 @@ class ASTPreprocessor(StatementExtractor):
 
         # stores whether a visited call has to be extracted
         # always the case if not a single expression
-        self.extract = False
+        self.extract_call = False
         self.extract_expr = False
 
+    def recurse(self, node, extract_call=False, extract_expr=False):
+        # save old extraction flags
+        old_extract_call = self.extract_call
+        old_extract_expr = self.extract_expr
+
+        self.extract_call = extract_call
+        self.extract_expr = extract_expr
+        result = self.visit(node)
+        # restore old extraction flags
+        self.extract_call = old_extract_call
+        self.extract_expr = old_extract_expr
+        return result
 
     def visit_BinOp(self, node):
         if not self.extract_expr:
+            node.left  = self.recurse(node.left, extract_call=True)
+            node.right = self.recurse(node.right, extract_call=True)
             return node
         return self.extract_expression(node)
     def visit_BoolOp(self, node):
         if not self.extract_expr:
+            node.left  = self.recurse(node.left, extract_call=True)
+            node.right = self.recurse(node.right, extract_call=True)
             return node
         return self.extract_expression(node)
     def visit_Compare(self, node):
         if not self.extract_expr:
+            node.comparators = [self.recurse(c, extract_call=True) for c in node.comparators]
             return node
         return self.extract_expression(node)
     def visit_UnaryOp(self, node):
         if not self.extract_expr:
+            node.operand = self.recurse(node.operand, extract_call=True)
             return node
         return self.extract_expression(node)
 
     def visit_Call(self, node: ast.Call) -> ast.Name | ast.Call:
-        do_extract = self.extract
-        self.extract = True
+        do_extract = self.extract_call
+        self.extract_call = True
         self.extract_expr = True
 
         call = ast.Call(
             func=node.func,
-            args=[self.visit(arg) for arg in node.args]
+            args=[self.recurse(arg, extract_call=True, extract_expr=True) for arg in node.args]
         )
         ast.copy_location(call, node)
         ast.fix_missing_locations(call)
@@ -69,7 +87,8 @@ class ASTPreprocessor(StatementExtractor):
         assert isinstance(node.targets[0], ast.Name)
 
         # simple expression can be kept
-        self.extract = not (isinstance(value, ast.Name) or isinstance(value, ast.Constant) or isinstance(value, ast.Call))
+        self.extract_call = not (isinstance(value, ast.Name) or isinstance(value, ast.Constant) or isinstance(value, ast.Call))
+        self.extract_expr = False
 
         right = self.visit(value)
         left  = self.visit(target)
