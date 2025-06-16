@@ -131,8 +131,6 @@ class Instruction:
             case InstructionType.EXIT:
                 code = self.exit_code if 'exit_code' in self.parameters else '0'
                 return '%s(%s)' % (identifier, code)
-            case InstructionType.CALL:
-                return 'jump %s' % (self.location)
             case _:
                 return '%s' % self.identifier
 
@@ -222,9 +220,9 @@ class CFAEdge:
         elif self.instruction.kind == InstructionType.STATEMENT:
             return str(self.instruction.expression.lineno) + ': ' + ast.unparse(self.instruction.expression).strip()
         elif self.instruction.kind == InstructionType.CALL:
-            return str(self.instruction.expression.lineno) + ': ' + self.instruction.declaration.name.strip() + '()'
+            return '%s: %s(%s)' % (str(self.instruction.expression.lineno), self.instruction.declaration.name.strip(), ','.join((ast.unparse(p) for p in self.instruction.arg_names)))
         elif self.instruction.kind == InstructionType.REACH_ERROR:
-            return str(self.instruction.expression.lineno) + ': ' + 'reacherror()'
+            return str(self.instruction.expression.lineno) + ': ' + 'reach_error()'
         elif self.instruction.kind == InstructionType.RETURN:
             return str(self.instruction.expression.lineno) + ': ' + ast.unparse(self.instruction.expression).strip()
         else:
@@ -448,7 +446,7 @@ class CFACreator(ast.NodeVisitor):
         raise NotImplementedError('TODO: convert to __VERIFIER_assert in preprocessing')
 
     def visit_Raise(self, node : ast.Raise):
-        # make reacherror edge, i.e. exceptions are used like reacherror()
+        # make reach_error edge, i.e. exceptions are used like reach_error()
         entry_node = self.node_stack.pop()
         exit_node = CFANode()
         edge = CFAEdge(entry_node, exit_node, Instruction.reacherror(node))
