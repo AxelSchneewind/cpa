@@ -16,8 +16,8 @@ ReachSafety-%.stats:
 .phony: ReachSafety-%.list
 ReachSafety-%.list: 
 	@echo "ReachSafety-$*: "
-	@$(foreach name, $(patsubst ReachSafety-$*/%.yml,%,  $(wildcard ReachSafety-$*/*.yml)  ), echo -e "$(name): \tsuccess" ;)
-	@$(foreach name, $(patsubst ReachSafety-$*/error_%,%,$(wildcard ReachSafety-$*/error_*)), echo -e "$(name): \tfailure" ;)
+	@echo -e " $(foreach name,$(patsubst ReachSafety-$*/%.yml,%,$(wildcard ReachSafety-$*/*.yml)),$(name):success\n)"     | column -s ':' -t -N program,status
+	@echo -e " $(foreach name,$(patsubst ReachSafety-$*/error_%,%,$(wildcard ReachSafety-$*/error_*)),$(name):failure\n)" | column -s ':' -t -N program,status
 
 # clean a benchmark set
 .phony: ReachSafety-%.clean
