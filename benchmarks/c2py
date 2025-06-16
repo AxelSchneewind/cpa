@@ -152,19 +152,25 @@ class Ast2Py:
                 self.push_expr('return ')
 
             case c_ast.Constant():
-                py_constant = str(n.value)
+                py_constant = '0'
 
                 pref = re.match(r'^[^1-9]*', py_constant)
-                if re.match(r'^0+x', pref.string): # hex
-                    py_constant = re.sub(r'[ULulFf]+$', '', py_constant)
-                elif re.match(r'^0+', pref.string): # octal
-                    py_constant = re.sub(r'^0+[^x]', '0o', py_constant)
-                    py_constant = re.sub(r'[ULul]+$', '', py_constant)
-                else:
-                    py_constant = re.sub(r'[ULulFf]+$', '', py_constant)
-
-                if len(py_constant) == 0 or py_constant == '0o':
-                    py_constant = '0'
+                match n.type:
+                    case 'double' | 'float':
+                        num = re.sub(r'[UuLlFf]*$', '', n.value)
+                        py_constnat = num
+                    case 'int' | 'long':
+                        num = re.sub(r'[UuLlFf]*$', '', n.value)
+                        is_hex = re.sub(r'^0+x$', '0x', num)
+                        if is_hex:
+                            num = re.sub(r'^0+x$', '0x', num)
+                        else:
+                            num = re.sub(r'^0+$', '0o', num)
+                        py_constant = num
+                    case 'string':
+                        py_constant = str(n.value)
+                    case _:
+                        print('unknown constant type: ', str(n), file=sys.stderr)
                 self.push_expr(py_constant)
 
             case c_ast.ID():
@@ -192,8 +198,8 @@ class Ast2Py:
             case c_ast.PtrDecl():
                 self.push_expr('int')
 
-            case c_ast.Decl():
-                if n.name in self.ignore_symbols:
+            case c_ast.Decl(name=name):
+                if name in self.ignore_symbols:
                     return
 
                 if n.init is not None:
@@ -201,7 +207,7 @@ class Ast2Py:
                     self.push_expr(' = ')
                     self.push_expr(n.type.type)
                     self.push_expr(' : ')
-                    self.push_expr(n.name)
+                    self.push_expr(name)
                 else:
                     #add char* support
                     if isinstance(n.type, c_ast.PtrDecl) and isinstance(n.type.type, c_ast.TypeDecl) and isinstance(n.type.type.type, c_ast.IdentifierType):
@@ -267,7 +273,6 @@ class Ast2Py:
                         # ignore function declarations
                         pass
                     elif isinstance(n.type, c_ast.Union):
-                        name = n.type.name
                         self.push_newline(depth)
 
                         # add keyword-based constructor
@@ -290,7 +295,6 @@ class Ast2Py:
                             self.push_newline(depth)
 
                     elif isinstance(n.type, c_ast.Enum):
-                        name = n.type.name
                         self.push_newline(depth)
 
                         # constructor
