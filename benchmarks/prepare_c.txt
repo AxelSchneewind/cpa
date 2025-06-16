@@ -4,6 +4,7 @@ s/__extension__//g
 s/__format//g
 s/__restrict//g
 s/__const//g
+s/__inline//g
 s/\s*goto\s+ERROR\s*;/reach_error();/
 s/\s*ERROR:\s*{[^}]*}/reach_error();/
 s/\s*ERROR:\s*.*;/reach_error();/
