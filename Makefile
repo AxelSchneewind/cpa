@@ -5,45 +5,46 @@ venv:
 	@echo 'setting up the virtual environment'
 	python -m venv venv
 	./venv/bin/pip install -r requirements.txt
-	@echo 'installing math-sat solver'
-	@make install-msat
+	
+	@echo 'downloading and installing MathSAT...'
+	wget -q https://mathsat.fbk.eu/release/mathsat-5.6.11-linux-x86_64.tar.gz -O mathsat-5.6.11-linux-x86_64.tar.gz
+	tar -xzf mathsat-5.6.11-linux-x86_64.tar.gz
+
+	@echo 'building MathSAT python bindings...'
+	# This command builds the required _mathsat*.so file
+	(cd mathsat-5.6.11-linux-x86_64/python && ../../venv/bin/python setup.py build_ext)
+
+	@echo 'copying MathSAT files into virtual environment...'
+	PYVER=$$(./venv/bin/python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')") && \
+	MSAT_CUSTOM_PATH=venv/lib/python$${PYVER}/site-packages/mathsat && \
+	MSAT_PYTHON_PATH=$${MSAT_CUSTOM_PATH}/python && \
+	mkdir -p $${MSAT_PYTHON_PATH} && \
+	cp mathsat-5.6.11-linux-x86_64/python/mathsat.py $${MSAT_PYTHON_PATH}/ && \
+	cp mathsat-5.6.11-linux-x86_64/python/build/lib.*/_mathsat*.so $${MSAT_PYTHON_PATH}/ && \
+	cp -r mathsat-5.6.11-linux-x86_64/lib $${MSAT_CUSTOM_PATH}/ && \
+	echo 'export LD_LIBRARY_PATH=$$(pwd)/'$${MSAT_CUSTOM_PATH}'/lib:$$LD_LIBRARY_PATH' >> venv/bin/activate && \
+	echo 'export PYTHONPATH=$$PYTHONPATH:$$VIRTUAL_ENV/lib/python'$${PYVER}'/site-packages/mathsat/python' >> venv/bin/activate
+	@echo 'MathSAT setup complete.'
 
 check-venv:
 	@[ ! -z "$(VIRTUAL_ENV)" ] || (echo -e 'use \n  source venv/bin/activate\nto activate' && exit 1)
 
 
 ##################################### MSAT ####################################
-MSAT-SRC-DIR=$(wildcard mathsat-*/)
-MSAT-PREFIX=$(shell pwd)/venv/lib/python3.13/site-packages
+# Dynamically determine the python version and site-packages path
+PYVER := $(shell [ -f venv/bin/python ] && ./venv/bin/python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+MSAT-PREFIX=$(shell pwd)/venv/lib/python$(PYVER)/site-packages
 
-# check that source files for mathsat exist
-check-msat-source: 
-	@([ -n "$(MSAT-SRC-DIR)" ] && [ -d "$(MSAT-SRC-DIR)" ]) || (echo 'missing mathsat source files (please place the extracted mathsat archive into this directory)'; exit 1)
-
-# checks if the required files for msat exist
 check-msat-files: 
-	@[ -e $(MSAT-PREFIX)/mathsat.py ] || (echo 'missing ' $(MSAT-PREFIX)/mathsat.py && exit 1)
-	@[ -d $(MSAT-PREFIX)/mathsat/ ] || (echo 'missing ' $(MSAT-PREFIX)/mathsat/ && exit 1)
-	@[ -e $(MSAT-PREFIX)/_mathsat.so ] || (echo 'missing ' $(MSAT-PREFIX)/_mathsat.so && exit 1)
+	@[ -e $(MSAT-PREFIX)/mathsat/python/mathsat.py ] || (echo 'missing ' $(MSAT-PREFIX)/mathsat/python/mathsat.py && exit 1)
+	@[ -e $(MSAT-PREFIX)/mathsat/python/_mathsat*.so ] || (echo 'missing shared object in mathsat/python/' && exit 1)
+	@[ -d $(MSAT-PREFIX)/mathsat/lib ] || (echo 'missing lib directory in mathsat/' && exit 1)
 
-PYTHONPATH::=$(MSAT-PREFIX)/:$(PYTHONPATH)
+PYTHONPATH::=$(MSAT-PREFIX)/mathsat/python:$(PYTHONPATH)
 LD_LIBRARY_PATH::=$(MSAT-PREFIX)/mathsat/lib:$(LD_LIBRARY_PATH)
 
 check-msat: venv check-msat-files
-	PYTHONPATH=$(PYTHONPATH) LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) pysmt-install --check
-
-# no idea why this has to be so complicated
-# copies the msat source directory into site-packages (not sure why this is required)
-# copies the msat python file into site-packages
-# copies the msat shared objects file into site-packages
-install-msat: check-venv check-msat-source
-	@echo 'installing mathsat' 
-	cd ${MSAT-SRC-DIR}/python && python setup.py build && cd -
-	rm -rf "${MSAT-PREFIX}"/msat "${MSAT-PREFIX}"/mathsat* "${MSAT-PREFIX}"/lib
-	cp -r "${MSAT-SRC-DIR}/python/mathsat.py" "${MSAT-PREFIX}"/
-	cp -r "${MSAT-SRC-DIR}/python/build"/lib.*/_mathsat*.so "${MSAT-PREFIX}"/_mathsat.so
-	cp -r "${MSAT-SRC-DIR}/" "${MSAT-PREFIX}"/mathsat
-	PYTHONPATH=$(PYTHONPATH) LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) pysmt-install --check
+	PYTHONPATH=$(PYTHONPATH) LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) ./venv/bin/pysmt-install --check
 
 
 ############################ BENCHMARK GENERATION ##############################
