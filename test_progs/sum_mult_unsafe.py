@@ -3,13 +3,17 @@ def mult(x, y):
 
 def sum_mult(n):
     total = 0
-    for i in range(1, n+1):
-        for j in range(1, i+1):
+    i = 1
+    while i < 1, n+1:
+        j = 1
+        while j < i+1:
             total += mult(i, j)
+            j += 1
+        i += 1
     return total
 
 result = sum_mult(4)
 # Actual is 95, but we assert 65
 if result != 65:
-    raise Exception(f"Wrong: got {result}, expected 65")
+    reach_error()
 

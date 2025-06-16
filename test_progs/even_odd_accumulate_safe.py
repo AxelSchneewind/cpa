@@ -18,5 +18,5 @@ def accumulate(n, m):
 result = accumulate(3, 4)
 # Hand-computed: 24
 if result != 24:
-    raise Exception(f"Wrong: got {result}, expected 24")
+    reach_error()
 

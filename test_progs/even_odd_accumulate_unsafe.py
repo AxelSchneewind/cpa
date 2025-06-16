@@ -19,5 +19,5 @@ def accumulate_buggy(n, m):
 result = accumulate_buggy(3, 4)
 # Wrong actual: 18, but we assert 24
 if result != 24:
-    raise Exception(f"Wrong: got {result}, expected 24")
+    reach_error()
 

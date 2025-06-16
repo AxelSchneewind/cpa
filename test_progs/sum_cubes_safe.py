@@ -21,5 +21,5 @@ def sum_cubes(n):
 result = sum_cubes(3)
 # Sum over 0≤i,j,k<3 of (i+j+k) = 81
 if result != 81:
-    raise Exception(f"Wrong: got {result}, expected 81")
+    reach_error()
 

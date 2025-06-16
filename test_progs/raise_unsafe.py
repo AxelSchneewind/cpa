@@ -1,1 +1,1 @@
-raise Exception("Unsafe path reached")
+reach_error()

@@ -19,5 +19,5 @@ def accumulate_safe(n):
 
 result = accumulate_safe(4)  # Should be 4 * (2 + 4 + 6) = 48
 if result != 48:
-    raise Exception(f"Assertion failed: result was {result}, expected 48")
+    reach_error()
 
