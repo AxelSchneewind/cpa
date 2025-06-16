@@ -9,8 +9,8 @@ properties/: sv-benchmarks/c/properties/
 .phony: ReachSafety-%.stats
 ReachSafety-%.stats: 
 	@echo "ReachSafety-$*: "
-	@echo "   transpiled programs: $(shell echo ReachSafety-$*/*.py | wc -w)"
-	@echo "   invalid    programs: $(shell echo ReachSafety-$*/error_* | wc -w)"
+	@echo "   transpiled programs: $(shell ls ReachSafety-$* | grep '.*\.yml'  | wc -w)"
+	@echo "   invalid    programs: $(shell ls ReachSafety-$* | grep 'error_.*' | wc -w)"
 
 # print information about the generated benchmark set
 .phony: ReachSafety-%.list
