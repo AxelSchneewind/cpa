@@ -112,11 +112,12 @@ def refine_precision(
         for i, itp in enumerate(interpolants):
             log.printer.log_debug(1, f"[CEGAR Helper DEBUG]   τ_{i}: {itp.serialize()}")
 
-    new_local_predicates_map: Dict[CFANode, Set[FNode]] = {}
+    new_local_predicates_map: dict[CFANode, set[FNode]] = dict()
+    new_global_predicates_set: set[FNode] = set()
 
     # add predicates from τ_i (1 <= i <= n-1) to π(l_i) where l_i is abstract_cex_edges[i-1].successor
     num_edges = len(abstract_cex_edges)
-    assert len(interpolants) == num_edges + 1
+    assert interpolants[0].is_true() and len(interpolants) == num_edges + 1 and interpolants[-1].is_false(), interpolants
     for i in range(1, num_edges): # Corresponds to τ_1 to τ_{n-1} (or τ_m-1 if n=m)
         interp_formula = interpolants[i]
         if interp_formula.is_true() or interp_formula.is_false():
@@ -124,25 +125,38 @@ def refine_precision(
 
         # for assumptions, use predecessor (as predicate will be relevant for reachability)
         # for other edges, use successor   (as predicate might hold after this edge)
-        location_node = abstract_cex_edges[i-1].predecessor if abstract_cex_edges[i-1].instruction.kind == InstructionType.ASSUMPTION else abstract_cex_edges[i-1].successor
+        for location_node in [ abstract_cex_edges[i-1].predecessor , abstract_cex_edges[i-1].successor ]:
+            if location_node not in new_local_predicates_map:
+                new_local_predicates_map[location_node] = set()
         
-        if location_node not in new_local_predicates_map:
-            new_local_predicates_map[location_node] = set()
-        
-        for atom in interp_formula.get_atoms():
-            if not atom.is_true() and not atom.is_false(): # Don't add True/False as predicates
-                unindexed = SSA.unindex_predicate(atom)
-                if location_node not in current_precision.predicates or unindexed not in current_precision.predicates[location_node]:
+            for atom in interp_formula.get_atoms():
+                # if not atom.is_true() and not atom.is_false(): # Don't add True/False as predicates
+                unindexed  = SSA.unindex_predicate(atom)
+                nunindexed = Not(unindexed)
+                if location_node not in current_precision.predicates or  unindexed not in current_precision.predicates[location_node]:
                     new_local_predicates_map[location_node].add(unindexed)
-                    new_local_predicates_map[location_node].add(Not(unindexed))
+                    new_global_predicates_set.add(unindexed)
+                if location_node not in current_precision.predicates or nunindexed not in current_precision.predicates[location_node]:
+                    new_local_predicates_map[location_node].add(nunindexed)
+                    new_global_predicates_set.add(nunindexed)
 
-    if len(new_local_predicates_map) > 0:      # only return new precision if new atoms found
+    # for now, each location gets all predicates (for LBE, predicates have to be added to all nodes of block)
+    # TODO: fix precision to account for block heads
+    for k,v in new_local_predicates_map.items():
+        v.update(new_global_predicates_set)
+
+    result = current_precision
+    if any(len(s) > 0 for _,s in new_local_predicates_map.items()):      # only return new precision if new atoms found
         log.printer.log_debug(1, f"[CEGAR Helper INFO] Adding new local predicates to precision: { {loc.node_id: preds for loc, preds in new_local_predicates_map.items()} }")
-        new_precision = copy.copy(current_precision)
-        new_precision.add_local_predicates(new_local_predicates_map)
-        return new_precision, interpolants
-    else:                           # return old precision
-        log.printer.log_debug(1, "[CEGAR Helper INFO] No new non-trivial predicates extracted from interpolants.")
-        return current_precision, None
+        c = copy.copy(current_precision)
+        c.add_local_predicates(new_local_predicates_map)
+        # TODO: check why this equality check does not work
+        # if c != current_precision:
+        result = c
+    
+    # ensure that all found predicates are now in precision
+    assert all(loc in result.predicates and s.issubset(result.predicates[loc]) for loc,s in new_local_predicates_map.items())
+
+    return result, interpolants
 
 
