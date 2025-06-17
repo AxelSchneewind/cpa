@@ -46,9 +46,6 @@
     <tasks name='ReachSafety-ECA'>
         <includesfile>sets/ReachSafety-ECA.set</includesfile>
     </tasks>
-    <tasks name='ReachSafety-Hardness'>
-        <includesfile>sets/ReachSafety-Hardness.set</includesfile>
-    </tasks>
     <tasks name='ReachSafety-Hardware'>
         <includesfile>sets/ReachSafety-Hardware.set</includesfile>
     </tasks>

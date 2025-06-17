@@ -7,7 +7,6 @@ It provides subdirectories for the following benchmark sets
 - ReachSafety-Combinations 
 - ReachSafety-ControlFlow 
 - ReachSafety-ECA 
-- ReachSafety-Hardness 
 - ReachSafety-Hardware 
 - ReachSafety-Sequentialized 
 - ReachSafety-XCSP
