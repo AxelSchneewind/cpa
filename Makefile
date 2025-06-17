@@ -136,10 +136,19 @@ PYTHON = python
 default:
 	@echo "Please specify a make target!"
 
-# @sudo swapoff -a
 prepare-benchexec:
 	@sudo sysctl -w kernel.unprivileged_userns_clone=1
 	@sudo sysctl -w user.max_user_namespaces=10000
+
+TOOLDEF-FILE=venv/lib/python$(PYVER)/site-packages/benchexec/tools/pycpa.py
+${TOOLDEF-FILE}:
+	cp pycpa-tooldef.py ${TOOLDEF-FILE}
+
+.phony: benchexec-tooldef
+benchexec-tooldef: ${TOOLDEF-FILE}
+
+test-tooldef: ${TOOLDEF-FILE}
+	${benchexec-call-prefix} ${PYTHON} -m benchexec.test_tool_info cpachecker ${BENCHEXECBASE-DIRS}
 
 test-cgroups:
 	@${benchexec-call-prefix} ${PYTHON} -m benchexec.check_cgroups && echo "Check passed"
@@ -155,15 +164,6 @@ check-output-exist:
 
 clean-results:
 	@rm -rf ${ABS-OUTPUT-PATH}
-
-TOOLDEF-FILE=venv/lib/python$(PYVER)/site-packages/benchexec/tools/pycpa.py
-${TOOLDEF-FILE}:
-	cp pycpa-tooldef.py ${TOOLDEF-FILE}
-
-# test tool definition
-benchexec-test-tooldef: ${TOOLDEF-FILE}
-	${benchexec-call-prefix} ${PYTHON} -m benchexec.test_tool_info cpachecker ${BENCHEXECBASE-DIRS}
-
 
 # Run experiments
 run-demo-exp: check-output-exist ${TOOLDEF-FILE} check-msat-files check-venv
