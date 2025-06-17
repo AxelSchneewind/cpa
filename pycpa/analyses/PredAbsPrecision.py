@@ -390,7 +390,7 @@ class PredAbsPrecision:
                     worklist.append(edge.successor)
         
         for n in predicates:
-            predicates[n] = global_preds
+            predicates[n] = copy.copy(global_preds)
 
         return PredAbsPrecision(predicates)
 
