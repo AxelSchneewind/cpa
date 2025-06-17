@@ -54,7 +54,9 @@ The `Makefiles` to run experiments assumes that a virtual environment is enabled
 Further, the benchexec installation must contain the [tooldefinition file](pycpa-tooldef.py) at `tools/pycpa.py`.
 
 This virtual environment can be set up using
-```make venv```
+```sh
+make venv
+```
 This target first sets up the virtual environment at `./venv`.
 Then it automatically downloads the source code for mathsat into this directory if not present already,
 compiles and installs it into the venv.
@@ -72,10 +74,15 @@ make all
 ```
 from within the `benchmarks/` directory.
 Note that this can take up to 3h for the selected benchmark sets.
+A summary of the transpilation results can be viewed using
+```sh
+make stats
+```
 
 To generate an individual task set, use e.g.
 ```sh
 make ReachSafety-BitVectors.generate
+make ReachSafety-BitVectors.stats
 ```
 
 
@@ -95,4 +102,8 @@ Benchmarks can then be defined by adding a `pycpa-benchmark.xml` file to `bench-
 Analogously to `pycpa-medium`, the run configurations and benchmark sets can be defined
 in this file.
 
-Then, the benchmarks can be executed using `make run-benchmark-exp` and visualized using `make gen-benchmark-table`.
+Then, the benchmarks can be executed and visualized using 
+```sh
+make run-benchmark-exp
+make gen-benchmark-table
+```
