@@ -172,16 +172,19 @@ class PredAbsCEGARDriver:
 
                 log.printer.log_debug(1, f"[CEGAR Driver INFO] {'feasible' if is_feasible else 'infeasible' } Abstract counterexample found with {len(abstract_cex)} edges.")
 
-
-                assert path_formula_conjuncts is not None, abstract_cex
-                with open(self.task.output_directory + '/path_' + str(i), 'w') as f:
+                # store path
+                with open(self.task.output_directory + '/path_' + str(i) , 'w') as f:
                     f.write(str(path_formula_conjuncts))
+
 
                 if is_feasible:
                     self.result.verdict = Verdict.FALSE
                     self.result.status = Status.OK
                     log.printer.log_intermediate_result(self.program_name, str(self.result.status), str(self.result.verdict))
                     # TODO: Store concrete CEX if model was extracted by is_path_feasible
+                    with open(self.task.output_directory + '/assignment' , 'w') as f:
+                        f.write(str(path_formula_conjuncts))
+                        f.write(str(asgmt))
                     return # Real counterexample
 
                 new_precision, interpolants = cegar_helper.refine_precision(
@@ -189,6 +192,10 @@ class PredAbsCEGARDriver:
                     abstract_cex_edges=abstract_cex,
                     path_formula_conjuncts=path_formula_conjuncts
                 )
+                assert interpolants is not None, (abstract_cex, interpolants)
+                with open(self.task.output_directory + '/interpolants_' + str(i), 'w') as f:
+                    f.write(str(interpolants))
+
                 log.printer.log_debug(1, f"[CEGAR Driver INFO] Precision updated. New state: {self.current_precision}")
 
                 # old precision is returned if no changes occurred
@@ -197,10 +204,6 @@ class PredAbsCEGARDriver:
                     self.result.status = Status.OK
                     log.printer.log_intermediate_result(self.program_name, str(self.result.status) + '(fixpoint reached)', str(self.result.verdict))
                     return
-
-                assert interpolants is not None, abstract_cex
-                with open(self.task.output_directory + '/interpolants_' + str(i), 'w') as f:
-                    f.write(str(interpolants))
 
                 self.current_precision = new_precision
 

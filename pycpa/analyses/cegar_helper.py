@@ -40,13 +40,9 @@ def is_path_feasible(abstract_cex_edges: list[CFAEdge]) -> tuple[bool, list[FNod
     path_formula_conjuncts: list[FNode] = []
     current_ssa_indices: dict[str, int] = {}
 
-    log.printer.log_debug(7, f"[CEGAR Helper DEBUG] Abstract CEX Path Edges ({len(abstract_cex_edges)}):")
     for i, edge in enumerate(abstract_cex_edges):
         edge_formula = PredAbsPrecision.from_cfa_edge(edge, current_ssa_indices) if edge else TRUE()
         assert edge_formula       
-
-        log.printer.log_debug(2, f"[CEGAR Helper DEBUG]     Edge SMT: {edge_formula.serialize() if edge_formula else 'None'}")
-        log.printer.log_debug(2, f"[CEGAR Helper DEBUG]     SSA after edge: {current_ssa_indices}")
 
         path_formula_conjuncts.append(edge_formula)
 
