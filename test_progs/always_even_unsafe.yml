@@ -4,5 +4,5 @@ input_files: 'always_even_unsafe.py'
 
 properties:
   - property_file: properties/unreach-call.prp
-    expected_verdict: true
+    expected_verdict: false
 

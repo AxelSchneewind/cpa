@@ -24,9 +24,9 @@ def main():
     x = 4
 
     y = h(g(h(x)))
-    z = g(h(g(x)))
-
     VERIFIER_assert(y == 32)
+
+    z = g(h(g(x)))
     VERIFIER_assert(z == 32)
 
 main()

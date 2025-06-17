@@ -26,7 +26,6 @@ def main():
     y = h(g(h(x)))
     z = g(h(g(x)))
 
-    VERIFIER_assert(y != 32)
-    VERIFIER_assert(z != 32)
+    VERIFIER_assert(y != 32 or z != 32)
 
 main()
