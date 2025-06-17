@@ -44,7 +44,7 @@ clean:
 # adjusts the program name for a task (given by relative path)
 # ensures that task and program files have the same base name
 .phony: %.yml.setprogram
-%.yml.setprogram: %.c
+%.yml.setprogram: 
 	@sed 's/input_files\s*:.*/input_files: $(*F).py/' -i $(*F).yml
 
 # cleans up empty files after transpilation
@@ -59,7 +59,7 @@ clean:
 	@[ ! -e $(*F).c.prepared ] || rm -f $(*F).c.prepared
 
 # prepares a c file for transpilation
-%.c.prepared: %.c
+%.c.prepared: 
 	@gcc -E $(*F).c -o $(*F).i
 	@sed -f ../prepare_c.txt "$(*F).i" > $(*F).c.prepared
 	@rm $(*F).i
@@ -84,7 +84,7 @@ MAKE_REC=$(MAKE) --file=../benchset.mk
 %.yml.setup: %.yml.get
 	@[   -s "$*.yml"   ] || (echo '$(*F):task missing/invalid' | $(FORMAT_STATUS); exit 0)
 	@[ ! -s "$(*F).py" ] || (echo '$(*F):already exists' | $(FORMAT_STATUS); exit 0)
-	@$(MAKE_REC) $*.c $*.yml.setprogram $*.c.check
+	@$(MAKE_REC) $*.yml.setprogram $*.c.check
 	@[ -s "$(*F).c" ] || (echo "   $(*F).c missing or invalid"; exit 0)
 	@$(MAKE_REC) $*.py
 	@$(MAKE_REC) $(*F).yml.cleanup $(*F).yml.status
