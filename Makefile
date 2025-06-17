@@ -166,11 +166,8 @@ clean-results:
 	@rm -rf ${ABS-OUTPUT-PATH}
 
 # Run experiments
-run-demo-exp: check-output-exist ${TOOLDEF-FILE} check-msat-files check-venv
-	${BENCHEXEC-CALL} "${BENCHDEFS-PATH}/pycpa-demo.xml"
-
-run-medium-exp: check-output-exist ${TOOLDEF-FILE} check-msat-files check-venv
-	${BENCHEXEC-CALL} "${BENCHDEFS-PATH}/pycpa-medium.xml"
+run-%-exp: check-output-exist ${TOOLDEF-FILE} check-msat-files check-venv
+	${BENCHEXEC-CALL} "${BENCHDEFS-PATH}/pycpa-$*.xml"
 
 # Generate tables from the experiments
 gen-%-table:
