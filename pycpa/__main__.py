@@ -10,7 +10,6 @@ from pycpa.cpaalgorithm import CPAAlgorithm, Status
 
 from pycpa.analyses import ARGCPA, CompositeCPA, GraphableARGState
 
-from pycpa.specification import Specification
 from pycpa.verdict import Verdict
 
 from pycpa.task import Task, Result
