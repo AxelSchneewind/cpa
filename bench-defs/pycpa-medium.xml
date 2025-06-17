@@ -5,6 +5,24 @@
     <propertyfile>../benchmarks/properties/unreach-call.prp</propertyfile>
   
 
+    <rundefinition name="Predicate Analysis">
+      <option name="--config">PredicateAnalysis</option>
+    </rundefinition>
+
+    <rundefinition name="Predicate Analysis CEGAR">
+      <option name="--config">PredicateAnalysisCEGAR</option>
+    </rundefinition>
+
+    <rundefinition name="Predicate Analysis ABE lf">
+      <option name="--config">PredicateAnalysisABElf</option>
+    </rundefinition>
+
+    <rundefinition name="Predicate Analysis CEGAR ABElf">
+      <option name="--config">PredicateAnalysisCEGARABElf</option>
+    </rundefinition>
+
+  
+
     <rundefinition name="Value Analysis">
       <option name="--config">ValueAnalysis</option>
     </rundefinition>
@@ -13,47 +31,31 @@
       <option name="--config">FormulaAnalysis</option>
     </rundefinition>
 
-    <rundefinition name="Predicate Analysis">
-      <option name="--config">PredicateAnalysis</option>
-    </rundefinition>
-
-    <rundefinition name="Predicate Analysis ABE lf">
-      <option name="--config">PredicateAnalysisABElf</option>
-    </rundefinition>
-
-    <rundefinition name="Predicate Analysis CEGAR">
-      <option name="--config">PredicateAnalysisCEGAR</option>
-    </rundefinition>
-
-    <rundefinition name="Predicate Analysis CEGAR ABElf">
-      <option name="--config">PredicateAnalysisCEGARABElf</option>
-    </rundefinition>
-
-  
     <tasks name="demo">
       <includesfile>sets/demo.set</includesfile>
     </tasks>
 
 
-    <tasks name='ReachSafety-BitVectors'>
-        <includesfile>sets/ReachSafety-BitVectors.set</includesfile></tasks>
     <tasks name='ReachSafety-Combinations'>
-        <includesfile>sets/ReachSafety-Combinations.set</includesfile>
+        <includesfile>sets/ReachSafety-Combinations-medium.set</includesfile>
+    </tasks>
+    <tasks name='ReachSafety-BitVectors'>
+        <includesfile>sets/ReachSafety-BitVectors-medium.set</includesfile>
     </tasks>
     <tasks name='ReachSafety-ControlFlow'>
-        <includesfile>sets/ReachSafety-ControlFlow.set</includesfile>
+        <includesfile>sets/ReachSafety-ControlFlow-medium.set</includesfile>
     </tasks>
     <tasks name='ReachSafety-ECA'>
-        <includesfile>sets/ReachSafety-ECA.set</includesfile>
+        <includesfile>sets/ReachSafety-ECA-medium.set</includesfile>
     </tasks>
     <tasks name='ReachSafety-Hardware'>
-        <includesfile>sets/ReachSafety-Hardware.set</includesfile>
+        <includesfile>sets/ReachSafety-Hardware-medium.set</includesfile>
     </tasks>
     <tasks name='ReachSafety-Sequentialized'>
-        <includesfile>sets/ReachSafety-Sequentialized.set</includesfile>
+        <includesfile>sets/ReachSafety-Sequentialized-medium.set</includesfile>
     </tasks>
     <tasks name='ReachSafety-XCSP'>
-        <includesfile>sets/ReachSafety-XCSP.set</includesfile>
+        <includesfile>sets/ReachSafety-XCSP-medium.set</includesfile>
     </tasks>
   
 
