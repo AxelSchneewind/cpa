@@ -851,7 +851,6 @@ class Ast2Py:
                         py_constant = str(n.value)
                     case _:
                         print('unknown constant type: ', str(n), file=sys.stderr)
-                print(str(n), py_constant)
                 self.push_expr(py_constant)
 
             case c_ast.ID():
