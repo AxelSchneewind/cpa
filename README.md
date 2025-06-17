@@ -47,6 +47,9 @@ This virtual environment can be set up using
 This target first sets up the virtual environment at `./venv`.
 Then it automatically downloads the source code for mathsat into this directory if not present already,
 compiles and installs it into the venv.
+This step requires `wget` to be installed. Alternatively, the source code can be 
+placed at `mathsat-5.6.11-linux-x86_64.tar.gz` and 
+installed using `make install-mathsat`
 
 
 ## Generating Benchmarks
