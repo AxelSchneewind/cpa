@@ -62,10 +62,10 @@ def is_path_feasible(abstract_cex_edges: list[CFAEdge]) -> tuple[bool, list[FNod
         if is_sat_result:
             # Path is feasible (concrete counterexample)
             # TODO: Optionally extract model using solver.get_model() if needed for concrete trace
-            return True, solver.get_model()
+            return True, path_formula_conjuncts, solver.get_model()
         else:
             # Path is spurious
-            return False, path_formula_conjuncts
+            return False, path_formula_conjuncts, None
 
 
 def refine_precision(

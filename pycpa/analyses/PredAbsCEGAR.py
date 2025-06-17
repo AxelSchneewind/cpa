@@ -166,7 +166,9 @@ class PredAbsCEGARDriver:
                 assert abstract_cex
                 
                 # Check Feasibility of the Abstract CEX
-                is_feasible, path_formula_conjuncts = cegar_helper.is_path_feasible(abstract_cex)
+                is_feasible, path_formula_conjuncts, asgmt = cegar_helper.is_path_feasible(abstract_cex)
+                assert path_formula_conjuncts is not None, abstract_cex
+                assert not is_feasible or asgmt is not None
 
                 log.printer.log_debug(1, f"[CEGAR Driver INFO] {'feasible' if is_feasible else 'infeasible' } Abstract counterexample found with {len(abstract_cex)} edges.")
 
