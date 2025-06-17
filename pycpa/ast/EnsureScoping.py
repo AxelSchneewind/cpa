@@ -62,7 +62,8 @@ class EnsureScoping(ast.NodeTransformer):
         return node
 
     def visit_Name(self, node) -> ast.Name:
-        node.id = self._make_varname(node.id)
+        if node.id not in {'int', 'str', 'bool', 'float' }:
+            node.id = self._make_varname(node.id)
         return node
             
     def visit_arg(self, node):
