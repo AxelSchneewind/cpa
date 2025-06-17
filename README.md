@@ -1,4 +1,4 @@
-# pycpa
+# Reproduction Artifcact for `Predicate Abstraction with LBE and CEGAR`
 
 ## TLDR:
 
@@ -15,7 +15,8 @@ Running the larger experiment (`medium`) works analogously, using `make run-medi
 ## Contents
 This archive contains the following subdirectories and files:
 
-- `data-submission`: the benchmark results used in our report
+- `data-submission/`: the benchmark results used in our report
+    - `demo/, medium/`: subdirectories for the respective benchmarks, each with a `stats.*.table.html`
 - `Makefile`: the main Makefile to set up the environment and execute benchmarks
 - `pycpa/`: a CPA-implementation in python
     - it currently supports Value Analysis, Predicate Analysis (with CEGAR and ABE), Formula Analysis (Predicate Analysis with ABE that never computes abstraction), Reachability Analysis
@@ -57,7 +58,8 @@ This virtual environment can be set up using
 This target first sets up the virtual environment at `./venv`.
 Then it automatically downloads the source code for mathsat into this directory if not present already,
 compiles and installs it into the venv.
-This step requires `wget` to be installed. Alternatively, the source code can be 
+This step requires `wget` to be installed.
+ Alternatively, the source code can be 
 placed at `mathsat-5.6.11-linux-x86_64.tar.gz` and 
 installed using `make install-mathsat`
 
