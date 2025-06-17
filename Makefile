@@ -75,28 +75,6 @@ generate-benchmarks: patch-cpp2py cpp2py.py
 	@echo "converting c benchmarks to python"
 	@make -C benchmarks benchmarks -B
 
-
-
-
-
-
-
-########################### EXAMPLE TASK EXECUTION ############################
-
-run-examples-%: check-msat-files
-	@echo 'testing $* on example programs'
-	@${PYTHON} -m pycpa -p unreach-call -c $* --compact --max-iterations 600 test_progs/*.yml test_progs/*.py -o out/$* 
-
-run-examples: check-venv test_progs/*.py run-examples-PredicateAnalysisCEGAR run-examples-PredicateAnalysisABEf run-examples-PredicateAnalysisABEbf run-examples-ReachabilityAnalysis run-examples-ValueAnalysis run-examples-ValueAnalysisMergeJoin run-examples-FormulaAnalysis 
-
-demo-example: check-venv
-	@${PYTHON} -m pycpa -c ValueAnalysis --max-iterations 600 -o out-demo/ValueAnalysis test_progs/collatz_safe.py
-	@${PYTHON} -m pycpa -c PredicateAnalysis --max-iterations 600 -o out-demo/PredicateAnalysis test_progs/collatz_safe.py
-	@${PYTHON} -m pycpa -c PredicateAnalysisABEbf --max-iterations 600 -o out-demo/PredicateAnalysisABEbf test_progs/collatz_safe.py
-	@${PYTHON} -m pycpa -c PredicateAnalysisCEGAR --max-iterations 600 -o out-demo/PredicateAnalysisCEGAR test_progs/collatz_safe.py
-
-
-
 ############################### BENCHEXEC ######################################
 
 # Root path of the artifact
@@ -176,14 +154,22 @@ gen-%-table:
 
 
 
+########################### EXAMPLE TASK EXECUTION ############################
+
+run-examples-%: check-msat-files
+	@echo 'testing $* on example programs'
+	${PYTHON} -m pycpa -p unreach-call -c $* --compact --max-iterations 600 test_progs/*.yml test_progs/*.py -o out/$* 
+
+run-examples: check-venv \
+	run-examples-PredicateAnalysis \
+	run-examples-PredicateAnalysisABElf \
+	run-examples-PredicateAnalysisABElf \
+	run-examples-PredicateAnalysisCEGAR \
+	run-examples-PredicateAnalysisCEGARABElf\
+	run-examples-ReachabilityAnalysis \
+	run-examples-ValueAnalysis \
+	run-examples-ValueAnalysisMergeJoin \
+	run-examples-FormulaAnalysis \
 
 
-############################### DEBUGGING ######################################
-
-# separate file for testing
-test: check-venv
-	python -m pycpa.test
-
-run-bad: 
-	${PYTHON} -m pycpa --compact -p unreach-call -o out-bad -c PredicateAnalysisABElf --max-iterations 300 test_progs/*.yml
 
