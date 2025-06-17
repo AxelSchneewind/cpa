@@ -132,7 +132,7 @@ class Instruction:
                 code = self.exit_code if 'exit_code' in self.parameters else '0'
                 return '%s(%s)' % (identifier, code)
             case _:
-                return '%s' % self.identifier
+                return '%s' % identifier
 
 
     @staticmethod
