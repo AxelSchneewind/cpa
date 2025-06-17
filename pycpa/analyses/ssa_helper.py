@@ -26,6 +26,11 @@ import copy
 # ------------------ #
 class SSA:
     @staticmethod   
+    def is_ssa(var: str | FNode) -> FNode:
+        name_parts = var.symbol_name().split('#') if isinstance(var, FNode) else var.split('#')
+        return len(name_parts) == 2
+
+    @staticmethod   
     def ssa(var: str, idx: int) -> FNode:
         assert not '#' in var, f"Variable name '{var}' should not contain '#'"
         return Symbol(f"{var}#{idx}", BV64)
@@ -60,11 +65,10 @@ class SSA:
     
     @staticmethod   
     def unindex_symbol(symbol: FNode) -> FNode:
-        """Returns a symbol with the SSA index removed, or the original if no index."""
-        if symbol.is_symbol():
-            name = SSA.get_name(symbol)
-            return Symbol(name, symbol.symbol_type())
-        return symbol # Should ideally only be called on symbols
+        """Returns a symbol with the SSA index removed"""
+        assert symbol.is_symbol(), symbol
+        name = SSA.get_name(symbol)
+        return Symbol(name, symbol.symbol_type())
     
     @staticmethod   
     def unindex_predicate(predicate: FNode) -> FNode:
@@ -82,6 +86,7 @@ class SSA:
             for var_symbol in substitution_targets
         }
 
+        assert all(not SSA.is_ssa(sub) for _,sub in substitution.items())
         return substitute(predicate, substitution)
     
     
@@ -90,7 +95,6 @@ class SSA:
         substitution_targets = [
             sub
             for sub in get_env().formula_manager.get_all_symbols()
-            if not isinstance(indices, dict) or SSA.get_name(sub) in indices
         ]
         
         substitution = {}
@@ -107,6 +111,7 @@ class SSA:
                 if SSA.get_name(target) in indices # Ensure key exists
             }
         
+        assert all(SSA.is_ssa(sub) for _,sub in substitution.items())
         return substitute(formula, substitution)
     
     
@@ -115,7 +120,6 @@ class SSA:
         substitution_targets = [
             sub
             for sub in get_env().formula_manager.get_all_symbols()
-            if not isinstance(indices, dict) or SSA.get_name(sub) in indices
         ]
         
         substitution = {}
@@ -131,6 +135,7 @@ class SSA:
                 for target in substitution_targets
             }
         
+        assert all(SSA.is_ssa(sub) for _,sub in substitution.items())
         return substitute(formula, substitution)
     
     @staticmethod   
