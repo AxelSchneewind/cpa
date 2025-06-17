@@ -116,7 +116,9 @@ class PredAbsABETransferRelation(TransferRelation):
 
         # check if successor node is head
         is_block_head = (
-            edge.successor in self.block_heads
+            edge.instruction.location in self.block_heads
+            if edge.instruction.kind == InstructionType.CALL
+            else edge.successor in self.block_heads
         )
 
         kind = edge.instruction.kind
