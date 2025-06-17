@@ -24,8 +24,8 @@ def accumulate_unsafe(n):
         i = inc(i)
     return total
 
-# Should be 4 * (2+4+6) = 48
-# But becomes 4 * (3+5+7) = 60 → assertion should FAIL
+# Should be 4 * (2+3+4) = 36
+# But becomes 4 * (3+4+5) = 48 → assertion should FAIL
 result = accumulate_unsafe(4)
-VERIFIER_assert(result == 48)
+VERIFIER_assert(result == 36)
 

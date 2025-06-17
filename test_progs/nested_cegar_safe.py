@@ -25,6 +25,6 @@ def accumulate_safe(n):
     return total
 
 # Trigger loop nesting and arithmetic logic
-result = accumulate_safe(4)  # 4 * (2+4+6) = 4 * 12 = 48
-VERIFIER_assert(result == 48)
+result = accumulate_safe(4)  # 4 * (2+3+4) = 4 * 9 = 36
+VERIFIER_assert(result == 36)
 
