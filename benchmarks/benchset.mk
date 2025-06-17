@@ -58,18 +58,20 @@ clean:
 	@[ -e $(*F).py ]           || rm -f $(*F).yml
 	@[ ! -e $(*F).c.prepared ] || rm -f $(*F).c.prepared
 
-# prints status after transpilation
-.phony: %.yml.status
-%.yml.status:
-	@([ -s $(*F).yml ] && echo '$(*F):success' || echo '$(*F):failure') | $(FORMAT_STATUS)
-
 # prepares a c file for transpilation
 %.c.prepared: %.c
-	@sed -f ../prepare_c.txt "$(*F).c" > $(*F).c.prepared
+	@gcc -E $(*F).c -o $(*F).i
+	@sed -f ../prepare_c.txt "$(*F).i" > $(*F).c.prepared
+	@rm $(*F).i
 
 # transpiles a c file to python
 %.py: %.c.prepared
 	@../transpile.sh "$(*F).c.prepared" "$(*F).py" ../ignore-symbols.txt 2> error_$(*F) 
+
+# prints status after transpilation
+.phony: %.yml.status
+%.yml.status:
+	@([ -s $(*F).yml ] && echo '$(*F):success' || echo '$(*F):failure') | $(FORMAT_STATUS)
 
 # command for recursively invoking make
 MAKE_REC=$(MAKE) --file=../benchset.mk
@@ -79,8 +81,7 @@ MAKE_REC=$(MAKE) --file=../benchset.mk
 # copies it here and transpiles to python.
 # The resulting file is checked, invalid files get removed.
 .phony: %.yml.setup 
-%.yml.setup:
-	@$(MAKE_REC) $*.yml.get
+%.yml.setup: %.yml.get
 	@[   -s "$*.yml"   ] || (echo '$(*F):task missing/invalid' | $(FORMAT_STATUS); exit 0)
 	@[ ! -s "$(*F).py" ] || (echo '$(*F):already exists' | $(FORMAT_STATUS); exit 0)
 	@$(MAKE_REC) $*.c $*.yml.setprogram $*.c.check
