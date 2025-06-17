@@ -92,6 +92,7 @@ This archive includes `pycpa-demo` and `pycpa-medium` benchmarks, defined in the
 
 The corresponding tasks are specified in the `bench-defs/sets/` subdirectory.
 
+
 ### Adding a Benchmark set
 A new set of benchmarks can be added by defining a set file `bench-defs/sets/benchmark.set`  
 containing relative paths to the tasks `.yml` files.
@@ -107,3 +108,19 @@ Then, the benchmarks can be executed and visualized using
 make run-benchmark-exp
 make gen-benchmark-table
 ```
+
+
+## Running Benchmarks
+The benchmarks from the report can be exeuted using their respective `run-*-exp` targets.
+
+Additionally, the makefile can be used to run analysis on the test programs
+without benchexec. 
+This can be done using 
+```sh
+make run-examples
+``` 
+which runs all available configurations.
+To run a specific configuration `C`, use `make run-examples-C`.
+
+These targets can also be used to get the command to execute the analysis
+manually.
