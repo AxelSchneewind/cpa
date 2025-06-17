@@ -35,6 +35,16 @@ This archive contains the following subdirectories and files:
     - a larger benchmark set (`pycpa-medium.xml`) using python programs generated from sv-comp tasks
 - `requirements`: dependencies for the virtual environment
 
+
+## Required Software
+
+- `python:3.11` (required)
+- `gcc` (required)
+- `wget` (if mathsat should be installed automatically)
+- `mathsat-5.6.11` (can automatically be installed into venv using `make install-msat`)
+- python libraries specified in `requirements.txt`  (automatically installed into venv using `make venv`)
+
+
 ## Virtual Environment
 
 The `Makefiles` to run experiments assumes that a virtual environment is enabled where the 
