@@ -232,16 +232,31 @@ class PredAbsPrecision:
     def add_global_predicates(self, new_preds: Iterable[FNode]):
         """Adds new global predicates"""
         for location in self.predicates:
-            for p in new_preds:
-                self.predicates[location].add(p)
+            self.predicates[location].update(new_preds)
 
     def add_local_predicates(self, new_preds: dict[CFANode, Iterable[FNode]]):
         """Adds new predicates to location"""
         for location, preds in new_preds.items():
             if location not in self.predicates:
                 self.predicates[location] = set()
-            for p in preds:
-                self.predicates[location].add(p)
+            self.predicates[location].update(preds)
+
+    @staticmethod
+    def ssa_from_nondet(edge: CFAEdge, ssa_indices: dict[str, int]) -> FNode:
+        instr = edge.instruction
+        assert instr.kind == InstructionType.NONDET
+
+        var_name = instr.target_variable
+        assert isinstance(var_name, str)
+        
+        # here, we also advance the ssa index of the right side
+        # as each nondet call gives an independent value
+        rhs_smt = SSA.ssa('__nondet', SSA.next('__nondet', ssa_indices))
+        
+        # variable being assigned to (LHS), advance ssa index
+        lhs_smt = SSA.ssa(var_name, SSA.next(var_name, ssa_indices)) 
+        
+        return Equals(lhs_smt, _cast(rhs_smt, lhs_smt.get_type()))
 
     @staticmethod
     def ssa_from_call(edge: CFAEdge, ssa_indices: Dict[str, int]) -> FNode:
@@ -332,8 +347,7 @@ class PredAbsPrecision:
             return PredAbsPrecision.ssa_from_return(edge, ssa_indices)
             
         elif kind == InstructionType.NONDET: # E.g. __VERIFIER_nondet_int()
-            log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] from_cfa_edge: Nondet instruction, using ssa_from_call logic.")
-            return PredAbsPrecision.ssa_from_call(edge, ssa_indices) # Or a more specific nondet handler
+            return PredAbsPrecision.ssa_from_nondet(edge, ssa_indices)
 
         else:
             log.printer.log_debug(5, f"[PredAbsPrecision DEBUG] from_cfa_edge: instruction does not require formula, returning TRUE.")
