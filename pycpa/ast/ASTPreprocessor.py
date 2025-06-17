@@ -86,8 +86,8 @@ class ASTPreprocessor(StatementExtractor):
         assert isinstance(node.targets[0], ast.Name)
 
         # simple expression can be kept
-        self.extract_call = not (isinstance(value, ast.Name) or isinstance(value, ast.Constant) or isinstance(value, ast.Call))
-        self.extract_expr = False
+        self.extract_call = not isinstance(value, ast.Call)
+        self.extract_expr = isinstance(value, ast.Call)
 
         right = self.visit(value)
         left  = self.visit(target)
@@ -98,4 +98,8 @@ class ASTPreprocessor(StatementExtractor):
 
         return head
 
+    def visit_Expr(self, node) -> ast.Expr:
+        self.extract_call = False
+        self.extract_expr = False
+        return StatementExtractor.generic_visit(self, node)
              
