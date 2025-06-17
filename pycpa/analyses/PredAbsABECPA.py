@@ -127,7 +127,7 @@ class PredAbsABETransferRelation(TransferRelation):
         elif kind == InstructionType.ASSUMPTION:
             trans = PredAbsPrecision.ssa_from_assume(edge, ssa_indices=ssa_idx)
 
-            predecessor_formula = SSA.set_indices(And(predecessor.predicates), predecessor.path_ssa_indices)
+            predecessor_formula = SSA.set_indices(And(predecessor.predicates), 0)
             if not is_sat(And(And(trans, predecessor.path_formula), predecessor_formula)):
                 return []
         elif kind == InstructionType.CALL:
@@ -138,7 +138,7 @@ class PredAbsABETransferRelation(TransferRelation):
             trans = TRUE()
 
         if is_block_head:       # compute new abstraction formula
-            if And(predecessor.path_formula, trans).is_false():
+            if not is_sat(And(trans, predecessor.path_formula)):
                 return []
 
             predicates = PredAbsTransferRelation._implied_predicates(
