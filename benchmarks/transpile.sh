@@ -2,7 +2,7 @@
 
 cfile="$1"
 target="$2"
-cname=$(basename --suffix=.c $cfile)
+cname=$(basename --suffix=.c.prepared $cfile)
 cpref=$(dirname $cfile)
 
 [ -e $cfile ] || (echo "source file $cfile missing" && exit 1)
